@@ -59,7 +59,7 @@ async function loadIncomeData() {
   incomeCache = {};
   for (const row of rows) {
     const ctry = row.country;
-    const pct  = parseInt(row.gpercentile, 10);
+    const pct  = row.gpercentile;  // numeric string: "0","1",...,"99","99.1",...,"99.999"
     if (!incomeCache[ctry]) incomeCache[ctry] = {};
     const byYear = {};
     INCOME_YEARS.forEach(y => {
@@ -92,13 +92,10 @@ async function loadWorldData() {
 function findPercentile(countryCode, incomeEurPPP) {
   const byPct = incomeCache[countryCode];
   if (!byPct) return null;
-
-  // Find the percentile whose income_2025 is closest to the user's income
-  let best = 1, bestDiff = Infinity;
-  for (let p = 1; p <= 100; p++) {
-    if (!byPct[p]) continue;
-    const diff = Math.abs(byPct[p][2025] - incomeEurPPP);
-    if (diff < bestDiff) { bestDiff = diff; best = p; }
+  let best = null, bestDiff = Infinity;
+  for (const pct of Object.keys(byPct)) {
+    const diff = Math.abs(byPct[pct][2025] - incomeEurPPP);
+    if (diff < bestDiff) { bestDiff = diff; best = pct; }
   }
   return best;
 }
@@ -107,6 +104,16 @@ function findPercentile(countryCode, incomeEurPPP) {
 
 function destroyChart(ref) {
   if (ref) { try { ref.destroy(); } catch (_) {} }
+}
+
+function formatPercentile(pct) {
+  const lo = parseFloat(pct);
+  if (lo >= 99.99) return 'top 0.01%';
+  if (lo >= 99.9)  return 'top 0.1%';
+  if (lo >= 99)    return 'top 1%';
+  const n = Math.round(lo + 1);
+  const s = n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th';
+  return `${n}${s}`;
 }
 
 function formatIncome(eurPPP, pppRate) {
@@ -120,8 +127,8 @@ function formatIncome(eurPPP, pppRate) {
 
 function renderEvolution(countryCode, percentile, currency, pppRate) {
   const byYear = incomeCache[countryCode][percentile];
-  const labels = INCOME_YEARS;
-  const data   = INCOME_YEARS.map(y => +(byYear[y] * pppRate).toFixed(0));
+  const labels = INCOME_YEARS.filter(y => y >= 2025);
+  const data   = labels.map(y => +(byYear[y] * pppRate).toFixed(0));
 
   destroyChart(chartEvol);
   const ctx = document.getElementById('chart-evolution').getContext('2d');
@@ -301,7 +308,7 @@ function populateCountries() {
   for (const c of [...countries, ...regions]) {
     const opt = document.createElement('option');
     opt.value = c.code;
-    opt.textContent = `${c.name} (${c.currency})`;
+    opt.textContent = c.name;
     sel.appendChild(opt);
   }
 
@@ -346,8 +353,9 @@ async function onCalculate() {
 
   // Summary
   document.getElementById('result-summary').innerHTML =
-    `You are at approximately the <strong>${percentile}th percentile</strong> of your country's ` +
-    `income distribution in 2025 (${localIncome.toLocaleString()} ${currency}/year ≈ ` +
+    `Your income in 2025 places you at approximately the <strong>${formatPercentile(percentile)}</strong> ` +
+    `of your country's income distribution ` +
+    `(${localIncome.toLocaleString()} ${currency}/year ≈ ` +
     `${Math.round(incomeEur).toLocaleString()} EUR PPP 2025/year).`;
   document.getElementById('result-section').style.display = 'block';
 

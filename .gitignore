@@ -18,3 +18,4 @@ papers/build/*
 *.env
 .Rproj.user
 .positai
+*.tmp
