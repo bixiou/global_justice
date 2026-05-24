@@ -25,9 +25,9 @@ Data was fetched on May 24, 2026:
 ## Key Data Files
 
 - global income distribution in different scenarios, years, and countries: Chanceletal2026Appendix_MacroScenarios > sheets A
-- global sectoral composition of GNE in different scenarios, years, and countries: Chanceletal2026Appendix_MacroScenarios > sheets G
-- global temperature in different scenarios and years: Chanceletal2026Appendix_Emission_Output > sheets SC/PI/PC
 - within-country income and wealth distributions: Botheetal2026AppendixDistribution > sheets I and K.
+(- global sectoral composition of GNE in different scenarios, years, and countries: Chanceletal2026Appendix_MacroScenarios > sheets G
+- global temperature in different scenarios and years: Chanceletal2026Appendix_Emission_Output > sheets SC/PI/PC)
 
 ## R Code Style
 

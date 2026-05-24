@@ -1,0 +1,109 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f5f6fa;
+  color: #2c3e50;
+  line-height: 1.6;
+}
+
+header {
+  background: linear-gradient(135deg, #1a252f 0%, #2c3e50 100%);
+  color: white;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+header h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+header p  { opacity: 0.85; font-size: 0.95rem; max-width: 680px; margin: 0 auto; }
+
+main { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+
+.card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+}
+.card h2 { font-size: 1.1rem; color: #7f8c8d; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.form-group { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 200px; }
+.form-group label { font-size: 0.9rem; font-weight: 600; color: #555; }
+
+select, input[type="number"] {
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+select:focus, input:focus { border-color: #3498db; }
+
+.income-wrap { position: relative; }
+.income-wrap input { width: 100%; padding-right: 3.5rem; }
+#currency-label {
+  position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+  font-size: 0.85rem; color: #888; pointer-events: none;
+}
+
+button {
+  padding: 0.6rem 1.8rem;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+button:hover { background: #2980b9; }
+
+#error-msg {
+  display: none;
+  color: #e74c3c;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+#status { color: #888; font-size: 0.9rem; margin-top: 0.5rem; min-height: 1.2em; }
+
+#result-section { display: none; }
+
+#result-summary {
+  background: #eaf4fb;
+  border-left: 4px solid #3498db;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.chart-container { position: relative; height: 360px; }
+
+.note {
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 0.75rem;
+  line-height: 1.5;
+}
+
+footer {
+  text-align: center;
+  padding: 1.5rem;
+  color: #aaa;
+  font-size: 0.8rem;
+}
+footer a { color: #aaa; }
+
+@media (max-width: 600px) {
+  header h1 { font-size: 1.3rem; }
+  .card { padding: 1rem; }
+  .form-row { flex-direction: column; }
+}

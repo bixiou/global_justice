@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Justice Situator</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <h1>Global Justice Situator</h1>
+  <p>See how your income could evolve under the <em>Sustainable Convergence</em> scenario —
+     a global policy pathway that reduces inequality and finances the green transition
+     through international income and wealth transfers.</p>
+</header>
+
+<main>
+
+  <!-- Input form -->
+  <div class="card">
+    <h2>Your situation</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="country-select">Country / Region</label>
+        <select id="country-select">
+          <option value="" disabled selected>Select your country…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="income-input">Annual income</label>
+        <div class="income-wrap">
+          <input type="number" id="income-input" min="0" step="1000"
+                 placeholder="e.g. 35000">
+          <span id="currency-label">EUR</span>
+        </div>
+      </div>
+      <div class="form-group" style="flex:0">
+        <label>&nbsp;</label>
+        <button id="calculate-btn">Calculate</button>
+      </div>
+    </div>
+    <div id="error-msg"></div>
+    <div id="status"></div>
+    <p class="note">
+      Income is converted to EUR PPP 2025 using approximate purchasing-power-parity factors.
+      All figures represent posttax income (after domestic taxes &amp; transfers) in the
+      Sustainable Convergence scenario. Monetary values are in constant 2025 prices.
+    </p>
+  </div>
+
+  <!-- Results -->
+  <div id="result-section">
+    <div id="result-summary"></div>
+
+    <!-- Evolution chart -->
+    <div class="card">
+      <h2>Evolution of your income (2020 – 2100)</h2>
+      <div class="chart-container">
+        <canvas id="chart-evolution"></canvas>
+      </div>
+      <p class="note">
+        Assumes your within-country income percentile remains constant over time.
+        The trajectory reflects the Sustainable Convergence scenario for your country.
+      </p>
+    </div>
+
+    <!-- Distribution chart -->
+    <div class="card">
+      <h2>World income distribution</h2>
+      <div class="chart-container">
+        <canvas id="chart-distribution"></canvas>
+      </div>
+      <p class="note">
+        Each curve shows the global income distribution at a given year.
+        The large dot on each curve marks your income.
+        <span style="color:#e74c3c">●</span> 2025 &nbsp;
+        <span style="color:#e67e22">●</span> 2030 &nbsp;
+        <span style="color:#f39c12">●</span> 2035 &nbsp;
+        <span style="color:#2ecc71">●</span> 2050 &nbsp;
+        <span style="color:#27ae60">●</span> 2100
+      </p>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Based on Chancel et al. (2026) and <a href="https://wid.world" target="_blank">Bothe et al. (2026)</a>,
+  Global Justice Report &mdash; CIRED / WID.world
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="js/countries.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
