@@ -1,5 +1,7 @@
 # Global Justice Situator
 
+claude --resume c37a0008-f864-4c88-b557-fb500f7d7c70
+
 A webpage that shows users how their income evolves under the **Sustainable Convergence (SC)** scenario from Chancel et al. (2026) and Bothe et al. (2026), part of the Global Justice Report.
 
 ## Language and tooling
