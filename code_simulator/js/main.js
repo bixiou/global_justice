@@ -2,7 +2,7 @@
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
-const DATA_PATH = '../data/';
+const DATA_PATH = 'data/';
 const INCOME_YEARS = Array.from({ length: 81 }, (_, i) => 2020 + i);
 const DIST_YEARS   = [2025, 2030, 2035, 2050, 2100];
 
@@ -334,7 +334,7 @@ async function onCalculate() {
   try {
     await Promise.all([loadIncomeData(), loadWorldData()]);
   } catch (e) {
-    showError('Failed to load data. Make sure the data files are in ../data/ relative to this page.');
+    showError('Failed to load data. Make sure the data files are in data/ relative to this page.');
     console.error(e);
     return;
   }

@@ -2,9 +2,17 @@
 # Generates income.csv, income_world.csv, wealth.csv, wealth_world.csv
 # from Bothe et al. (2026) Appendix Distribution data.
 #
-# Income methodology: anchor-based log-interpolation.
-#   2025 levels from P1e. Future/past years scaled using I5 threshold anchors
-#   (p1, p10, p50, p99, p100) with geometric interpolation between anchors.
+# Income methodology: spliced parametric model from Appendix A of Bothe et al.
+#   For every year (including 2025), in every country, we fit a 4-parameter
+#   distribution to the 8 non-overlapping post-GIT bracket means derived from
+#   the I9 series. The model is Type II Pareto below p_splice = 0.999 and
+#   exponential above, joined continuously at the splice point. Parameters
+#   (x_m, alpha, beta, lambda) are estimated by minimising the relative
+#   squared error on the 8 bracket means (after rescaling the model to mean=1
+#   for scale invariance), then bracket means for all 127 gpercentile groups
+#   are evaluated analytically and re-scaled by the country-year overall mean
+#   (I9i). This yields smooth, monotonic distributions and avoids the
+#   non-monotonicities of group-level flat scaling.
 # Wealth methodology: group-level scaling using K2 group average series.
 
 library(readxl)
@@ -46,19 +54,26 @@ get_year <- function(ts_df, yr) ts_df[as.character(yr), , drop = FALSE]
 
 message("Loading income data...")
 p1e  <- read_ps("P1e")   # 2025 income levels: 127 gp groups × 67 countries
-i2i  <- read_ts("I2i")   # average posttax net income
-i1a  <- read_ts("I1a")   # T10 share
+i2i  <- read_ts("I2i")   # average posttax net income (pre-GIT; for income_pre_git.csv)
+i1a  <- read_ts("I1a")   # T10 share (pre-GIT; for income_pre_git.csv)
 i1b  <- read_ts("I1b")   # B50 share
 i1c  <- read_ts("I1c")   # T1 share
 i1e  <- read_ts("I1e")   # B10 share
-i1h  <- read_ts("I1h")   # M40 share (used for wealth; kept for parity)
-# I5 threshold series (ratio to average income): used as anchors for scaling
+i1h  <- read_ts("I1h")   # M40 share (used for wealth)
+# I5 threshold series (ratio to average income): used for income_pre_git.csv only
 i5e  <- read_ts("I5e")   # P10
 i5b  <- read_ts("I5b")   # P50
 i5c  <- read_ts("I5c")   # P99
-i9i  <- read_ts("I9i")   # post-GIT average income
-i8e  <- read_ts("I8e")   # post-GIT B10 share
-i8c  <- read_ts("I8c")   # post-GIT T1 share
+# I9 post-GIT group average series: 8 brackets used as income.csv anchors
+i9i  <- read_ts("I9i")   # overall average (post-GIT)
+i9e  <- read_ts("I9e")   # B10  avg (post-GIT): bracket [0, 0.10]
+i9b  <- read_ts("I9b")   # B50  avg (post-GIT): bracket [0, 0.50]
+i9h  <- read_ts("I9h")   # M40  avg (post-GIT): bracket [0.50, 0.90]
+i9a  <- read_ts("I9a")   # T10  avg (post-GIT): bracket [0.90, 1.00]
+i9c  <- read_ts("I9c")   # T1   avg (post-GIT): bracket [0.99, 1.00]
+i9d  <- read_ts("I9d")   # top 0.1%  avg (post-GIT): bracket [0.999, 1.00]
+i9f  <- read_ts("I9f")   # top 0.01% avg (post-GIT): bracket [0.9999, 1.00]
+i9g  <- read_ts("I9g")   # top 0.001% avg (post-GIT): bracket [0.99999, 1.00]
 
 # keep only the valid country columns (first 67, before "diff" and "2100")
 # p1e has cols: World, Europe, ..., OI, diff, 2100
@@ -88,8 +103,14 @@ i5e  <- align_ts(i5e)
 i5b  <- align_ts(i5b)
 i5c  <- align_ts(i5c)
 i9i  <- align_ts(i9i)
-i8e  <- align_ts(i8e)
-i8c  <- align_ts(i8c)
+i9e  <- align_ts(i9e)
+i9b  <- align_ts(i9b)
+i9h  <- align_ts(i9h)
+i9a  <- align_ts(i9a)
+i9c  <- align_ts(i9c)
+i9d  <- align_ts(i9d)
+i9f  <- align_ts(i9f)
+i9g  <- align_ts(i9g)
 
 ctries <- valid_cols  # 67 country/region names
 
@@ -130,81 +151,320 @@ lower_bounds <- sapply(rownames(income_2025), function(lbl) {
 }, USE.NAMES = FALSE)
 
 
-# ── compute income for each target year ──────────────────────────────────────
+# ── compute income for each year via spliced parametric model ────────────────
 #
-# Method: anchor-based log-interpolation.
-# Anchor percentiles: 1 (B10 avg), 10 (P10 threshold), 50 (P50), 99 (P99), 100 (T1 avg)
-# Scale at anchor = abs_income_yr / abs_income_2025 for that anchor.
-# Scale at intermediate p = geometric interpolation between bracketing anchors.
+# Spliced model (Bothe et al. 2026, Appendix A):
+#   - Below p_splice = 0.999: Type II Pareto with CDF
+#       F(x) = 1 - (beta / (x - x_m + beta))^alpha,  x > x_m
+#   - Above p_splice: exponential tail with rate lambda, starting at
+#       q_splice = Q(p_splice).
+#   Continuity at the splice point gives the overall income distribution.
+#
+# Per (country, year): fit (x_m, alpha, beta, lambda) by minimising the
+# relative squared error on the 8 non-overlapping bracket means derived from
+# the I9 post-GIT series (B10, p10-50, M40, p90-99, p99-99.9, p99.9-99.99,
+# p99.99-99.999, p99.999-100). The model is rescaled to mean=1 inside the
+# objective, and observations are normalised by I9i (overall mean) so the
+# fit is scale-free. After fitting we evaluate analytical bracket means for
+# all 127 gpercentile groups and multiply by I9i to restore actual income.
+#
+# Row → bracket mapping (127 rows): same boundaries as `lower_bounds`.
 
-message("Computing income by year...")
+message("Computing income by year (spliced Pareto / exponential fit)...")
 
-build_income_anchored <- function(base, avg_ts, sh_b10, sh_t1,
-                                   thr_p10, thr_p50, thr_p99,
-                                   years = TARGET_YEARS) {
-  result <- list()
-  result[["2025"]] <- base
+# splice point
+P_SPLICE <- 0.999
 
-  yr_str <- as.character(2025)
-  avg_25 <- as.numeric(avg_ts[yr_str, ctries])
-  b10_25 <- as.numeric(sh_b10[yr_str, ctries])
-  t1_25  <- as.numeric(sh_t1[yr_str,  ctries])
-  p10_25 <- as.numeric(thr_p10[yr_str, ctries]) * avg_25
-  p50_25 <- as.numeric(thr_p50[yr_str, ctries]) * avg_25
-  p99_25 <- as.numeric(thr_p99[yr_str, ctries]) * avg_25
-  B10_25 <- avg_25 * b10_25 / 0.1
-  T1_25  <- avg_25 * t1_25  / 0.01
+#' Type II Pareto quantile.  p in [0, 1].
+q_p2 <- function(p, xm, al, be) xm + be * ((1 - p)^(-1 / al) - 1)
 
-  log_lerp <- function(lo, hi, t) exp((1 - t) * log(pmax(lo, 1e-9)) +
-                                            t  * log(pmax(hi, 1e-9)))
+#' Type II Pareto partial mean M(p) = int_0^p Q(u) du.
+m_p2 <- function(p, xm, al, be) {
+  xm * p + be / (al - 1) * (1 - al * (1 - p)^((al - 1) / al)) + be * (1 - p)
+}
 
-  n_rows <- nrow(base)
-  row_lo <- sapply(rownames(base), function(lbl) {
-    parts <- strsplit(lbl, "p")[[1]]
-    parts <- parts[parts != ""]
-    as.numeric(parts[1])
-  }, USE.NAMES = FALSE)
+#' Pareto bracket mean E[W | p_L < U < p_H] for p_L, p_H both <= p_splice.
+bm_p2 <- function(pL, pH, xm, al, be) {
+  (m_p2(pH, xm, al, be) - m_p2(pL, xm, al, be)) / (pH - pL)
+}
 
-  for (yr in years[years != 2025]) {
+#' Exponential-tail bracket mean for p_L, p_H both >= p_splice.
+bm_exp <- function(pL, pH, q_splice, la, p_splice = P_SPLICE) {
+  if (pH >= 1 - 1e-15) {
+    # closed form for p_H = 1
+    yL <- -log((1 - pL) / (1 - p_splice)) / la
+    return(q_splice + yL + 1 / la)
+  }
+  yL <- -log((1 - pL) / (1 - p_splice)) / la
+  yH <- -log((1 - pH) / (1 - p_splice)) / la
+  eL <- exp(-la * yL)
+  eH <- exp(-la * yH)
+  q_splice + ((yL + 1 / la) * eL - (yH + 1 / la) * eH) / (eL - eH)
+}
+
+#' Bracket mean for an arbitrary [pL, pH], handling crossings of p_splice.
+bm_any <- function(pL, pH, xm, al, be, la, p_splice = P_SPLICE) {
+  q_splice <- q_p2(p_splice, xm, al, be)
+  if (pH <= p_splice) {
+    return(bm_p2(pL, pH, xm, al, be))
+  }
+  if (pL >= p_splice) {
+    return(bm_exp(pL, pH, q_splice, la, p_splice))
+  }
+  # mixed bracket: weight Pareto part [pL, p_splice] and exp part [p_splice, pH]
+  w_lo <- (p_splice - pL) / (pH - pL)
+  w_hi <- (pH - p_splice) / (pH - pL)
+  mean_lo <- bm_p2(pL, p_splice, xm, al, be)
+  mean_hi <- bm_exp(p_splice, pH, q_splice, la, p_splice)
+  w_lo * mean_lo + w_hi * mean_hi
+}
+
+#' Overall mean of the spliced distribution.
+mu_spliced <- function(xm, al, be, la, p_splice = P_SPLICE) {
+  q_splice <- q_p2(p_splice, xm, al, be)
+  m_p2(p_splice, xm, al, be) + (1 - p_splice) * (q_splice + 1 / la)
+}
+
+#' Map unconstrained parameter vector to (xm, al, be, la) with constraints
+#'   al > 1.001, be > 0, la > 0  (xm unconstrained).
+unpack_par <- function(par) {
+  list(
+    xm = par[1],
+    al = 1.001 + exp(par[2]),
+    be = exp(par[3]),
+    la = exp(par[4])
+  )
+}
+
+#' Default starting points (unconstrained: xm, log(al-1.001), log(be), log(la)).
+#' Cover a wide range of inequality levels; the data-driven start (below) takes
+#' priority but these are used as fallbacks.
+DEFAULT_STARTS <- list(
+  c( 0.00,  0.50,  0.00,  0.00),   # lambda ~ 1    (low inequality / post-SC)
+  c( 0.00,  0.50,  0.00, -3.00),   # lambda ~ 0.05 (moderate inequality)
+  c( 0.00,  0.50,  0.00, -6.00),   # lambda ~ 0.002 (high pre-SC inequality)
+  c( 0.20,  0.50, -0.70, -4.50),   # lambda ~ 0.01
+  c(-0.30,  1.00,  0.00, -1.50),   # lambda ~ 0.22
+  c( 0.10,  0.00, -0.50, -0.50)    # alternative shape
+)
+
+#' Analytical starting estimate for log(lambda) from the two top I9 brackets.
+#'
+#' The exponential tail formula gives:
+#'   E[W | 0.999, 1] = q_splice + 1/lambda
+#'   E[W | 0.99999, 1] = q_splice + 4.605/lambda + 1/lambda
+#' Subtracting: 1/lambda = (obs6 - obs8_... wait, obs[8]-obs[6]) / 4.605
+#' where obs[6] = [0.999,1.0] mean and obs[8] = [0.99999,1.0] mean (normalised).
+analytical_la_start <- function(obs_bm_norm) {
+  # obs_bm_norm[6] = top-0.1%  (bracket [0.999,   1.0])
+  # obs_bm_norm[8] = top-0.001% (bracket [0.99999, 1.0])
+  A <- obs_bm_norm[6]; B <- obs_bm_norm[8]
+  if (!is.finite(A) || !is.finite(B) || B <= A) return(NULL)
+  inv_la <- (B - A) / 4.605        # 1/lambda in normalised units
+  log_la <- log(1 / max(inv_la, 1e-6))
+  # rough x_m from B10 mean; rough beta from M40/B10 ratio
+  b10 <- obs_bm_norm[1]; m40 <- obs_bm_norm[3]
+  log_al <- if (b10 > 0 && m40 > b10) pmin(pmax(log(m40/b10) * 0.5, -1), 3) else 0.5
+  c(xm = -0.2, log_al = log_al, log_be = -0.5, log_la = log_la)
+}
+
+#' Fit spliced model to normalised bracket means.
+#'
+#' @param obs_pL Numeric vector of 8 lower bounds.
+#' @param obs_pH Numeric vector of 8 upper bounds.
+#' @param obs_bm_norm Numeric vector of 8 observed bracket means (divided by
+#'   overall mean so true mean of observations ≈ 1).
+#' @param par0 Warm-start in unconstrained space
+#'   (xm, log(al-1.001), log(be), log(la)).
+#' @return Named numeric vector c(xm, al, be, la, par_raw_*), rescaled so the
+#'   model distribution has mean = 1.  Returns NULL if no good fit found.
+fit_spliced_normed <- function(obs_pL, obs_pH, obs_bm_norm, par0) {
+  obj <- function(par) {
+    p <- unpack_par(par)
+    if (!is.finite(p$xm) || !is.finite(p$al) || !is.finite(p$be) || !is.finite(p$la)) {
+      return(1e12)
+    }
+    bm_mod <- vapply(seq_along(obs_pL),
+                     function(i) bm_any(obs_pL[i], obs_pH[i],
+                                        p$xm, p$al, p$be, p$la),
+                     numeric(1))
+    mu_m <- mu_spliced(p$xm, p$al, p$be, p$la)
+    if (!is.finite(mu_m) || mu_m <= 1e-6) return(1e12)
+    bm_mod_n <- bm_mod / mu_m
+    if (any(!is.finite(bm_mod_n))) return(1e12)
+    denom <- ifelse(abs(obs_bm_norm) < 1e-12, 1e-12, obs_bm_norm)
+    sum(((bm_mod_n - obs_bm_norm) / denom)^2)
+  }
+
+  run_optim <- function(p0) {
+    tryCatch(
+      optim(p0, obj, method = "Nelder-Mead",
+            control = list(maxit = 5000, reltol = 1e-8)),
+      error = function(e) NULL
+    )
+  }
+
+  # Candidates: analytical data-driven start, then warm-start, then defaults
+  la_start <- tryCatch(analytical_la_start(obs_bm_norm), error = function(e) NULL)
+  start_candidates <- c(
+    if (!is.null(la_start)) list(la_start) else list(),
+    list(par0),
+    DEFAULT_STARTS
+  )
+
+  best <- NULL
+  for (p0 in start_candidates) {
+    fit <- run_optim(p0)
+    if (is.null(fit) || !is.finite(fit$value)) next
+    if (is.null(best) || fit$value < best$value) best <- fit
+    # if any start already gives an excellent fit, stop trying
+    if (!is.null(best) && best$value < 0.01) break
+  }
+  if (is.null(best)) return(NULL)
+
+  p_hat  <- unpack_par(best$par)
+  mu_hat <- mu_spliced(p_hat$xm, p_hat$al, p_hat$be, p_hat$la)
+  if (!is.finite(mu_hat) || mu_hat <= 1e-6) return(NULL)
+
+  # rescale so model has mean = 1 (xm scales, be scales, q_splice scales,
+  # and the exponential rate transforms as la_new = la_old * mu_hat).
+  c(
+    xm  = p_hat$xm / mu_hat,
+    al  = p_hat$al,
+    be  = p_hat$be / mu_hat,
+    la  = p_hat$la * mu_hat,
+    par_raw_xm = best$par[1],   # warm-start params (raw scale) for next year
+    par_raw_la = best$par[2],
+    par_raw_lb = best$par[3],
+    par_raw_ll = best$par[4],
+    obj_value  = best$value
+  )
+}
+
+#' Build the income distribution for all years via the spliced model.
+#'
+#' @param ts_b10..ts_d0001 Aligned I9 group-average time-series data frames.
+#' @param ts_mean Overall post-GIT mean time series (I9i).
+#' @param years Vector of years to compute.
+#' @return Named list (one element per year) of 127 × n_country data frames.
+build_income_gpinter <- function(ts_b10, ts_b50, ts_m40, ts_t10,
+                                  ts_t1, ts_d01, ts_d001, ts_d0001,
+                                  ts_mean, years = INCOME_YEARS) {
+  # 8 non-overlapping bracket bounds
+  br_lo <- c(0,    0.10, 0.50, 0.90, 0.99, 0.999, 0.9999, 0.99999)
+  br_hi <- c(0.10, 0.50, 0.90, 0.99, 0.999, 0.9999, 0.99999, 1.0)
+
+  # output 127-group bounds (from lower_bounds and the next-row lower bound)
+  out_pL <- lower_bounds / 100
+  out_pH <- c(out_pL[-1], 1.0)
+
+  # default starting point in unconstrained (log-transformed) space
+  par0_default <- DEFAULT_STARTS[[1]]
+
+  # warm-start cache: one current parameter vector per country
+  warm <- setNames(replicate(length(ctries), par0_default, simplify = FALSE),
+                   ctries)
+
+  result <- setNames(vector("list", length(years)), as.character(years))
+
+  for (yr in years) {
     yr_s <- as.character(yr)
-    avg_yr <- as.numeric(avg_ts[yr_s, ctries])
-    b10_yr <- as.numeric(sh_b10[yr_s, ctries])
-    t1_yr  <- as.numeric(sh_t1[yr_s,  ctries])
-    p10_yr <- as.numeric(thr_p10[yr_s, ctries]) * avg_yr
-    p50_yr <- as.numeric(thr_p50[yr_s, ctries]) * avg_yr
-    p99_yr <- as.numeric(thr_p99[yr_s, ctries]) * avg_yr
-    B10_yr <- avg_yr * b10_yr / 0.1
-    T1_yr  <- avg_yr * t1_yr  / 0.01
-
-    s1   <- ifelse(B10_25 == 0 | is.na(B10_25), 1, B10_yr  / B10_25)
-    s10  <- ifelse(p10_25 == 0 | is.na(p10_25), 1, p10_yr  / p10_25)
-    s50  <- ifelse(p50_25 == 0 | is.na(p50_25), 1, p50_yr  / p50_25)
-    s99  <- ifelse(p99_25 == 0 | is.na(p99_25), 1, p99_yr  / p99_25)
-    s100 <- ifelse(T1_25  == 0 | is.na(T1_25),  1, T1_yr   / T1_25)
-
-    scale_mat <- matrix(NA_real_, n_rows, length(ctries), dimnames=list(NULL, ctries))
-    for (p in seq_len(n_rows)) {
-      if (p == 1L) {
-        scale_mat[p, ] <- s1
-      } else if (p <= 10L) {
-        scale_mat[p, ] <- log_lerp(s1, s10, (p - 1) / 9)
-      } else if (p <= 50L) {
-        scale_mat[p, ] <- log_lerp(s10, s50, (p - 10) / 40)
-      } else if (p <= 99L) {
-        scale_mat[p, ] <- log_lerp(s50, s99, (p - 50) / 49)
-      } else {
-        # fine rows (top 1%): interpolate between s99 and s100 by position in [99,100]
-        scale_mat[p, ] <- log_lerp(s99, s100, row_lo[p] - 99)
-      }
+    if ((yr - min(years)) %% 10 == 0) {
+      message(sprintf("  year %d ...", yr))
     }
 
-    result[[as.character(yr)]] <- as.data.frame(as.matrix(base) * scale_mat)
+    b10   <- as.numeric(ts_b10[yr_s,   ctries])
+    b50   <- as.numeric(ts_b50[yr_s,   ctries])
+    m40   <- as.numeric(ts_m40[yr_s,   ctries])
+    t10   <- as.numeric(ts_t10[yr_s,   ctries])
+    t1    <- as.numeric(ts_t1[yr_s,    ctries])
+    d01   <- as.numeric(ts_d01[yr_s,   ctries])
+    d001  <- as.numeric(ts_d001[yr_s,  ctries])
+    d0001 <- as.numeric(ts_d0001[yr_s, ctries])
+    mu_yr <- as.numeric(ts_mean[yr_s,  ctries])
+
+    # derived non-overlapping bracket averages (positive)
+    eps <- 1e-9
+    p10_50      <- pmax((b50  * 0.5     - b10  * 0.1)     / 0.4,    eps)
+    p90_99      <- pmax((t10  * 0.1     - t1   * 0.01)    / 0.09,   eps)
+    p99_999     <- pmax((t1   * 0.01    - d01  * 0.001)   / 0.009,  eps)
+    p999_9999   <- pmax((d01  * 0.001   - d001 * 0.0001)  / 0.0009, eps)
+    p9999_99999 <- pmax((d001 * 0.0001  - d0001* 0.00001) / 0.00009, eps)
+
+    out_mat <- matrix(NA_real_, length(out_pL), length(ctries),
+                      dimnames = list(NULL, ctries))
+
+    for (ci in seq_along(ctries)) {
+      ctry <- ctries[ci]
+      mu_c <- mu_yr[ci]
+      if (!is.finite(mu_c) || mu_c <= 0) {
+        # no usable mean -> skip (leave NA)
+        next
+      }
+      obs <- c(b10[ci], p10_50[ci], m40[ci], p90_99[ci],
+               p99_999[ci], p999_9999[ci], p9999_99999[ci], d0001[ci])
+      if (any(!is.finite(obs)) || any(obs <= 0)) next
+      obs_norm <- obs / mu_c
+
+      par0 <- warm[[ctry]]
+      fit  <- tryCatch(fit_spliced_normed(br_lo, br_hi, obs_norm, par0),
+                       error = function(e) NULL)
+      if (is.null(fit)) next
+
+      # remember warm-start params (raw scale) for next year
+      warm[[ctry]] <- c(fit["par_raw_xm"], fit["par_raw_la"],
+                        fit["par_raw_lb"], fit["par_raw_ll"])
+
+      xm <- fit["xm"]; al <- fit["al"]; be <- fit["be"]; la <- fit["la"]
+      # evaluate 127 bracket means under the mean-1 distribution
+      bm_127 <- vapply(seq_along(out_pL),
+                       function(i) bm_any(out_pL[i], out_pH[i],
+                                          xm, al, be, la),
+                       numeric(1))
+      if (any(!is.finite(bm_127) | bm_127 <= 0)) next
+      out_mat[, ci] <- bm_127 * mu_c
+    }
+
+    result[[yr_s]] <- as.data.frame(out_mat)
   }
+
+  # Post-process: fill failed country-year fits by log-linear interpolation
+  yr_names <- as.character(years)
+  n_filled <- 0L
+  for (ctry in ctries) {
+    ctry_mat <- vapply(yr_names,
+                       function(y) result[[y]][[ctry]],
+                       numeric(length(out_pL)))
+    col_ok <- which(apply(ctry_mat, 2, function(x) all(is.finite(x) & x > 0)))
+    col_na <- which(apply(ctry_mat, 2, function(x) any(!is.finite(x) | x <= 0)))
+    if (length(col_na) == 0 || length(col_ok) == 0) next
+    for (bad in col_na) {
+      yr_bad <- years[bad]
+      before <- col_ok[years[col_ok] < yr_bad]
+      after  <- col_ok[years[col_ok] > yr_bad]
+      if (length(before) == 0 && length(after) == 0) next
+      if (length(before) == 0) {
+        ctry_mat[, bad] <- ctry_mat[, after[1]]
+      } else if (length(after) == 0) {
+        ctry_mat[, bad] <- ctry_mat[, tail(before, 1)]
+      } else {
+        b <- tail(before, 1); a <- after[1]
+        w_a <- (yr_bad - years[b]) / (years[a] - years[b])
+        v_b <- ctry_mat[, b]; v_a <- ctry_mat[, a]
+        ctry_mat[, bad] <- exp((1 - w_a) * log(v_b) + w_a * log(v_a))
+      }
+      n_filled <- n_filled + 1L
+    }
+    for (j in seq_along(yr_names)) {
+      result[[yr_names[j]]][[ctry]] <- ctry_mat[, j]
+    }
+  }
+  if (n_filled > 0) message(sprintf("  interpolated %d failed country-year fits", n_filled))
   result
 }
 
-inc_by_year <- build_income_anchored(income_2025, i9i, i8e, i8c, i5e, i5b, i5c,
-                                      years = INCOME_YEARS)
+inc_by_year <- build_income_gpinter(i9e, i9b, i9h, i9a, i9c, i9d, i9f, i9g,
+                                     i9i, years = INCOME_YEARS)
 
 
 # ── write income.csv ─────────────────────────────────────────────────────────
@@ -408,3 +668,17 @@ wworld_df <- data.frame(
 write.csv(wworld_df, "../data/wealth_world.csv", row.names = FALSE)
 
 message("Done. Files written to data/")
+
+
+# ── copy rounded versions to code_simulator/data/ (used by the webpage) ───────
+
+message("Writing rounded copies to code_simulator/data/...")
+src_files <- list.files("../data", pattern = "\\.csv$", full.names = TRUE)
+dir.create("data", showWarnings = FALSE)
+for (f in src_files) {
+  d <- read.csv(f, check.names = FALSE)
+  num_cols <- sapply(d, is.numeric)
+  d[num_cols] <- lapply(d[num_cols], round, digits = 0)
+  write.csv(d, file.path("data", basename(f)), row.names = FALSE)
+}
+message("Done. Rounded files written to code_simulator/data/")

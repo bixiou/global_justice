@@ -1,7 +1,5 @@
 # Global Justice Situator
 
-claude --resume c37a0008-f864-4c88-b557-fb500f7d7c70
-
 A webpage that shows users how their income evolves under the **Sustainable Convergence (SC)** scenario from Chancel et al. (2026) and Bothe et al. (2026), part of the Global Justice Report.
 
 ## Language and tooling
@@ -45,9 +43,15 @@ Fetched 2026-05-24:
 | **I5d** | SC scenario: P99.9 threshold as ratio to average income (pre-GIT). |
 | **I5f** | SC scenario: P99.99 threshold as ratio to average income (pre-GIT). |
 | **I5g** | SC scenario: P99.999 threshold as ratio to average income (pre-GIT). |
-| **I8c** | SC scenario: T1 income share (post-GIT, time series). |
-| **I8e** | SC scenario: B10 income share (post-GIT, time series). |
 | **I9i** | SC scenario: average posttax net income (post-GIT, time series). |
+| **I9e** | SC scenario: B10 average income (post-GIT, time series). Bracket [0, 0.10]. |
+| **I9b** | SC scenario: B50 average income (post-GIT). Bracket [0, 0.50]. |
+| **I9h** | SC scenario: M40 average income (post-GIT). Bracket [0.50, 0.90]. |
+| **I9a** | SC scenario: T10 average income (post-GIT). Bracket [0.90, 1.00]. |
+| **I9c** | SC scenario: T1 average income (post-GIT). Bracket [0.99, 1.00]. |
+| **I9d** | SC scenario: top 0.1% average income (post-GIT). Bracket [0.999, 1.00]. |
+| **I9f** | SC scenario: top 0.01% average income (post-GIT). Bracket [0.9999, 1.00]. |
+| **I9g** | SC scenario: top 0.001% average income (post-GIT). Bracket [0.99999, 1.00]. |
 | **K1a/K2a** | SC scenario: T10 wealth share / average (time series). |
 | **K1b/K2b** | B50 wealth share / average. |
 | **K1c/K2c** | T1 wealth share / average. |
@@ -57,7 +61,7 @@ Fetched 2026-05-24:
 | **P1a/P1b** | Target distribution shapes at various k values (k=1..100). |
 | **H3b** | Global 2025 income and wealth distribution by global percentile (for reference). |
 
-I-series sheets **I8c**, **I8e**, **I9i** (post-GIT) are used as anchors for income.csv. I10 contains post-GIT inequality ratios (T10/B50 etc.), not threshold ratios, so I5 (pre-GIT threshold ratios) is reused as an approximation for the intermediate anchors.
+I9 series (I9a–I9i, all post-GIT group averages) are used as anchors for income.csv. I5 (pre-GIT threshold ratios) is used only for income_pre_git.csv. I10 contains post-GIT inequality ratios (T10/B50 etc.), not group averages, so it is not used.
 
 ## Generated data files
 
@@ -91,19 +95,20 @@ SC scenario posttax **post-GIT** income, all 127 gpercentile groups, all years 2
 **Methodology**:
 
 1. **2025 base**: all 127 groups taken directly from P1e (EUR PPP 2025).
-2. **Other years**: for each year t ≠ 2025, compute a **scale factor** at 5 anchor rows as the ratio of the anchor's value in year t to its 2025 value. Log-interpolate between bracketing anchors; multiply by the P1e base value at each row.
+2. **Other years**: for each year t ≠ 2025, compute a **scale factor per group** as `group_avg_t / group_avg_2025`. The 2025 group average is derived from P1e (simple mean of equal-width rows within each group); the year-t group average is derived from I9 post-GIT series. All rows within a group are multiplied by the same scale factor, preserving the within-group relative income differences from P1e (consistent with the Type II Pareto intra-group functional form described in Appendix A of Bothe et al.).
 
-   | Anchor row | Lower bound | Reference value | Series used |
+   | Rows | Group | Bracket | I9 source (post-GIT) |
    |---|---|---|---|
-   | 1 | 0 | B10 avg = I9i × I8e / 0.1 | I9i (post-GIT avg), I8e (post-GIT B10 share) |
-   | 10 | 9 | P10 threshold = I5e × I9i | I5e (pre-GIT P10 ratio), I9i |
-   | 50 | 49 | P50 threshold = I5b × I9i | I5b (pre-GIT P50 ratio), I9i |
-   | 99 | 98 | P99 threshold = I5c × I9i | I5c (pre-GIT P99 ratio), I9i |
-   | 100–127 | 99–99.999 | T1 avg = I9i × I8c / 0.01 | I9i (post-GIT avg), I8c (post-GIT T1 share) |
+   | 1–10 | B10 | [0, 0.10] | I9e (B10 avg) |
+   | 11–50 | p10_50 | [0.10, 0.50] | (I9b×0.5 − I9e×0.1) / 0.4 |
+   | 51–90 | M40 | [0.50, 0.90] | I9h (M40 avg) |
+   | 91–99 | p90_99 | [0.90, 0.99] | (I9a×0.1 − I9c×0.01) / 0.09 |
+   | 100–108 | p99_999 | [0.99, 0.999] | (I9c×0.01 − I9d×0.001) / 0.009 |
+   | 109–117 | p999_9999 | [0.999, 0.9999] | (I9d×0.001 − I9f×0.0001) / 0.0009 |
+   | 118–126 | p9999_99999 | [0.9999, 0.99999] | (I9f×0.0001 − I9g×0.00001) / 0.00009 |
+   | 127 | top0001 | [0.99999, 1.00] | I9g (top 0.001% avg) |
 
-   Rows 2–10 are log-interpolated (implicitly assuming a reciprocal income distribution) between anchors 1 and 10; rows 11–50 between 10 and 50; rows 51–99 between 50 and 99; rows 100–127 between 99 and the T1 anchor by their position in [99, 100].
-
-   I9i is the post-GIT average from Bothe et al. and is used directly — no manual GIT computation is needed. The intermediate threshold anchors (rows 10, 50, 99) use pre-GIT I5 ratios scaled by the post-GIT average I9i, since no post-GIT threshold ratio series is available (I10 contains inequality ratios, not threshold ratios).
+   All anchors are post-GIT (I9 series). No pre-GIT I5 threshold ratios are used for income.csv.
 
 Dimensions: 66 countries × 127 groups = 8,382 rows × 83 columns.
 
