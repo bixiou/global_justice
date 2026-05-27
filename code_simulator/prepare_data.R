@@ -1,8 +1,13 @@
 # code_simulator/prepare_data.R
-# Generates income.csv, income_world.csv, wealth.csv, wealth_world.csv
-# from Bothe et al. (2026) Appendix Distribution data.
+# Generates:
+#   - *_legacy.csv (income, income_world, income_pre_git, wealth, wealth_world)
+#     from Bothe et al. (2026) Appendix Distribution (xlsx) using the spliced
+#     parametric model below.
+#   - income.csv from distribution_simul.dta (the Bothe Stata simulator output),
+#     deducting Global Income Tax and Global Wealth Tax and adding back an
+#     equal per-capita lump-sum funded by their global revenues.
 #
-# Income methodology: spliced parametric model from Appendix A of Bothe et al.
+# Income methodology (legacy): spliced parametric model from Appendix A of Bothe et al.
 #   For every year (including 2025), in every country, we fit a 4-parameter
 #   distribution to the 8 non-overlapping post-GIT bracket means derived from
 #   the I9 series. The model is Type II Pareto below p_splice = 0.999 and
@@ -480,7 +485,7 @@ rows <- do.call(rbind, lapply(ctries, function(ctry) {
   as.data.frame(c(list(country = ctry, gpercentile = lower_bounds), yr_vals),
                 stringsAsFactors = FALSE)
 }))
-write.csv(rows, "../data/income.csv", row.names = FALSE)
+write.csv(rows, "../data/income_legacy.csv", row.names = FALSE)
 
 
 # ── write income_world.csv ────────────────────────────────────────────────────
@@ -498,7 +503,7 @@ wld_cols <- setNames(
   paste0("income_", dist_years)
 )
 world_df <- as.data.frame(c(list(gpercentile = 1:100), wld_cols))
-write.csv(world_df, "../data/income_world.csv", row.names = FALSE)
+write.csv(world_df, "../data/income_world_legacy.csv", row.names = FALSE)
 
 
 # ── write income_pre_git.csv ──────────────────────────────────────────────────
@@ -538,7 +543,7 @@ pre_git_rows <- do.call(rbind, lapply(ctries, function(ctry) {
     stringsAsFactors = FALSE
   )
 }))
-write.csv(pre_git_rows, "../data/income_pre_git.csv", row.names = FALSE)
+write.csv(pre_git_rows, "../data/income_pre_git_legacy.csv", row.names = FALSE)
 
 
 # ── load wealth data ──────────────────────────────────────────────────────────
@@ -650,7 +655,7 @@ wrows <- do.call(rbind, lapply(ctries, function(ctry) {
     stringsAsFactors = FALSE
   )
 }))
-write.csv(wrows, "../data/wealth.csv", row.names = FALSE)
+write.csv(wrows, "../data/wealth_legacy.csv", row.names = FALSE)
 
 
 # ── write wealth_world.csv ────────────────────────────────────────────────────
@@ -665,9 +670,131 @@ wworld_df <- data.frame(
   wealth_2080  = wlth_by_year[["2080"]][["World"]],
   wealth_2100  = wlth_by_year[["2100"]][["World"]]
 )
-write.csv(wworld_df, "../data/wealth_world.csv", row.names = FALSE)
+write.csv(wworld_df, "../data/wealth_world_legacy.csv", row.names = FALSE)
 
-message("Done. Files written to data/")
+message("Done. Legacy files written to data/")
+
+
+# ── new: post-GIT income from distribution_simul.dta + country dividends ─────
+#
+# Reads the Bothe Stata simulator output and computes a per-adult post-GIT
+# income series for every (country, year, percentile):
+#
+#   income = sdiinc * nni / diff  -  ypt  +  dividend[year]
+#
+# where:
+#   - sdiinc * nni / diff = per-adult posttax disposable income at the
+#     percentile (DINA broad concept; sums to NNI by construction).
+#   - ypt = per-adult Global Income Tax payment at the percentile.
+#   - dividend[year] = the Global Justice Fund's "Country Dividend" — an
+#     equal-per-capita worldwide lump-sum (sheet E3bp), funded by GIT + GWT
+#     revenue + WSF investment returns minus reinvestment.
+#
+# The Global Wealth Tax is NOT subtracted from income: it is a stock tax on
+# wealth, not a flow tax on income, and the simulator routes it into the
+# wealth equation (wp <- wp - wpt), not the income equation. Its effect on
+# households' resources will surface in the (future) wealth.csv. Its revenue
+# is fed back to households through `dividend[year]`.
+#
+# For year 2025 the simulation loop has not yet run (ypt = 0 in the .dta),
+# and E3bp's dividend may or may not be zero, so 2025 = sdiinc * nni / diff
+# + dividend[2025] depending on Bothe's GJF startup assumption.
+
+message("Computing post-GIT income from distribution_simul.dta + dividends (E3bp)...")
+library(haven)
+simul <- as.data.frame(read_dta("../data/Bothe/distribution_simul.dta"))
+
+# Per-adult posttax disposable income at the percentile (computed for every
+# year, including 2025 where the .dta stores yp = 0).
+simul$yp_recomp <- with(simul,
+  ifelse(is.finite(diff) & diff > 0 & is.finite(sdiinc) & is.finite(nni),
+         sdiinc * nni / diff, NA_real_))
+
+# Country dividend per adult, in EUR PPP 2025/year, from sheet E3bp of the
+# Macro appendix workbook. Values are uniform across countries (equal per
+# capita worldwide), so we read column "World" (col 2).
+e3bp <- suppressMessages(read_excel(
+  "../data/Bothe/Botheetal2026AppendixMacro.xlsx", sheet = "E3bp",
+  col_names = FALSE))
+e3bp_years <- suppressWarnings(as.numeric(unlist(e3bp[-(1:4), 1])))
+e3bp_world <- suppressWarnings(as.numeric(unlist(e3bp[-(1:4), 2])))
+dividend <- setNames(e3bp_world, as.character(e3bp_years))
+
+simul$dividend <- dividend[as.character(simul$year)]
+simul$income   <- simul$yp_recomp - simul$ypt + simul$dividend
+
+# ---- Variant: add GJF TOTAL revenues (E2), not the post-reinvestment dividend
+#
+# Per-adult total fund revenues (= GIT + GWT + WSF investment income, gross of
+# any reinvestment into the World Sovereign Fund) in EUR PPP 2025. The Bothe
+# appendix does not publish this in EUR PPP per adult directly, so we derive it
+# from two %-world-GDP-MER series that share the same denominator (so the
+# unit cancels in their ratio):
+#
+#   revenue_per_adult_PPP[y] = E3bp[y] * (E2aw_world[y] / E3bw_world[y])
+#
+# In the workbook layout, column 2 of every macro sheet holds the World total
+# (followed by 9 regional and 57 country columns whose values double-count the
+# World column), so we read col 2 directly.
+#
+# For years where dividends are still zero (2025 in the simulation: GJF startup,
+# E3bw = 0), the ratio is undefined; we fall back to the .dta's (yt + wt)
+# world-population-weighted average, which equals current-year tax revenue per
+# adult (no WSF investment income yet to speak of).
+
+read_world_col <- function(sheet) {
+  d <- suppressMessages(read_excel(
+    "../data/Bothe/Botheetal2026AppendixMacro.xlsx", sheet = sheet,
+    col_names = FALSE))
+  yr <- suppressWarnings(as.numeric(unlist(d[-(1:4), 1])))
+  val <- suppressWarnings(as.numeric(unlist(d[-(1:4), 2])))
+  setNames(val, as.character(yr))
+}
+e2aw_world <- read_world_col("E2aw")   # GJF total revenues, % world GDP MER
+e3bw_world <- read_world_col("E3bw")   # GJF dividends,        % world GDP MER
+
+# .dta-based fallback: (yt + wt) world per-adult average in EUR PPP 2025
+cy <- unique(simul[, c("country", "year", "pop", "yt", "wt")])
+cy$rev <- (cy$yt + cy$wt) * cy$pop
+fallback_rev <- tapply(cy$rev, cy$year, sum, na.rm = TRUE) /
+                tapply(cy$pop, cy$year, sum, na.rm = TRUE)
+
+yrs_all <- as.character(sort(unique(simul$year)))
+e2_per_adult <- sapply(yrs_all, function(y) {
+  div <- unname(dividend[y]); r <- unname(e3bw_world[y]); tot <- unname(e2aw_world[y])
+  if (!is.na(div) && !is.na(r) && !is.na(tot) && r > 1e-9) {
+    div * tot / r
+  } else {
+    unname(fallback_rev[y])
+  }
+})
+
+simul$revenue_pa <- e2_per_adult[as.character(simul$year)]
+simul$income_full_rev <- simul$yp_recomp - simul$ypt + simul$revenue_pa
+
+# Wide format: one row per (country, gpercentile), one column per year.
+yrs   <- sort(unique(simul$year))
+wide  <- reshape(simul[, c("country", "p1", "year", "income")],
+                 idvar = c("country", "p1"), timevar = "year",
+                 v.names = "income", direction = "wide")
+yr_cols <- paste0("income.", yrs)
+wide <- wide[, c("country", "p1", yr_cols)]
+names(wide) <- c("country", "gpercentile", paste0("income_", yrs))
+wide <- wide[order(wide$country, wide$gpercentile), ]
+write.csv(wide, "../data/income.csv", row.names = FALSE)
+message(sprintf("Wrote ../data/income.csv: %d rows x %d cols (post-GIT, dividend E3bp)",
+                nrow(wide), ncol(wide)))
+
+wide2 <- reshape(simul[, c("country", "p1", "year", "income_full_rev")],
+                 idvar = c("country", "p1"), timevar = "year",
+                 v.names = "income_full_rev", direction = "wide")
+yr_cols2 <- paste0("income_full_rev.", yrs)
+wide2 <- wide2[, c("country", "p1", yr_cols2)]
+names(wide2) <- c("country", "gpercentile", paste0("income_", yrs))
+wide2 <- wide2[order(wide2$country, wide2$gpercentile), ]
+write.csv(wide2, "../data/income_full_revenues.csv", row.names = FALSE)
+message(sprintf("Wrote ../data/income_full_revenues.csv: %d rows x %d cols (post-GIT, full GJF revenue E2)",
+                nrow(wide2), ncol(wide2)))
 
 
 # ── copy rounded versions to code_simulator/data/ (used by the webpage) ───────

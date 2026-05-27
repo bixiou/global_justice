@@ -43,9 +43,9 @@
     <div id="error-msg"></div>
     <div id="status"></div>
     <p class="note">
-      Income is converted to EUR PPP 2025 using approximate purchasing-power-parity factors.
-      All figures represent posttax income (after domestic reduction in inequality and international taxes &amp; transfers) in the
-      Sustainable Convergence scenario. Monetary values are in constant 2025 prices.
+      Enter your annual income as you'd naturally state it (gross wage, salary, etc.) — the comparator uses a "cash purchasing-power
+      after all taxes" concept that subtracts indirect taxes (VAT), retained corporate earnings, and imputed rent. Values are in
+      EUR PPP 2025 (constant 2025 purchasing-power-parity euros) under the Sustainable Convergence scenario.
     </p>
   </div>
 
@@ -60,8 +60,8 @@
         <canvas id="chart-evolution"></canvas>
       </div>
       <p class="note">
-        Assumes your within-country income percentile remains constant over time.
-        The trajectory reflects the Sustainable Convergence scenario for your country.
+        Assumes your within-country income percentile remains constant over time. The trajectory reflects the cash income at
+        that percentile under the Sustainable Convergence scenario for your country (Bothe et al. 2026 + FG fiscal incidence + WID stockrate).
       </p>
     </div>
 
@@ -72,8 +72,9 @@
         <canvas id="chart-distribution"></canvas>
       </div>
       <p class="note">
-        Each curve shows the global income distribution at a given year.
-        The large dot on each curve marks your income.
+        Each curve shows the world cash income distribution at a given year. Your dot is held at the same global percentile rank
+        across all years (computed from your 2025 cash income) — each year's dot height shows what income that fixed global rank
+        commands in that year.
         <span style="color:#e74c3c">●</span> 2025 &nbsp;
         <span style="color:#e67e22">●</span> 2030 &nbsp;
         <span style="color:#f39c12">●</span> 2035 &nbsp;

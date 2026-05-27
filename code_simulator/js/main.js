@@ -3,7 +3,7 @@
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const DATA_PATH = 'data/';
-const INCOME_YEARS = Array.from({ length: 81 }, (_, i) => 2020 + i);
+const INCOME_YEARS = Array.from({ length: 76 }, (_, i) => 2025 + i);
 const DIST_YEARS   = [2025, 2030, 2035, 2050, 2100];
 
 const DIST_COLORS = {
@@ -52,7 +52,7 @@ function parseCSVLine(line) {
 async function loadIncomeData() {
   if (incomeCache) return;
   showStatus('Loading income data (this may take a few seconds)…');
-  const res  = await fetch(DATA_PATH + 'income.csv');
+  const res  = await fetch(DATA_PATH + 'cash_income.csv');
   const text = await res.text();
   const rows = parseCSV(text);
 
@@ -72,7 +72,7 @@ async function loadIncomeData() {
 
 async function loadWorldData() {
   if (worldCache) return;
-  const res  = await fetch(DATA_PATH + 'income_world.csv');
+  const res  = await fetch(DATA_PATH + 'cash_income_world.csv');
   const text = await res.text();
   const rows = parseCSV(text);
 
@@ -192,9 +192,15 @@ function findWorldPercentile(incomeEurPPP, year) {
 }
 
 // ── distribution chart ────────────────────────────────────────────────────────
+//
+// User's global percentile is computed ONCE from their 2025 cash income, then
+// held fixed across all years. Each year's dot sits at that fixed percentile
+// on that year's world distribution curve — i.e., "if you maintain your
+// global rank, this is the income at that rank in year y."
 
 function renderDistribution(userIncomesByYearEur, currency, pppRate) {
   const percentiles = Array.from({ length: 100 }, (_, i) => i + 1);
+  const fixedGlobalPct = findWorldPercentile(userIncomesByYearEur[2025], 2025);
 
   const datasets = DIST_YEARS.map(yr => ({
     label: String(yr),
@@ -207,16 +213,15 @@ function renderDistribution(userIncomesByYearEur, currency, pppRate) {
     fill: false,
   }));
 
-  // User dot on each year's curve: placed at global percentile
+  // User dot on each year's curve: placed at the FIXED 2025 global percentile
   const dotDatasets = DIST_YEARS.map(yr => {
-    const userEur  = userIncomesByYearEur[yr];
-    const globalPct = findWorldPercentile(userEur, yr);
+    const yEur = worldCache[fixedGlobalPct][yr];
     return {
       label: `You (${yr})`,
-      data: percentiles.map(p => p === globalPct ? +(userEur * pppRate).toFixed(0) : null),
+      data: percentiles.map(p => p === fixedGlobalPct ? +(yEur * pppRate).toFixed(0) : null),
       borderColor: DIST_COLORS[yr],
       backgroundColor: DIST_COLORS[yr],
-      pointRadius: percentiles.map(p => p === globalPct ? 8 : 0),
+      pointRadius: percentiles.map(p => p === fixedGlobalPct ? 8 : 0),
       pointStyle: 'circle',
       showLine: false,
       order: 0,

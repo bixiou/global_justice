@@ -1,0 +1,27 @@
+/********Stata code used for definition of global variables: core territories, core countries, etc.***/
+
+#delimit;
+clear all;
+set more off;
+set maxvar 6000;
+
+/***57 core territories (48 countries + 9 residual regions)***/
+global coreterritories `" "DE" "DK" "ES" "FR" "GB" "IT" "NL" "NO" "SE" "OC" "QM" "US" "CA" "AU" "NZ" "OH" "AR" "BR" "CL" "CO" "MX" "OD" "AE" "DZ" "EG" "IR" "MA" "SA" "TR" "OE" 
+"CD" "CI" "ET" "KE" "ML" "NE" "NG" "RW" "SD" "ZA" "OJ" "RU" "OA" "CN" "JP" "KR" "TW" "OB" "BD" "IN" "ID" "MM" "PK" "PH" "TH" "VN" "OI" "';
+
+/***48 main countries (core territories excluding the 9 residual regions)***/
+global maincountries `" "DE" "DK" "ES" "FR" "GB" "IT" "NL" "NO" "SE" "US" "CA" "AU" "NZ" "AR" "BR" "CL" "CO" "MX" "AE" "DZ" "EG" "IR" "MA" "SA" "TR"  
+"CD" "CI" "ET" "KE" "ML" "NE" "NG" "RW" "SD" "ZA" "RU" "CN" "JP" "KR" "TW" "BD" "IN" "ID" "MM" "PK" "PH" "TH" "VN" "';
+
+/***216 core countries by region***/
+global WEUR `" "AD" "AT" "BE" "CH" "DE" "DK" "ES" "FI" "FR" "GB" "GG" "GI" "GR" "IE" "IM" "IS" "IT" "JE" "LI" "LU" "MC" "MT" "NL" "NO" "PT" "SE" "SM" "';
+global EEUR `" "AL" "BA" "BG" "CY" "CZ" "EE" "HR" "HU" "KS" "LT" "LV" "MD" "ME" "MK" "PL" "RO" "RS" "SI" "SK" "';
+global EURO `" "AD" "AT" "BE" "CH" "DE" "DK" "ES" "FI" "FR" "GB" "GG" "GI" "GR" "IE" "IM" "IS" "IT" "JE" "LI" "LU" "MC" "MT" "NL" "NO" "PT" "SE" "SM" "AL" "BA" "BG" "CY" "CZ" "EE" "HR" "HU" "KS" "LT" "LV" "MD" "ME" "MK" "PL" "RO" "RS" "SI" "SK" "';
+global NAOC `" "AU" "BM" "CA" "FJ" "FM" "GL" "KI" "MH" "NC" "NR" "NZ" "PF" "PG" "PW" "SB" "TO" "TV" "US" "VU" "WS" "';
+global LATA `" "AG" "AI" "AR" "AW" "BB" "BO" "BQ" "BR" "BS" "BZ" "CL" "CO" "CR" "CU" "CW" "DM" "DO" "EC" "GD" "GT" "GY" "HN" "HT" "JM" "KN" "KY" "LC" "MS" "MX" "NI" "PA" "PE" "PR" "PY" "SR" "SV" "SX" "TC" "TT" "UY" "VC" "VE" "VG" "';
+global MENA `" "AE" "BH" "DZ" "EG" "IL" "IQ" "IR" "JO" "KW" "LB" "LY" "MA" "OM" "PS" "QA" "SA" "SY" "TN" "TR" "YE" "';
+global SSAF `" "AO" "BF" "BI" "BJ" "BW" "CD" "CF" "CG" "CI" "CM" "CV" "DJ" "ER" "ET" "GA" "GH" "GM" "GN" "GQ" "GW" "KE" "KM" "LR" "LS" "MG" "ML" "MR" "MU" "MW" "MZ" "NA" "NE" "NG" "RW" "SC" "SD" "SL" "SN" "SO" "SS" "ST" "SZ" "TD" "TG" "TZ" "UG" "ZA" "ZM" "ZW" "';
+global RUCA `" "AM" "AZ" "BY" "GE" "KG" "KZ" "RU" "TJ" "TM" "UA" "UZ" "';
+global EASA `" "CN" "HK" "JP" "KP" "KR" "MN" "MO" "TW" "';
+global SSEA `" "AF" "BD" "BN" "BT" "ID" "IN" "KH" "LA" "LK" "MM" "MV" "MY" "NP"  "PH" "PK" "SG" "TH" "TL" "VN" "';
+

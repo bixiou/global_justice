@@ -1,0 +1,429 @@
+/********Stata code used to simulate world wealth and income distribution 2026-2100***/
+
+#delimit;
+clear all;
+set more off;
+set maxvar 6000;
+do Data/StataCodes/doglobalvariables.txt;
+
+
+/****import macro series (World + 57 core territories)***/
+/****import per capita GDP (2025 Euros PPP)***/
+import excel Botheetal2026AppendixMacro.xlsx, sheet("A0p") cellrange(A4:BO135) firstrow clear;
+rename A year; 
+rename World w;
+drop Europe NorthAmericaOceania LatinAmerica MiddleEastNorthAfrica SubSaharanAfrica RussiaCentralAsia EastAsia SouthSouthEastAsia;
+rename * gdp*;
+rename gdpyear year;
+rename gdpw yw;
+reshape long gdp, i(year yw) j(country) string;
+save Data/temp/macro.dta, replace;
+/****import GNDI (except GJF transfers and foreign capital income) (% GDP)***/
+import excel Botheetal2026AppendixMacro.xlsx, sheet("A11g") cellrange(A4:BO135) firstrow clear;
+rename A year; 
+drop World Europe NorthAmericaOceania LatinAmerica MiddleEastNorthAfrica SubSaharanAfrica RussiaCentralAsia EastAsia SouthSouthEastAsia;
+rename * gni*;
+rename gniyear year;
+reshape long gni, i(year) j(country) string;
+merge 1:1 year country using Data/temp/macro.dta;
+drop _merge;
+drop if year<1980;
+save Data/temp/macro.dta, replace;
+/****import Personal Wealth (% GDP)***/
+import excel Botheetal2026AppendixMacro.xlsx, sheet("C4c") cellrange(A4:BO135) firstrow clear;
+rename A year; 
+rename World ww;
+drop Europe NorthAmericaOceania LatinAmerica MiddleEastNorthAfrica SubSaharanAfrica RussiaCentralAsia EastAsia SouthSouthEastAsia;
+rename * beta*;
+rename betayear year;
+rename betaww ww;
+reshape long beta, i(year ww) j(country) string;
+merge 1:1 year country using Data/temp/macro.dta;
+drop _merge;
+drop if year<1980;
+replace ww=ww*yw;
+gen w=beta*gdp;
+rename yw gdpw;
+drop beta;
+save Data/temp/macro.dta, replace;
+/****import CFC (% GDP)***/
+import excel Botheetal2026AppendixMacro.xlsx, sheet("D1b") cellrange(A4:BO135) firstrow clear;
+rename A year; 
+rename World w;
+drop Europe NorthAmericaOceania LatinAmerica MiddleEastNorthAfrica SubSaharanAfrica RussiaCentralAsia EastAsia SouthSouthEastAsia;
+rename * cfc*;
+rename cfcyear year;
+rename cfcw cw;
+reshape long cfc, i(year cw) j(country) string;
+merge 1:1 year country using Data/temp/macro.dta;
+drop _merge;
+drop if year<1980;
+gen ndpw=(1-cw)*gdpw;
+drop cw;
+save Data/temp/macro.dta, replace;
+/****import CFC (% domestic capital)***/
+import excel Botheetal2026AppendixMacro.xlsx, sheet("D1d") cellrange(A4:BO135) firstrow clear;
+rename A year; 
+drop World Europe NorthAmericaOceania LatinAmerica MiddleEastNorthAfrica SubSaharanAfrica RussiaCentralAsia EastAsia SouthSouthEastAsia;
+rename * kcfc*;
+rename kcfcyear year;
+reshape long kcfc, i(year) j(country) string;
+merge 1:1 year country using Data/temp/macro.dta;
+drop _merge;
+drop if year<1980;
+gen ndp=(1-cfc)*gdp;
+gen nni=(gni-cfc)*gdp;
+save Data/temp/macro.dta, replace;
+/****import population***/
+import excel Botheetal2026AppendixMacro.xlsx, sheet("A12") cellrange(A4:BO135) firstrow clear;
+rename A year; 
+drop World Europe NorthAmericaOceania LatinAmerica MiddleEastNorthAfrica SubSaharanAfrica RussiaCentralAsia EastAsia SouthSouthEastAsia;
+rename * pop*;
+rename popyear year;
+reshape long pop, i(year) j(country) string;
+merge 1:1 year country using Data/temp/macro.dta;
+drop _merge;
+drop if year<1980;
+save Data/temp/macro.dta, replace;
+
+/****computing gross personal saving rates (% gdp)***/
+use Data/temp/macro.dta, clear;
+sort country year;
+gen sgdp=(pop[_n+1]*w[_n+1]-pop*(1-kcfc)*w)/(pop*(nni+kcfc*w)) if year>=1980 & year<2100;
+order year country gdp ndp w cfc kcfc gdpw ndpw ww;
+save Data/temp/macro.dta, replace;
+
+
+/****import profiles of relative gross synthetic saving rates***/
+import excel Botheetal2026AppendixDistribution.xlsx, sheet("H3s") cellrange(A4:F131) firstrow clear;
+forvalues j=2026/2039
+{;
+gen rs`j'=(rs2025*(2040-`j')+rs2040*(`j'-2025))/(2040-2025);
+};
+forvalues j=2041/2079
+{;
+gen rs`j'=(rs2040*(2080-`j')+rs2080*(`j'-2040))/(2080-2040);
+};
+forvalues j=2081/2089
+{;
+gen rs`j'=(rs2080*(2090-`j')+rs2090*(`j'-2080))/(2090-2080);
+};
+forvalues j=2091/2099
+{;
+gen rs`j'=(rs2090*(2100-`j')+rs2100*(`j'-2090))/(2100-2090);
+};
+reshape long rs, i(percentile) j(year);
+sort year percentile;
+save Data/temp/saving.dta, replace;
+
+/***import wealth tax schedule (bracket thresholds and effective tax rates)***/
+import excel Botheetal2026AppendixMacro.xlsx, sheet("E4b") cellrange(A3:M78) firstrow clear;
+save Data/temp/wealthtax.dta, replace;
+import excel Botheetal2026AppendixMacro.xlsx, sheet("E4t") cellrange(A3:M78) firstrow clear;
+merge 1:1 year using Data/temp/wealthtax.dta;
+drop _merge;
+order year bw* tw*;
+save Data/temp/wealthtax.dta, replace;
+
+/***import income tax schedule (bracket thresholds and effective tax rates)***/
+import excel Botheetal2026AppendixMacro.xlsx, sheet("E5b") cellrange(A3:M78) firstrow clear;
+save Data/temp/incometax.dta, replace;
+import excel Botheetal2026AppendixMacro.xlsx, sheet("E5t") cellrange(A3:M78) firstrow clear;
+merge 1:1 year using Data/temp/incometax.dta;
+drop _merge;
+order year by* ty*;
+save Data/temp/incometax.dta, replace;
+
+
+/****matching macro data, saving profile data and tax schedules data with distributional series***/ 
+use Data\distribution_proj.dta, clear; 
+gen core=0;
+foreach c of global coreterritories
+{;
+replace core=1 if country=="`c'";
+};
+keep if core==1;
+keep country year percentile p1 diff pop_share sdiinc shweal;
+order year country percentile p1 diff pop_share sdiinc shweal;
+save Data\distribution_simul.dta, replace;
+use Data/temp/macro.dta, clear; 
+merge 1:n year country using Data\distribution_simul.dta;
+drop _merge;
+save Data\distribution_simul.dta, replace;
+use Data/temp/saving.dta, clear; 
+merge 1:n year percentile using Data\distribution_simul.dta;
+drop _merge;
+save Data\distribution_simul.dta, replace;
+use Data/temp/wealthtax.dta, clear; 
+merge 1:n year using Data\distribution_simul.dta;
+drop _merge;
+save Data\distribution_simul.dta, replace;
+use Data/temp/incometax.dta, clear; 
+merge 1:n year using Data\distribution_simul.dta;
+drop _merge;
+drop if year<2025;
+replace diff=diff/100;
+sort year country p1;
+gen spgdp=rs*sgdp;
+gen sgiinc=sdiinc;
+gen gnip=0;
+gen wp=0;
+gen wpt=0;
+gen wt=0;
+gen wptx=0;
+gen wtx=0;
+gen yp=0;
+gen ypt=0;
+gen yt=0;
+gen yptx=0;
+gen ytx=0;
+order year country percentile p1 diff pop pop_share sdiinc sgiinc shweal gdp ndp nni w cfc kcfc gni gnip wp wpt wptx wt wtx yp ypt yptx yt ytx gdpw ndpw ww sgdp spgdp rs bw* tw* by* ty*;
+save Data\distribution_simul.dta, replace;
+
+
+/****running the simulations***/
+/****five main steps to be run year-by-year 2026-2100***/
+/***(1) computing country-percentile-level gross posttax income shares***/
+/***(2) fixing country-percentile-level gross saving rates***/
+/***(3) simulating country-percentile-level wealth shares***/
+/***(4) simulating wealth tax payments***/
+/***(5) simulating income tax payments***/
+use Data\distribution_simul.dta, clear; 
+replace wp=shweal*w/diff if year==2025;
+sort country p1 year;
+forvalues t=2026/2100
+{;
+replace gnip=(sdiinc*nni+kcfc*shweal*w-ypt*diff)/diff if year==`t'-1;
+by country: egen totgnip=total(gnip*diff) if year==`t'-1;
+replace sgiinc=gnip*diff/totgnip if year==`t'-1;
+replace sgdp=(sgdp*(nni+kcfc*w)+wt)/(nni+kcfc*w-yt) if year==`t'-1;
+replace spgdp=rs*sgdp if year==`t'-1;
+by country: egen totspgdp=total(spgdp*sgiinc) if year==`t'-1;
+replace spgdp=spgdp*sgdp/totspgdp;
+replace wp=((1-kcfc[_n-1])*wp[_n-1]+spgdp[_n-1]*gnip[_n-1]-wpt[_n-1])*pop[_n-1]/pop if year==`t';
+replace shweal=wp*diff/w;
+/****simulating wealth tax payments****/
+replace wpt=tw1*wp if wp<bw1*ww & year==`t';
+replace wpt=((bw2*ww-wp)*tw1+(wp-bw1*ww)*tw2)*wp/(bw2*ww-bw1*ww) if wp>=bw1*ww & wp<bw2*ww & year==`t';
+replace wpt=((bw3*ww-wp)*tw2+(wp-bw2*ww)*tw3)*wp/(bw3*ww-bw2*ww) if wp>=bw2*ww & wp<bw3*ww & year==`t';
+replace wpt=((bw4*ww-wp)*tw3+(wp-bw3*ww)*tw4)*wp/(bw4*ww-bw3*ww) if wp>=bw3*ww & wp<bw4*ww & year==`t';
+replace wpt=((bw5*ww-wp)*tw4+(wp-bw4*ww)*tw5)*wp/(bw5*ww-bw4*ww) if wp>=bw4*ww & wp<bw5*ww & year==`t';
+replace wpt=((bw6*ww-wp)*tw5+(wp-bw5*ww)*tw6)*wp/(bw6*ww-bw5*ww) if wp>=bw5*ww & wp<bw6*ww & year==`t';
+replace wpt=((bw7*ww-wp)*tw6+(wp-bw6*ww)*tw7)*wp/(bw7*ww-bw6*ww) if wp>=bw6*ww & wp<bw7*ww & year==`t';
+replace wpt=((bw8*ww-wp)*tw7+(wp-bw7*ww)*tw8)*wp/(bw8*ww-bw7*ww) if wp>=bw7*ww & wp<bw8*ww & year==`t';
+replace wpt=((bw9*ww-wp)*tw8+(wp-bw8*ww)*tw9)*wp/(bw9*ww-bw8*ww) if wp>=bw8*ww & wp<bw9*ww & year==`t';
+replace wpt=((bw10*ww-wp)*tw9+(wp-bw9*ww)*tw10)*wp/(bw10*ww-bw9*ww) if wp>=bw9*ww & wp<bw10*ww & year==`t';
+replace wpt=((bw11*ww-wp)*tw10+(wp-bw10*ww)*tw11)*wp/(bw11*ww-bw10*ww) if wp>=bw10*ww & wp<bw11*ww & year==`t';
+replace wpt=((bw12*ww-wp)*tw11+(wp-bw11*ww)*tw12)*wp/(bw12*ww-bw11*ww) if wp>=bw11*ww & wp<bw12*ww & year==`t';
+replace wpt=tw12*wp if wp>=bw12*ww & year==`t';
+replace wptx=1 if wpt>0 & year==`t';
+by country: egen totwpt=total(wpt*diff) if year==`t';
+by country: egen totwptx=total(wptx*diff) if year==`t';
+replace wt=totwpt if year==`t';
+replace wtx=totwptx if year==`t';
+/****simulating income tax payments****/
+replace yp=sdiinc*nni/diff if year==`t';
+replace ypt=ty1*yp if yp<by1*ndpw & year==`t';
+replace ypt=((by2*ndpw-yp)*ty1+(yp-by1*ndpw)*ty2)*yp/(by2*ndpw-by1*ndpw) if yp>=by1*ndpw & yp<by2*ndpw & year==`t';
+replace ypt=((by3*ndpw-yp)*ty2+(yp-by2*ndpw)*ty3)*yp/(by3*ndpw-by2*ndpw) if yp>=by2*ndpw & yp<by3*ndpw & year==`t';
+replace ypt=((by4*ndpw-yp)*ty3+(yp-by3*ndpw)*ty4)*yp/(by4*ndpw-by3*ndpw) if yp>=by3*ndpw & yp<by4*ndpw & year==`t';
+replace ypt=((by5*ndpw-yp)*ty4+(yp-by4*ndpw)*ty5)*yp/(by5*ndpw-by4*ndpw) if yp>=by4*ndpw & yp<by5*ndpw & year==`t';
+replace ypt=((by6*ndpw-yp)*ty5+(yp-by5*ndpw)*ty6)*yp/(by6*ndpw-by5*ndpw) if yp>=by5*ndpw & yp<by6*ndpw & year==`t';
+replace ypt=((by7*ndpw-yp)*ty6+(yp-by6*ndpw)*ty7)*yp/(by7*ndpw-by6*ndpw) if yp>=by6*ndpw & yp<by7*ndpw & year==`t';
+replace ypt=((by8*ndpw-yp)*ty7+(yp-by7*ndpw)*ty8)*yp/(by8*ndpw-by7*ndpw) if yp>=by7*ndpw & yp<by8*ndpw & year==`t';
+replace ypt=((by9*ndpw-yp)*ty8+(yp-by8*ndpw)*ty9)*yp/(by9*ndpw-by8*ndpw) if yp>=by8*ndpw & yp<by9*ndpw & year==`t';
+replace ypt=((by10*ndpw-yp)*ty9+(yp-by9*ndpw)*ty10)*yp/(by10*ndpw-by9*ndpw) if yp>=by9*ndpw & yp<by10*ndpw & year==`t';
+replace ypt=((by11*ndpw-yp)*ty10+(yp-by10*ndpw)*ty11)*yp/(by11*ndpw-by10*ndpw) if yp>=by10*ndpw & yp<by11*ndpw & year==`t';
+replace ypt=((by12*ndpw-yp)*ty11+(yp-by11*ndpw)*ty12)*yp/(by12*ndpw-by11*ndpw) if yp>=by11*ndpw & yp<by12*ndpw & year==`t';
+replace ypt=ty12*yp if yp>=by12*ndpw & year==`t';
+replace yptx=1 if ypt>0 & year==`t';
+by country: egen totypt=total(ypt*diff) if year==`t';
+by country: egen totyptx=total(yptx*diff) if year==`t';
+replace yt=totypt if year==`t';
+replace ytx=totyptx if year==`t';
+drop tot*;
+};
+save Data\distribution_simul.dta, replace;
+
+/******exporting the results on global wealth tax and global income tax***/
+/****exporting global wealth tax revenues and numbers of taxpayers***/
+use Data\distribution_simul.dta, clear; 
+keep if p1==1;
+replace wt=wt/gdp;
+keep year country wt;
+reshape wide wt, i(year) j(country) string;
+order year wtDE wtDK wtES wtFR wtGB wtIT wtNL wtNO wtSE wtOC wtQM wtUS wtCA wtAU wtNZ wtOH wtAR wtBR wtCL wtCO wtMX wtOD wtAE wtDZ wtEG wtIR wtMA wtSA wtTR wtOE wtCD wtCI wtET wtKE wtML wtNE wtNG wtRW wtSD wtZA wtOJ wtRU wtOA wtCN wtJP wtKR wtTW wtOB wtBD wtIN wtID wtMM wtPK wtPH wtTH wtVN wtOI; 
+sort year;
+drop year;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E2b") sheetmodify cell(K60) keepcellfmt;
+use Data\distribution_simul.dta, clear; 
+keep if p1==1;
+keep year country wtx;
+reshape wide wtx, i(year) j(country) string;
+order year wtxDE wtxDK wtxES wtxFR wtxGB wtxIT wtxNL wtxNO wtxSE wtxOC wtxQM wtxUS wtxCA wtxAU wtxNZ wtxOH wtxAR wtxBR wtxCL wtxCO wtxMX wtxOD wtxAE wtxDZ wtxEG wtxIR wtxMA wtxSA wtxTR wtxOE wtxCD wtxCI wtxET wtxKE wtxML wtxNE wtxNG wtxRW wtxSD wtxZA wtxOJ wtxRU wtxOA wtxCN wtxJP wtxKR wtxTW wtxOB wtxBD wtxIN wtxID wtxMM wtxPK wtxPH wtxTH wtxVN wtxOI;
+sort year;
+drop year;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E2bx") sheetmodify cell(K60) keepcellfmt;
+/****exporting simulated wealth distribution series (post-GWT)***/
+/***top 10% wealth shares**/
+use Data\distribution_simul.dta, clear; 
+keep if p1>=90;
+sort year country;
+by year country: egen t10w=total(shweal);
+keep if p1==90;
+keep year country t10w;
+reshape wide t10w, i(year) j(country) string;
+order year t10wDE t10wDK t10wES t10wFR t10wGB t10wIT t10wNL t10wNO t10wSE t10wOC t10wQM t10wUS t10wCA t10wAU t10wNZ t10wOH t10wAR t10wBR t10wCL t10wCO t10wMX t10wOD t10wAE t10wDZ t10wEG t10wIR t10wMA t10wSA t10wTR t10wOE t10wCD t10wCI t10wET t10wKE t10wML t10wNE t10wNG t10wRW t10wSD t10wZA t10wOJ t10wRU t10wOA t10wCN t10wJP t10wKR t10wTW t10wOB t10wBD t10wIN t10wID t10wMM t10wPK t10wPH t10wTH t10wVN t10wOI; 
+sort year;
+drop year;
+export excel using Botheetal2026AppendixDistribution.xlsx, sheet("K1a") sheetmodify cell(K230) keepcellfmt;
+/***bottom 50% wealth shares**/
+use Data\distribution_simul.dta, clear; 
+keep if p1<50;
+sort year country;
+by year country: egen b50w=total(shweal);
+keep if p1==0;
+keep year country b50w;
+reshape wide b50w, i(year) j(country) string;
+order year b50wDE b50wDK b50wES b50wFR b50wGB b50wIT b50wNL b50wNO b50wSE b50wOC b50wQM b50wUS b50wCA b50wAU b50wNZ b50wOH b50wAR b50wBR b50wCL b50wCO b50wMX b50wOD b50wAE b50wDZ b50wEG b50wIR b50wMA b50wSA b50wTR b50wOE b50wCD b50wCI b50wET b50wKE b50wML b50wNE b50wNG b50wRW b50wSD b50wZA b50wOJ b50wRU b50wOA b50wCN b50wJP b50wKR b50wTW b50wOB b50wBD b50wIN b50wID b50wMM b50wPK b50wPH b50wTH b50wVN b50wOI; 
+sort year;
+drop year;
+export excel using Botheetal2026AppendixDistribution.xlsx, sheet("K1b") sheetmodify cell(K230) keepcellfmt;
+/***top 1% wealth shares**/
+use Data\distribution_simul.dta, clear; 
+keep if p1>=99;
+sort year country;
+by year country: egen t1w=total(shweal);
+keep if p1==99;
+keep year country t1w;
+reshape wide t1w, i(year) j(country) string;
+order year t1wDE t1wDK t1wES t1wFR t1wGB t1wIT t1wNL t1wNO t1wSE t1wOC t1wQM t1wUS t1wCA t1wAU t1wNZ t1wOH t1wAR t1wBR t1wCL t1wCO t1wMX t1wOD t1wAE t1wDZ t1wEG t1wIR t1wMA t1wSA t1wTR t1wOE t1wCD t1wCI t1wET t1wKE t1wML t1wNE t1wNG t1wRW t1wSD t1wZA t1wOJ t1wRU t1wOA t1wCN t1wJP t1wKR t1wTW t1wOB t1wBD t1wIN t1wID t1wMM t1wPK t1wPH t1wTH t1wVN t1wOI; 
+sort year;
+drop year;
+export excel using Botheetal2026AppendixDistribution.xlsx, sheet("K1c") sheetmodify cell(K230) keepcellfmt;
+/***top 0.1% wealth shares**/
+use Data\distribution_simul.dta, clear; 
+keep if p1>=99.9;
+sort year country;
+by year country: egen t01w=total(shweal);
+keep if p1==99.9;
+keep year country t01w;
+reshape wide t01w, i(year) j(country) string;
+order year t01wDE t01wDK t01wES t01wFR t01wGB t01wIT t01wNL t01wNO t01wSE t01wOC t01wQM t01wUS t01wCA t01wAU t01wNZ t01wOH t01wAR t01wBR t01wCL t01wCO t01wMX t01wOD t01wAE t01wDZ t01wEG t01wIR t01wMA t01wSA t01wTR t01wOE t01wCD t01wCI t01wET t01wKE t01wML t01wNE t01wNG t01wRW t01wSD t01wZA t01wOJ t01wRU t01wOA t01wCN t01wJP t01wKR t01wTW t01wOB t01wBD t01wIN t01wID t01wMM t01wPK t01wPH t01wTH t01wVN t01wOI; 
+sort year;
+drop year;
+export excel using Botheetal2026AppendixDistribution.xlsx, sheet("K1d") sheetmodify cell(K230) keepcellfmt;
+/***bottom 10% wealth shares**/
+use Data\distribution_simul.dta, clear; 
+keep if p1<10;
+sort year country;
+by year country: egen b10w=total(shweal);
+keep if p1==0;
+keep year country b10w;
+reshape wide b10w, i(year) j(country) string;
+order year b10wDE b10wDK b10wES b10wFR b10wGB b10wIT b10wNL b10wNO b10wSE b10wOC b10wQM b10wUS b10wCA b10wAU b10wNZ b10wOH b10wAR b10wBR b10wCL b10wCO b10wMX b10wOD b10wAE b10wDZ b10wEG b10wIR b10wMA b10wSA b10wTR b10wOE b10wCD b10wCI b10wET b10wKE b10wML b10wNE b10wNG b10wRW b10wSD b10wZA b10wOJ b10wRU b10wOA b10wCN b10wJP b10wKR b10wTW b10wOB b10wBD b10wIN b10wID b10wMM b10wPK b10wPH b10wTH b10wVN b10wOI; 
+sort year;
+drop year;
+export excel using Botheetal2026AppendixDistribution.xlsx, sheet("K1e") sheetmodify cell(K230) keepcellfmt;
+/***top 0.01% wealth shares**/
+use Data\distribution_simul.dta, clear; 
+keep if p1>=99.99;
+sort year country;
+by year country: egen t01w=total(shweal);
+keep if p1==99.99;
+keep year country t01w;
+reshape wide t01w, i(year) j(country) string;
+order year t01wDE t01wDK t01wES t01wFR t01wGB t01wIT t01wNL t01wNO t01wSE t01wOC t01wQM t01wUS t01wCA t01wAU t01wNZ t01wOH t01wAR t01wBR t01wCL t01wCO t01wMX t01wOD t01wAE t01wDZ t01wEG t01wIR t01wMA t01wSA t01wTR t01wOE t01wCD t01wCI t01wET t01wKE t01wML t01wNE t01wNG t01wRW t01wSD t01wZA t01wOJ t01wRU t01wOA t01wCN t01wJP t01wKR t01wTW t01wOB t01wBD t01wIN t01wID t01wMM t01wPK t01wPH t01wTH t01wVN t01wOI; 
+sort year;
+drop year;
+export excel using Botheetal2026AppendixDistribution.xlsx, sheet("K1f") sheetmodify cell(K230) keepcellfmt;
+/***top 0.001% wealth shares**/
+use Data\distribution_simul.dta, clear; 
+keep if p1>=99.999;
+sort year country;
+by year country: egen t01w=total(shweal);
+keep if p1==99.999;
+keep year country t01w;
+reshape wide t01w, i(year) j(country) string;
+order year t01wDE t01wDK t01wES t01wFR t01wGB t01wIT t01wNL t01wNO t01wSE t01wOC t01wQM t01wUS t01wCA t01wAU t01wNZ t01wOH t01wAR t01wBR t01wCL t01wCO t01wMX t01wOD t01wAE t01wDZ t01wEG t01wIR t01wMA t01wSA t01wTR t01wOE t01wCD t01wCI t01wET t01wKE t01wML t01wNE t01wNG t01wRW t01wSD t01wZA t01wOJ t01wRU t01wOA t01wCN t01wJP t01wKR t01wTW t01wOB t01wBD t01wIN t01wID t01wMM t01wPK t01wPH t01wTH t01wVN t01wOI; 
+sort year;
+drop year;
+export excel using Botheetal2026AppendixDistribution.xlsx, sheet("K1g") sheetmodify cell(K230) keepcellfmt;
+/****exporting global income tax revenues and numbers of taxpayers***/
+use Data\distribution_simul.dta, clear; 
+keep if p1==1;
+replace yt=yt/gdp;
+keep year country yt;
+reshape wide yt, i(year) j(country) string;
+order year ytDE ytDK ytES ytFR ytGB ytIT ytNL ytNO ytSE ytOC ytQM ytUS ytCA ytAU ytNZ ytOH ytAR ytBR ytCL ytCO ytMX ytOD ytAE ytDZ ytEG ytIR ytMA ytSA ytTR ytOE ytCD ytCI ytET ytKE ytML ytNE ytNG ytRW ytSD ytZA ytOJ ytRU ytOA ytCN ytJP ytKR ytTW ytOB ytBD ytIN ytID ytMM ytPK ytPH ytTH ytVN ytOI; 
+sort year;
+drop year;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E2c") sheetmodify cell(K60) keepcellfmt;
+use Data\distribution_simul.dta, clear; 
+keep if p1==1;
+keep year country ytx;
+reshape wide ytx, i(year) j(country) string;
+order year ytxDE ytxDK ytxES ytxFR ytxGB ytxIT ytxNL ytxNO ytxSE ytxOC ytxQM ytxUS ytxCA ytxAU ytxNZ ytxOH ytxAR ytxBR ytxCL ytxCO ytxMX ytxOD ytxAE ytxDZ ytxEG ytxIR ytxMA ytxSA ytxTR ytxOE ytxCD ytxCI ytxET ytxKE ytxML ytxNE ytxNG ytxRW ytxSD ytxZA ytxOJ ytxRU ytxOA ytxCN ytxJP ytxKR ytxTW ytxOB ytxBD ytxIN ytxID ytxMM ytxPK ytxPH ytxTH ytxVN ytxOI;
+sort year;
+drop year;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E2cx") sheetmodify cell(K60) keepcellfmt;
+
+
+/****exporting wealth tax simulations by bracket***/
+use Data\distribution_simul.dta, clear; 
+drop if year==2025;
+gen bw0=1;
+gen b=0 if wp<bw0*ww; 
+forvalues j=0/12
+{;
+replace b=`j'+1 if wp>=bw`j'*ww;
+};
+replace wp=wp*pop_share/gdpw;
+replace wpt=wpt*pop_share/gdpw;
+collapse (sum) pop_share wp wpt, by(year b);
+reshape wide pop_share wp wpt, i(year) j(b);
+sort year;
+drop year;
+save Data/temp/wealthtaxsim.dta, replace;
+use Data\temp\wealthtaxsim.dta, clear;
+keep pop_share*;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E4p") sheetmodify cell(B4) keepcellfmt;
+use Data\temp\wealthtaxsim.dta, clear;
+keep wp*;
+drop wpt*;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E4w") sheetmodify cell(B4) keepcellfmt;
+use Data\temp\wealthtaxsim.dta, clear;
+keep wpt*;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E4r") sheetmodify cell(B4) keepcellfmt;
+
+
+/****exporting income tax simulations by bracket***/
+use Data\distribution_simul.dta, clear; 
+drop if year==2025;
+gen by0=1;
+gen b=0 if yp<by0*ndpw; 
+forvalues j=0/12
+{;
+replace b=`j'+1 if yp>=by`j'*ndpw;
+};
+replace yp=yp*pop_share/gdpw;
+replace ypt=ypt*pop_share/gdpw;
+collapse (sum) pop_share yp ypt, by(year b);
+reshape wide pop_share yp ypt, i(year) j(b);
+sort year;
+drop year;
+save Data/temp/incometaxsim.dta, replace;
+use Data\temp\incometaxsim.dta, clear;
+keep pop_share*;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E5p") sheetmodify cell(B4) keepcellfmt;
+use Data\temp\incometaxsim.dta, clear;
+keep yp*;
+drop ypt*;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E5y") sheetmodify cell(B4) keepcellfmt;
+use Data\temp\incometaxsim.dta, clear;
+keep ypt*;
+export excel using Botheetal2026AppendixMacro.xlsx, sheet("E5r") sheetmodify cell(B4) keepcellfmt;
+
+
+
+

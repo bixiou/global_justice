@@ -1,0 +1,9 @@
+/********Stata code used to set the data directory*********/
+/********Stata code to be run before all other codes***/
+/********Directory to be modified by the user****/
+
+#delimit;
+clear;
+set more off;
+set maxvar 6000;
+cd "D:\Users\t.piketty\Dropbox\GJP2026GlobalJusticePlatform\"; 
