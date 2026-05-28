@@ -178,10 +178,53 @@ The situator's web page (`code_simulator/index.html`) consumes four files in `co
 
 **About using FG's `a_pdi` to simplify** (question raised during development): FG publishes `a_pdi` (Posttax Disposable Income), and one might hope to use it as `pretax − taxes + cash_transfers` directly. But empirically `a_pdi` includes part of `gov_oth` (the imputed collective-consumption residual): for FR p50, `a_pdi = €28,778` vs computed `a_pre − all taxes + cash transfers = €22,723` (off by €6,055). Using `a_pdi` directly would inflate cash income by 20–30 % per country. We therefore keep the decomposed formula `a_pre − tax_dir_pit − tax_dir_wea − tax_cit − tax_soc − tax_ind + gov_soc − imputed_frac · a_pre_cap + cap_share · CFC`. A modest simplification would be to replace the 5 individual tax variables with FG's `tax_tot_soc` aggregate (not currently in the slim file).
 
-**Future projection of cash_income — data available in Bothe/Chancel:**
-- Bothe `i2i` (sheet) and `simul.dta` `nni` give country-year NNI per capita 2025–2100 under SC — drives the NNI scale.
-- Bothe sheets `G2b`, `G2c` (education + health expenditure % GNE, 1970–2100) and `G3d` (basic public services % GDP) project public expenditure under SC; in principle a more refined projection could reweight `tax_ind`, `tax_soc`, and `gov_soc` country-year ratios using these macro time series.
-- We instead use the simpler "constant cash/post-GIT ratio at each percentile" assumption, which captures NNI growth and within-country redistribution under SC together, without separately modelling tax/transfer policy evolution.
+**Two future-projection methods (`cash_income.csv` and `cash_income_sectors.csv`):**
+
+| Method | File | Approach |
+|---|---|---|
+| **Constant cash/post-GIT ratio** | `data/cash_income.csv` | `cash[c,p,t] = cash_2025[c,p] × (income_post_GIT[c,p,t] / income_post_GIT[c,p,2025])`. Captures NNI growth and SC inequality flattening via Bothe's published post-GIT trajectory. Assumes the FG fiscal-incidence wedge at each percentile is stable. 57 countries × 127 gperc × 76 years (2025–2100). |
+| **Sector-based** (posttax + flat extra-HE tax) | `data/cash_income_sectors.csv` | Starts from the **constant-ratio cash income** (i.e., the posttax cash trajectory in `cash_income.csv`) and subtracts a **flat supplementary tax** that funds the country's incremental health+education spending above the 2023 baseline: `cash_sectors[c,p,t] = cash_const[c,p,t] × (1 − flat_tax_rate[c,t])`. The flat tax rate per country-year is `add_he_share[c,t] / cash_NNI_ratio[c]`, where `add_he_share[c,t] = max(0, (G2b+G2c)[c,t] − (G2b+G2c)[c,2023])` is the additional health+edu spending share of GNE, and dividing by `cash_NNI_ratio[c]` (~0.78–0.82) grosses up the rate so revenue collected on the cash-income base equals the spending increase. By construction `cash_sectors[c,p,2025] = cash_const[c,p,2025]` exactly. By starting from posttax (not pretax) we avoid the previous bug where applying 2023 tax rates to Bothe's 2100 flattened pretax produced negative incomes at the top — there are now **0 negative cells**. |
+
+**`gov_factor` uncapped — highest projected values (2100):**
+
+`gov_factor[c, t] = (G2b + G2c)[c, t] / (G2b + G2c)[c, 2023]` (no cap). Bothe SC has developing economies catching up to advanced-economy health+edu shares of GNE, so the factor is much larger for low-baseline countries:
+
+| Country | gov_factor 2050 | gov_factor 2100 | he 2023 (% GNE) | add_he 2100 (% GNE) | flat_tax_rate 2100 |
+|---|---:|---:|---:|---:|---:|
+| SD | 12.11 | **16.88** | 2.3 % | 35.7 % | 37.9 % |
+| ET | 5.45 | 7.35 | 5.2 % | 32.8 % | 38.1 % |
+| PK | 5.14 | 6.92 | 5.5 % | 32.5 % | 41.6 % |
+| ID | 4.53 | 6.04 | 6.3 % | 31.7 % | 30.9 % |
+| CD | 4.26 | 5.66 | 6.7 % | 31.3 % | 35.9 % |
+| TR | 3.64 | 4.78 | 8.0 % | 30.0 % | 38.8 % |
+
+Across the 57 territories: median `gov_factor` 2100 = 3.45, mean = 3.85, max = 16.88 (Sudan).
+
+For advanced economies the factor is smaller (FR ≈ 2.3, DE ≈ 2.1, SE ≈ 1.8) but `flat_tax_rate` is still meaningful because their baseline `he_2023` is higher (FR ≈ 13 % GNE → +17 pp → ~22 % flat tax on cash). The interpretation: under SC, by 2100 every country devotes ~35–40 % of GNE to health+education, and the implied additional financing significantly compresses cash income.
+
+The two methods diverge most by 2100 for high-`gov_factor` countries. At p50 in 2100:
+
+| Country | constant | sector (new) | ratio |
+|---|---:|---:|---:|
+| FR | 30,455 | 20,854 | 0.68 |
+| DE | 31,006 | 21,262 | 0.69 |
+| SE | 29,159 | 19,747 | 0.68 |
+| NO | 33,045 | 20,957 | 0.63 |
+| IT | 25,554 | 16,301 | 0.64 |
+| US | 32,064 | 26,578 | 0.83 |
+| CN | 40,324 | 27,121 | 0.67 |
+| BR | 35,579 | 27,697 | 0.78 |
+
+**Caveats (sector method):**
+- **0 negative cells** (vs ~1.7 % in v1) — the new posttax-base formulation eliminates the top-tail negative issue entirely.
+- `gov_factor` uncapped — values can exceed 16× for developing-country baselines that the SC scenario projects to converge by 2100. This is a strong Bothe scenario assumption (Wagner's law extrapolated for 75 years across the global South); the resulting `flat_tax_rate` of 30–42 % for those countries reflects implausible-but-scenario-consistent fiscal expansion.
+- `cash_NNI_ratio[c]` computed once from the 2025 country averages; assumed stable over 2025–2100 (rough approximation).
+- 9 residual WID regions: median `add_he` and `cash_NNI_ratio` used as fallbacks (Bothe `G2b`/`G2c` don't cover residual codes directly).
+- Carry-forward applied to G-sheet values for trailing-NA years.
+
+### Per-country distributions — Italy extracts
+
+For convenience, every per-country distribution CSV has an `_IT.csv` companion containing only Italy rows: `cash_income_2025_IT.csv`, `cash_income_IT.csv`, `cash_income_sectors_IT.csv`, `imputed_income_2025_IT.csv`, `income_full_revenues_IT.csv`, `income_legacy_IT.csv`, `income_pre_git_legacy_IT.csv`, `wealth_legacy_IT.csv`. World-level files (`cash_income_world`, `income_world_legacy`, `wealth_world_legacy`) are unchanged.
 
 ### `data/cash_income_2025.csv` (new — cash purchasing-power after all taxes, 2025 only)
 
@@ -455,7 +498,7 @@ gross household disposable income = GNI - all taxes + govt monetary transfers - 
 
 Note that we also have Gross Value Added (GVA) = household primary income + retained earnings
 GDP = GVA + taxes on production
-GNI = GDP + X-M + net foreign earnings/transfers
+GNI = GDP + net foreign earnings/transfers
 
 Note that GDP is defined at market prices, i.e. inclusive of taxes on production (~VAT). It could be defined at factor prices, i.e. equal to GVA (in that case the VAT would be considered as paid by consumers "at 20% rate" instead of paid by firms so that it's "16.6% of GDP"). 
 Market pricess take the point of view of producers' expenditures (wages+profits+VAT) or household income (primary + in-kind/collective from govt not paid by direct taxes, or secondary + in-kind/collective from govt), while basic takes the point of view of household expenditures (private + public prod).
