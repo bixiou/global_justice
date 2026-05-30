@@ -485,7 +485,9 @@ rows <- do.call(rbind, lapply(ctries, function(ctry) {
   as.data.frame(c(list(country = ctry, gpercentile = lower_bounds), yr_vals),
                 stringsAsFactors = FALSE)
 }))
-write.csv(rows, "../data/income_legacy.csv", row.names = FALSE)
+inc_cols <- grep("^income_", names(rows), value = TRUE)
+rows[, inc_cols] <- lapply(rows[, inc_cols], round, digits = 0)
+write.csv(rows, "../data/income_legacy.csv", row.names = FALSE, quote = FALSE)
 
 
 # ── write income_world.csv ────────────────────────────────────────────────────
@@ -503,7 +505,9 @@ wld_cols <- setNames(
   paste0("income_", dist_years)
 )
 world_df <- as.data.frame(c(list(gpercentile = 1:100), wld_cols))
-write.csv(world_df, "../data/income_world_legacy.csv", row.names = FALSE)
+wld_inc_cols <- grep("^income_", names(world_df), value = TRUE)
+world_df[, wld_inc_cols] <- lapply(world_df[, wld_inc_cols], round, digits = 0)
+write.csv(world_df, "../data/income_world_legacy.csv", row.names = FALSE, quote = FALSE)
 
 
 # ── write income_pre_git.csv ──────────────────────────────────────────────────
@@ -543,7 +547,9 @@ pre_git_rows <- do.call(rbind, lapply(ctries, function(ctry) {
     stringsAsFactors = FALSE
   )
 }))
-write.csv(pre_git_rows, "../data/income_pre_git_legacy.csv", row.names = FALSE)
+pg_cols <- c("p10","p50","p99","p99.9","p99.99","p99.999")
+pre_git_rows[, pg_cols] <- lapply(pre_git_rows[, pg_cols], round, digits = 0)
+write.csv(pre_git_rows, "../data/income_pre_git_legacy.csv", row.names = FALSE, quote = FALSE)
 
 
 # ── load wealth data ──────────────────────────────────────────────────────────
@@ -655,7 +661,9 @@ wrows <- do.call(rbind, lapply(ctries, function(ctry) {
     stringsAsFactors = FALSE
   )
 }))
-write.csv(wrows, "../data/wealth_legacy.csv", row.names = FALSE)
+wlth_cols <- grep("^wealth_", names(wrows), value = TRUE)
+wrows[, wlth_cols] <- lapply(wrows[, wlth_cols], round, digits = 0)
+write.csv(wrows, "../data/wealth_legacy.csv", row.names = FALSE, quote = FALSE)
 
 
 # ── write wealth_world.csv ────────────────────────────────────────────────────
@@ -670,7 +678,9 @@ wworld_df <- data.frame(
   wealth_2080  = wlth_by_year[["2080"]][["World"]],
   wealth_2100  = wlth_by_year[["2100"]][["World"]]
 )
-write.csv(wworld_df, "../data/wealth_world_legacy.csv", row.names = FALSE)
+wwld_cols <- grep("^wealth_", names(wworld_df), value = TRUE)
+wworld_df[, wwld_cols] <- lapply(wworld_df[, wwld_cols], round, digits = 0)
+write.csv(wworld_df, "../data/wealth_world_legacy.csv", row.names = FALSE, quote = FALSE)
 
 message("Done. Legacy files written to data/")
 
@@ -721,7 +731,7 @@ e3bp_world <- suppressWarnings(as.numeric(unlist(e3bp[-(1:4), 2])))
 dividend <- setNames(e3bp_world, as.character(e3bp_years))
 
 simul$dividend <- dividend[as.character(simul$year)]
-simul$income   <- simul$yp_recomp - simul$ypt + simul$dividend
+simul$income   <- simul$yp_recomp - simul$ypt + simul$dividend # yp_recomp = diinc
 
 # ---- Variant: add GJF TOTAL revenues (E2), not the post-reinvestment dividend
 #
@@ -770,7 +780,21 @@ e2_per_adult <- sapply(yrs_all, function(y) {
 })
 
 simul$revenue_pa <- e2_per_adult[as.character(simul$year)]
-simul$income_full_rev <- simul$yp_recomp - simul$ypt + simul$revenue_pa
+simul$income_full_rev <- simul$yp_recomp - simul$ypt + simul$revenue_pa # uses E2 instead of E3 for the dividend: E2 includes reinvested funds
+
+# Enforce monotonicity on bottom 99 percentiles per (country, year): the FG/Bothe
+# input has small local non-monotonicities at decile boundaries (visible in
+# IT around g=10, g=20) which propagate downstream. We sort the values at
+# gpercentile < 99 ascending within each country-year column, keeping the
+# gpercentile labels fixed. The top 1% (g >= 99) is left untouched.
+sort_bottom99 <- function(d, value_cols, p_col = "gpercentile",
+                          country_col = "country") {
+  for (ctry in unique(d[[country_col]])) {
+    r <- which(d[[country_col]] == ctry & d[[p_col]] < 99)
+    for (vc in value_cols) d[r, vc] <- sort(d[r, vc], na.last = TRUE)
+  }
+  d
+}
 
 # Wide format: one row per (country, gpercentile), one column per year.
 yrs   <- sort(unique(simul$year))
@@ -781,7 +805,10 @@ yr_cols <- paste0("income.", yrs)
 wide <- wide[, c("country", "p1", yr_cols)]
 names(wide) <- c("country", "gpercentile", paste0("income_", yrs))
 wide <- wide[order(wide$country, wide$gpercentile), ]
-write.csv(wide, "../data/income.csv", row.names = FALSE)
+wide <- sort_bottom99(wide, paste0("income_", yrs))
+wide_inc_cols <- paste0("income_", yrs)
+wide[, wide_inc_cols] <- lapply(wide[, wide_inc_cols], round, digits = 0)
+write.csv(wide, "../data/income.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ../data/income.csv: %d rows x %d cols (post-GIT, dividend E3bp)",
                 nrow(wide), ncol(wide)))
 
@@ -792,7 +819,9 @@ yr_cols2 <- paste0("income_full_rev.", yrs)
 wide2 <- wide2[, c("country", "p1", yr_cols2)]
 names(wide2) <- c("country", "gpercentile", paste0("income_", yrs))
 wide2 <- wide2[order(wide2$country, wide2$gpercentile), ]
-write.csv(wide2, "../data/income_full_revenues.csv", row.names = FALSE)
+wide2 <- sort_bottom99(wide2, paste0("income_", yrs))
+wide2[, wide_inc_cols] <- lapply(wide2[, wide_inc_cols], round, digits = 0)
+write.csv(wide2, "../data/income_full_revenues.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ../data/income_full_revenues.csv: %d rows x %d cols (post-GIT, full GJF revenue E2)",
                 nrow(wide2), ncol(wide2)))
 
@@ -806,6 +835,13 @@ for (f in src_files) {
   d <- read.csv(f, check.names = FALSE)
   num_cols <- sapply(d, is.numeric)
   d[num_cols] <- lapply(d[num_cols], round, digits = 0)
-  write.csv(d, file.path("data", basename(f)), row.names = FALSE)
+  write.csv(d, file.path("data", basename(f)), row.names = FALSE, quote = FALSE)
 }
 message("Done. Rounded files written to code_simulator/data/")
+
+
+# SC45k = ((gdp_it_2025 * (65/75) + 45000 * (10/75)) / gdp_it_2035)*SC2
+# SC30k = ((gdp_it_2025 * (65/75) + 30000 * (10/75)) / gdp_it_2035)*SC2
+# SC15k = ((gdp_it_2025 * (65/75) + 15000 * (10/75)) / gdp_it_2035)*SC2
+# ((gdp_it_2025 * (65/75) + 30000 * (10/75)) / gdp_it_2025)-1 # SC30k with linear convergence: -3.7%
+# ((gdp_it_2025 * (65/75) + 15000 * (10/75)) / gdp_it_2025)-1 # SC15k with linear convergence: -8.5%

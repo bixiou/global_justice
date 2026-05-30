@@ -129,7 +129,7 @@ income = sdiinc · nni / diff  −  ypt  +  dividend[year]
 
 The **Global Wealth Tax `wpt` is not subtracted from income** — it is a stock tax on wealth, not a flow tax on income, and the simulator itself routes `wpt` into the wealth equation, not the income equation. Subtracting it produced ~7,000 negative-income cells at top percentiles (where annual wealth-tax liability exceeded annual income). Its revenue is fed back to households through `dividend[year]`.
 
-The dividend is read from sheet `E3bp` ("Global Justice Fund Expenses: Country Dividends, 2025 Euros PPP") of `Botheetal2026AppendixMacro.xlsx`. Values are uniform across countries by construction (equal-per-capita worldwide). It is funded by total GJF revenue (sheet `E2a` = Global Wealth Tax + Global Income Tax + World Sovereign Fund investment income) minus reinvestment back into the WSF (sheet `E3c`), so it captures **both** the year's tax flows **and** the investment return on the accumulated wealth-tax principal.
+The dividend is read from sheet `E3bp` ("Global Justice Fund Expenses: Country Dividends, 2025 Euros PPP") of `Botheetal2026AppendixMacro.xlsx`. Values are uniform across countries by construction (equal-per-capita worldwide). It is funded by total GJF revenue (sheet `E2a` = Global Wealth Tax + Global Income Tax + World Sovereign Fund investment income) minus reinvestment back into the WSF (sheet `E3c`). It captures **both** the year's tax flows **and** the investment return on the accumulated wealth-tax principal.
 
 For year 2025 the simulation loop has not yet run, so `ypt = 0` and `dividend[2025] = 0`, and the row reduces to `sdiinc · nni / diff` (pre-tax-and-transfer disposable income).
 

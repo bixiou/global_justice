@@ -104,8 +104,8 @@ residual_def <- list(
   OI = setdiff(SSEA, main_countries))
 
 # ── FG 2023 (slim if available, full otherwise) ───────────────────────────
-fg_path <- "data/FisherGethin/fisher-gethin-2023-slim.dta"
-if (!file.exists(fg_path)) fg_path <- "data/FisherGethin/fisher-gethin-redistribution.dta"
+fg_path <- "../data/FisherGethin/fisher-gethin-2023-slim.dta"
+if (!file.exists(fg_path)) fg_path <- "../data/FisherGethin/fisher-gethin-redistribution.dta"
 message("Reading FG: ", fg_path)
 fg <- as.data.frame(read_dta(fg_path))
 if ("year" %in% names(fg)) fg <- fg[fg$year == 2023, ]
@@ -116,7 +116,7 @@ for (v in c("a_pre","a_pre_cap","mean","tax_dir_pit","tax_dir_wea","tax_cit","ta
   fg[[v]] <- zero_na(fg[[v]])
 
 # WID mprico/NNI (= corporate primary income / NNI) per country, latest year ≤ 2023
-wid_path <- "data/WID/wid-mprico-nni.csv"
+wid_path <- "../data/WID/wid-mprico-nni.csv"
 mprico_share <- if (file.exists(wid_path)) {
   w <- read.csv(wid_path)
   setNames(w$mprico_share, w$country)
@@ -144,7 +144,7 @@ imputed_frac_country <- function(ctry) {
 
 # ── Bothe 2025 macro and ypt ──────────────────────────────────────────────
 message("Reading Bothe 2025...")
-simul   <- as.data.frame(read_dta("data/Bothe/distribution_simul.dta"))
+simul   <- as.data.frame(read_dta("../data/Bothe/distribution_simul.dta"))
 macro25 <- unique(simul[simul$year == 2025, c("country","nni","gdp","cfc")])
 macro25$cfc_per_cap  <- macro25$cfc * macro25$gdp
 nni_2025    <- setNames(macro25$nni, macro25$country)
@@ -254,16 +254,40 @@ all_rows <- rbind(main_rows, residual_rows)
 all_rows$gpercentile <- sapply(all_rows$gperc, gperc_to_lb)
 all_rows <- all_rows[order(all_rows$country, all_rows$gpercentile), ]
 
-# (1) cash_income_2025.csv
+# Enforce monotonicity on bottom 99 percentiles per country: the raw FG data
+# has local non-monotonicities at decile boundaries (e.g. IT g=10, g=20). We
+# sort the values at gpercentile < 99 ascending within each country, keeping
+# the gpercentile labels and the top-1% breakdown untouched. `tied_cols` are
+# reordered on the same permutation as `value_cols[1]` so paired columns
+# stay aligned; remaining `value_cols` are sorted independently.
+sort_bottom99 <- function(d, value_cols, tied_cols = character(),
+                          p_col = "gpercentile", country_col = "country") {
+  for (ctry in unique(d[[country_col]])) {
+    r <- which(d[[country_col]] == ctry & d[[p_col]] < 99)
+    for (vc in value_cols) {
+      ord <- order(d[r, vc], na.last = TRUE)
+      d[r, vc] <- d[r, vc][ord]
+      if (vc == value_cols[1])
+        for (tc in tied_cols) d[r, tc] <- d[r, tc][ord]
+    }
+  }
+  d
+}
+all_rows <- sort_bottom99(all_rows, "cash_income_2025",
+                          tied_cols = "imputed_component")
+
+# (1) cash_income_2025.csv (income values rounded to integer EUR)
 out <- all_rows[, c("country","gpercentile","cash_income_2025")]
-write.csv(out, "data/cash_income_2025.csv", row.names = FALSE)
+out$cash_income_2025 <- round(out$cash_income_2025, 0)
+write.csv(out, "../data/cash_income_2025.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote data/cash_income_2025.csv: %d rows (%d countries)",
                 nrow(out), length(unique(out$country))))
 
 # (2) imputed_income_2025.csv  =  cash_income_2025  +  imputed_frac · a_pre_cap
 all_rows$imputed_income_2025 <- all_rows$cash_income_2025 + all_rows$imputed_component
 out_imp <- all_rows[, c("country","gpercentile","imputed_income_2025")]
-write.csv(out_imp, "data/imputed_income_2025.csv", row.names = FALSE)
+out_imp$imputed_income_2025 <- round(out_imp$imputed_income_2025, 0)
+write.csv(out_imp, "../data/imputed_income_2025.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote data/imputed_income_2025.csv: %d rows", nrow(out_imp)))
 
 # (3) cash_income.csv  — time series 2025–2100, anchored to Bothe SC projection
@@ -273,7 +297,7 @@ message("Building cash_income.csv time series 2025-2100...")
 # Prefer income.csv if regenerated via prepare_data.R, else fall back to
 # income_full_revenues.csv (same 57 territories, post-GIT with full GJF revenue
 # distributed). Either captures the Bothe SC scenario inequality dynamics.
-post_GIT_path <- if (file.exists("data/income.csv")) "data/income.csv" else "data/income_full_revenues.csv"
+post_GIT_path <- if (file.exists("../data/income.csv")) "../data/income.csv" else "../data/income_full_revenues.csv"
 message("Reading post-GIT income from: ", post_GIT_path)
 inc_post_GIT <- read.csv(post_GIT_path, check.names = FALSE)
 yr_cols <- grep("^income_", colnames(inc_post_GIT), value = TRUE)
@@ -298,7 +322,12 @@ for (col in yr_cols) {
 inc_post_GIT <- inc_post_GIT[!is.na(inc_post_GIT$ratio), ]
 
 ts_out <- inc_post_GIT[, c("country","gpercentile", yr_cols)]
-write.csv(ts_out, "data/cash_income.csv", row.names = FALSE)
+# Re-sort bottom 99 percentiles per (country, year) — the cash-2025 anchor
+# was already sorted, but multiplying by income.csv ratios can re-introduce
+# small local crossings if income.csv ratios are non-monotone across percentiles.
+ts_out <- sort_bottom99(ts_out, yr_cols)
+ts_out[, yr_cols] <- lapply(ts_out[, yr_cols], round, digits = 0)
+write.csv(ts_out, "../data/cash_income.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote data/cash_income.csv: %d rows × %d cols", nrow(ts_out), ncol(ts_out)))
 
 # (4) cash_income_world.csv  — global distribution at 100 percentile ranks × DIST_YEARS
@@ -309,7 +338,7 @@ DIST_YEARS <- c(2025, 2030, 2035, 2050, 2080, 2100)
 
 # Get country populations from Bothe simul for each year
 suppressPackageStartupMessages(library(haven))
-simul_pop <- as.data.frame(read_dta("data/Bothe/distribution_simul.dta"))
+simul_pop <- as.data.frame(read_dta("../data/Bothe/distribution_simul.dta"))
 simul_pop <- unique(simul_pop[, c("country","year","pop")])
 
 # gpercentile width (within-country share of population)
@@ -325,25 +354,31 @@ world_dist <- lapply(DIST_YEARS, function(yr) {
   col <- paste0("income_", yr)
   if (!col %in% names(ts_out)) return(NULL)
   pop_yr <- setNames(simul_pop$pop[simul_pop$year == yr], simul_pop$country[simul_pop$year == yr])
-  d <- data.frame(
-    country = ts_out$country,
-    income  = ts_out[[col]],
-    weight  = ts_out$width * pop_yr[ts_out$country])
-  d <- d[!is.na(d$income) & d$income > 0 & !is.na(d$weight), ]
+  d <- data.frame(income = ts_out[[col]],
+                  weight = ts_out$width * pop_yr[ts_out$country])
+  d <- d[!is.na(d$income) & d$income > 0 & !is.na(d$weight) & d$weight > 0, ]
   d <- d[order(d$income), ]
-  d$cum_w <- cumsum(d$weight)
-  total   <- d$cum_w[nrow(d)]
-  # for each global percentile rank 1..100, find weighted-rank income (mean within bin)
-  out <- numeric(100)
-  for (p in 1:100) {
-    lo <- (p - 1) / 100 * total
-    hi <-  p       / 100 * total
-    mask <- d$cum_w > lo & d$cum_w <= hi
-    out[p] <- if (any(mask)) sum(d$income[mask] * d$weight[mask]) / sum(d$weight[mask]) else NA_real_
+  W       <- sum(d$weight)
+  d$cw_hi <- cumsum(d$weight) / W
+  d$cw_lo <- c(0, head(d$cw_hi, -1))
+  # Overlap-based binning: a cell that spans more than one bin contributes
+  # to each bin in proportion to its cw-overlap, so no bin is ever empty.
+  bin_lo <- (0:99) / 100; bin_hi <- (1:100) / 100
+  out <- vapply(1:100, function(p) {
+    ov <- pmax(0, pmin(d$cw_hi, bin_hi[p]) - pmax(d$cw_lo, bin_lo[p]))
+    s  <- sum(ov)
+    if (s > 0) sum(d$income * ov) / s else NA_real_
+  }, numeric(1))
+  if (any(is.na(out))) {
+    ok <- which(!is.na(out))
+    if (length(ok) >= 2) out <- approx(ok, out[ok], xout = 1:100, rule = 2)$y
   }
   out
 })
 names(world_dist) <- paste0("income_", DIST_YEARS)
 world_df <- data.frame(gpercentile = 1:100, world_dist, check.names = FALSE)
-write.csv(world_df, "data/cash_income_world.csv", row.names = FALSE)
+wld_inc_cols <- grep("^income_", names(world_df), value = TRUE)
+world_df[, wld_inc_cols] <- lapply(world_df[, wld_inc_cols], round, digits = 0)
+write.csv(world_df, "../data/cash_income_world.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote data/cash_income_world.csv: 100 rows × %d cols", ncol(world_df)))
+# TODO! add SI? Change scenarios?
