@@ -1,4 +1,42 @@
-# Global Justice Situator
+# Global Justice Situator & Discrete Choice Experiment
+
+## Income distributions for the questionnaire
+
+We use 4 types of income distributions:
+- IT25: Italy 2025 to situate the respondent
+- IT35: Italy 2035 to compute their own future income in a given scenario
+- IT100: Italy 2100 to show the end level of within-country inequality
+- World100: World 2100 to show the end level of between-country inequality
+We use an income concept relevant to the respondents: gross cash income after direct taxes and monetary transfers (or "income"/"cash income" for short). 
+
+We estimate the distributions in the SC scenario as follows:
+- IT25: We first use Fisher-Post & Gethin data to recover cash income distributions. We use 2019 data and first define:
+net cash income pre-GIT = pretax - all taxes + govt cash transfers - imputed rents and retained earnings
+all taxes = tax_dir_pit + tax_dir_wea + tax_cit + tax_soc + tax_ind (PIT, wealth, CIT, social contrib, VAT)
+We include tax_ind ~ VAT because pretax income is at market prices, so we need to subtract VAT from it to recover the NNI at factor prices (to which cash income sums).
+Imputed rents and retained earnings are estimated at respectively 3.5% of capital and 50% of capital income (see below for sources). TODO
+
+At this stage, we re-order the distribution since adding/subtracting terms to pretax sometimes makes it non-monotone. 
+We then scale net cash income to 2025 NNI from Bothe et al. data and add depreciation (CFC times the capital share) to arrive at gross cash income pre-GIT. Finally, we subtract the global income tax and add country dividends modeled as a global equal cash transfer (given in Bothe sheet E3bp). 
+cash income = (net cash income pre-GIT 2019 shares)*NNI + CFC - GIT + dividend
+- IT35: We adjust NNI, CFC, GIT and dividend in the previous formula. We don't model extra taxes needed to achieve the expansion of public spending given that the change is limited for IT between 2025 and 2035. TODO: adjust pretax or diinc for the variation in within-country ineq
+- IT100, World100: While cash income makes sense at the individual level to understand the short-term change in one's purchasing power; "full income" inclusive of public services makes more sense to compare standards of living between countries and across time or scenarios (especially when they vastly differ in terms of public provision). Therefore, for 2100 we use full income, taken from Bothe as diinc (corresponding to national secondary income after taxes and all transfers, including in-kind public services and collective expenditures) minus GIT + country dividends (both very small in 2100 and zero in 2025). But to make both IT100 and World100 comparable to IT25 and IT35, we re-scale them by the ratio of average cash income over average full income in 2025 IT. In other words we use:
+rescaled full income = (full income (diinc) - GIT + dividend)*avg_cash_income_2025_IT/avg_full_income_2025_IT
+
+Other scenarios in IT100, World100:
+Note that Bothe et al. give future distributions only for the SC scenario. This is how we proceed for other scenarios:
+- PI: we assume that inequality does not change and simply rescale every country's distribution by the growth in GDP in PI scenario according to sheet A0pi of Chancel's Appendix. There is no GIT nor dividend in this scenario.
+- For the other scenarios, we assume the same transfers as in SC in proportion of GDP, and simply rescale the country distributions by a given factor: PC=2, SC1=1, SC45k=0.75, SC30k=0.5, SC15k=0.25. 
+To aggregate country distributions into the world one, we use higher population projections for PI and PC (UN medium, Chancel sheet Z0b) than for SC (Z0a).
+
+Other scenarios in IT35:
+- PC: TODO
+- PI: we rescale IT25 by 1.4, an approximation of growth given by Chancel sheet A0pi
+- SC45k: we rescale it IT35 by GDP_IT25/GDP_IT35 since 2025 GDP this roughly corresponds to the GDP in 2035 in scenario SC45k from sheet A0, and this makes it more easily interpretable. We also express the other two as a deviation from current GDP:
+- SC30k: we rescale it IT35 by 0.95*GDP_IT25/GDP_IT35
+- SC15k: we rescale it IT35 by 0.9*GDP_IT25/GDP_IT35
+
+# Situator
 
 A webpage that shows users how their income evolves under the **Sustainable Convergence (SC)** scenario from Chancel et al. (2026) and Bothe et al. (2026), part of the Global Justice Report.
 
@@ -238,10 +276,33 @@ cash_income[c,g] = pretax_NI[c,g]
                   − tax_soc[c,g]                                  ← social contributions (employee + employer)
                   − tax_ind[c,g]                                  ← indirect taxes (VAT, excise) — see note on VAT
                   + gov_soc[c,g]                                  ← monetary cash transfers (pensions, UI, family benefits)
-                  − imputed_frac[c] · a_pre_cap[c,g]              ← imputed rent + retained earnings, country-specific (see below)
+                  − RE[c,g]                                       ← retained earnings (proportional to capital income; see below)
+                  − IR[c,g]                                       ← imputed rent (proportional to housing wealth; see below)
                   + (a_pre_cap[c,g] / mean_cap[c]) · CFC[c]       ← CFC addback (allocated proportional to capital income share)
                   − ypt[c,g]                                      ← Global Income Tax (= 0 in 2025; GJF starts in 2026)
 ```
+
+The two non-cash subtractions use different distributional bases:
+
+```
+RE[c,g] = RETENTION_RATE · mprico[c]/NNI[c] · NNI[c] · (a_pre_cap[c,g] / mean_cap[c])
+         ← proportional to capital income: retained earnings scale with equity holdings
+
+IR[c,g] = RENTAL_YIELD · NNI[c] · shweal[c,g] · H(gp[g]) / Σ_j[shweal[c,j] · H(gp[j]) · diff[j]]
+         ← proportional to housing wealth: housing is relatively more important for middle classes
+```
+
+`H(gp)` = housing gradient, declining across the distribution (housing is a smaller fraction of total wealth at higher wealth levels):
+
+| gp range | H factor | Interpretation |
+|---|---:|---|
+| gp < 50 | 1.5× | B50: mostly housing wealth |
+| 50 ≤ gp < 90 | 1.2× | M40: near-average housing share |
+| 90 ≤ gp < 99 | 0.8× | p90–99: more financial assets |
+| 99 ≤ gp < 99.9 | 0.4× | T1: primarily financial/equity |
+| gp ≥ 99.9 | 0.2× | Top 0.1%+: near-zero housing share |
+
+The normalisation ensures `Σ_g IR[c,g] · diff[g] = RENTAL_YIELD · NNI[c]` exactly. `shweal` (wealth shares by gpercentile) is from Bothe's `distribution_simul.dta` year 2025.
 
 All `tax_*`, `gov_*`, `a_pre`, `a_pre_cap` are from Fisher-Post & Gethin 2023 (latest available year), normalized per-capita. CFC and 2025 NNI per-capita scale come from Bothe's `distribution_simul.dta`. The 2023→2025 step computes each FG component as a dimensionless share of country NNI in 2023 LCU, then multiplies by Bothe's 2025 NNI per-capita (EUR PPP 2025) — sidestepping LCU→EUR-PPP conversion and assuming the cash-to-NNI ratio is stable over the 2-year gap.
 
@@ -252,7 +313,7 @@ All `tax_*`, `gov_*`, `a_pre`, `a_pre_cap` are from Fisher-Post & Gethin 2023 (l
 | `a_pre` | Pretax national income (DINA `ptinc`): labour + capital, before income tax, after employee social contributions to pensions/UI, including pension and UI benefits received. Sums to NNI across percentiles by construction. |
 | `a_pre_lab` | **Labour-income** component of `a_pre`: wages and salaries (gross of employer social contributions), self-employment labour share, government wages, pension and UI benefits. |
 | `a_pre_cap` | **Capital-income** component of `a_pre`: dividends, interest, rents received, **imputed rent** on owner-occupied housing, **retained corporate earnings** attributed to shareholders, the capital share of mixed (self-employment) income, imputed pension/insurance investment income, and net public-sector property income allocated to households. Identity: `a_pre = a_pre_lab + a_pre_cap` (verified to machine precision). Country-aggregate `a_pre_cap` is roughly 20–35 % of NNI; at the percentile level the capital share rises sharply with income (FR 2023: ~10 % of pretax at p50, ~30 % at p99, ~95 % at p127). |
-| `a_pre_cap_crp` | **Stock** of corporate-equity wealth per capita at the gpercentile (not a flow): used in the WID Comparator's stockrate × stock-holdings imputation. Magnitude is ~10–100× annual `a_pre`. We don't use it directly because our `imputed_frac[c]` is applied to the flow `a_pre_cap`. |
+| `a_pre_cap_crp` | **Stock** of corporate-equity wealth per capita at the gpercentile (not a flow): used in the WID Comparator's stockrate × stock-holdings imputation. Magnitude is ~10–100× annual `a_pre`. We don't use it directly; retained earnings are subtracted via `mprico/NNI · cap_share_g`, and imputed rent via Bothe `shweal`. |
 
 **Dimensions:** 57 territories (48 main + 9 residual WID regions) × 127 gpercentiles = 7,239 rows × 3 columns: `country`, `gpercentile`, `cash_income_2025` (EUR PPP 2025/year, per capita).
 
@@ -282,27 +343,25 @@ By contrast, `gov_soc` (the variable we *do* include) is a true cash transfer: i
 
 Including `gov_oth` would double-count the imputed-collective-consumption portion that the user's formula explicitly excludes (alongside imputed rent and retained earnings). So we drop it from the transfer term.
 
-#### Country-specific imputed fraction (replaces the flat 0.33)
+#### Non-cash capital subtractions: retained earnings and imputed rent
 
-`a_pre_cap` includes imputed rent and retained earnings (DINA convention). Neither is published per-percentile in FG, so we approximate their combined value as `imputed_frac[c] × a_pre_cap[c,g]`, with `imputed_frac[c]` computed country-by-country from WID macro data, following the WID Income & Wealth Comparator methodology (sheet `mprico_p999i` divided by `mnninc_p999i`):
+`a_pre_cap` includes both retained corporate earnings and imputed rent on owner-occupied housing (DINA convention). These are treated separately because they have different distributional bases:
 
+**Retained earnings** scale with equity holdings, which themselves scale with capital income. So the retained earnings subtraction is proportional to `a_pre_cap`:
 ```
-imputed_frac[c] = (RETENTION_RATE · mprico[c]/NNI[c] + IMPUTED_RENT_SHARE_NNI) / capital_share_FG[c]
+RE[c,g] = RETENTION_RATE · mprico[c]/NNI[c] · NNI[c] · cap_share_g[g]
 ```
+`RETENTION_RATE = 0.5` (dividend payout ratio ≈ 50 %). `mprico[c]/NNI[c]` is fetched from WID (`data/WID/wid-mprico-nni.csv`, 28 of 48 main countries; fallback: median 0.137). `cap_share_g[g] = a_pre_cap[g] / mean_cap` (FG-derived).
 
-with `RETENTION_RATE = 0.5` (corporate dividend payout ratio ≈ 50 %, so retained earnings ≈ half of corporate primary income) and `IMPUTED_RENT_SHARE_NNI = 0.04` (PSZ 2018, GGLP 2018 average for owner-occupied imputed rent), capped to [0.10, 0.60]. `capital_share_FG[c]` is the FG country aggregate `Σ(a_pre_cap × weight) / Σ(a_pre × weight)`.
+**Imputed rent** should be proportional to housing wealth, not capital income — housing is a larger fraction of total wealth for middle classes than for the wealthy, who hold mostly financial assets. The subtraction is:
+```
+IR[c,g] = RENTAL_YIELD · NNI[c] · shweal[c,g] · H(gp[g]) / Σ_j[shweal[c,j] · H(gp[j]) · diff[j]]
+```
+where `shweal[c,g]` is the wealth share from Bothe 2025 and `H(gp)` is the housing gradient (see formula section). This ensures the country aggregate equals exactly `RENTAL_YIELD · NNI[c]`, with more subtracted from mid-distribution gpercentiles (which hold proportionally more housing) than from the very top (which holds mostly equities).
 
-Data: `data/WID/wid-mprico-nni.csv` (28 of 48 main countries; remainder use the median `mprico/NNI = 0.137` as fallback). Fetched via the WID R package (`install.packages("wid")`, `download_wid(indicators=c("mprico","mnninc"), …)`); see `code_simulator/build_cash_income_2025.R` for the regeneration step.
+`RENTAL_YIELD = 0.035` — sources:
 
-Resulting `imputed_frac` across the 28 WID-covered countries:
-
-| | Min | 1st Qu | Median | Mean | 3rd Qu | Max |
-|---|---:|---:|---:|---:|---:|---:|
-| `imputed_frac[c]` | 0.12 (MX, CO) | 0.28 | 0.31 | 0.35 | 0.39 | 0.60 (NO, capped) |
-
-Sources for the 4 % imputed-rent and 50 % retention defaults:
-
-| Source | Country / scope | Imputed rent / NNI | Retention rate (1 − payout) |
+| Source | Country / scope | Imputed rent / NNI | Retention rate |
 |---|---|---:|---:|
 | Piketty, Saez, Zucman 2018, QJE, Tab. II | US, 1980–2014 avg | 3.5 % | ~50 % |
 | Garbinti, Goupille-Lebret, Piketty 2018 | FR, 1970–2014 | 3.6 % | ~50 % |
@@ -344,9 +403,9 @@ WID's [Income & Wealth Comparator](https://github.com/world-inequality-database/
 
 1. **Direction of the adjustment.** WID starts from pretax national income (ptinc) and *asks the user* to add their own imputed rent and stock-attributed retained earnings, so the user's stated cash income is "completed" up to the DINA pretax concept. Our approach goes the *other* direction — subtracts these from DINA to get a cash distribution without asking. The two are conceptually equivalent and give the same percentile ranking; ours is what you compute when you want a "cash distribution" without per-user queries.
 
-2. **Retained earnings: country-specific stockrate.** WID computes a country-specific retention rate from corporate primary income vs corporate equity. We *implemented* a parallel approach: fetch `mprico_p999i` and `mnninc_p999i` from WID, then `imputed_frac[c] = (0.5 · mprico/NNI + 0.04) / capital_share_FG[c]`. This replaces the previous flat 0.33 with country-specific values (range 0.12–0.60, median 0.31 across 28 countries with WID data; uniform 0.137 median fallback for the other 20). See "Country-specific imputed fraction" section above for details.
+2. **Retained earnings: country-specific stockrate.** WID computes a country-specific retention rate from corporate primary income vs corporate equity. We implement a parallel approach: `RE[c,g] = RETENTION_RATE · mprico[c]/NNI[c] · NNI[c] · cap_share_g[g]` (proportional to capital income, country-specific rate from WID `mprico`/`mnninc`; fallback: median 0.137).
 
-3. **Imputed rent.** WID asks the user directly. For a generic distribution, the WID convention has imputed rent ≈ 3–4 % of NNI worldwide (PSZ 2018, GGLP 2018), allocated proportional to housing wealth. We bundle it into `imputed_frac[c]` as a uniform `IMPUTED_RENT_SHARE_NNI = 0.04` additive term (then divided by the country's capital share). A country-specific refinement would fetch WID housing-wealth data, but the 4 % default is small enough that this is a minor effect.
+3. **Imputed rent.** WID asks the user directly and allocates imputed rent proportional to housing wealth (PSZ 2018, GGLP 2018, BCG 2022). We follow this: `IR[c,g] = RENTAL_YIELD · NNI[c] · housing_norm[c,g]`, where `housing_norm` distributes the total 3.5 % of NNI across gpercentiles proportionally to `shweal[c,g] · H(gp[g])` (Bothe 2025 wealth shares × a housing gradient that declines from 1.5× for the B50 to 0.2× for the top 0.1%). We use 3.5 % (arithmetic mean of PSZ/GGLP/BCG values of 3.5 %, 3.6 %, 3.5 %) rather than the previous 4 %.
 
 4. **Production taxes (VAT).** WID only adjusts when comparing *across* countries — within a country, VAT affects everyone the same and doesn't change percentile rank. Our formula subtracts VAT always (because we're producing an absolute cash-income series, not a percentile-rank tool, and cross-country comparability matters). The mechanism is identical: WID's `coef_factorprice = 1 − yptxgo / ynninc` (production taxes ÷ NNI) is applied at the country level and uniformly across percentiles; our FG-based subtraction is at the percentile level (using FG's regressivity assumption that indirect taxes scale with consumption). The country-aggregate is the same.
 

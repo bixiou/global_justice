@@ -45,3 +45,7 @@ Data was fetched on May 24, 2026:
 - After completing a TODO item, tick its checkbox in `TODO.md`.
 - When referencing `@Folder`, analyze files to ensure consistency between the cleaning script and the analysis script.
 - Don't compile .tex files in `/papers` but in `papers/build/`: there should be no auxiliary files in `/papers`.
+- Export all income distributions .csv into `/distributions` and all figurers to `/figures`.
+- Name all sections in a .R file using "##### n. Section #####".
+- Always put only one space between R text and never indent/align things over different lines, e.g. write "obj <- NA" instead of "obj    <- NA".
+- Always assume (or set) the following working directory: `/code_simulator`.

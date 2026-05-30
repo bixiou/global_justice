@@ -46,35 +46,35 @@
 
 suppressPackageStartupMessages({library(haven)})
 
-# Country-specific "imputed fraction of capital income"
-# ─────────────────────────────────────────────────────
-# Per country c, the share of capital income that is *imputed* (not received
-# as cash by the household) is the sum of:
-#   • Retained-earnings share of NNI ≈ RETENTION_RATE · mprico[c] / NNI[c]
-#     where mprico is corporate primary income (WID) and RETENTION_RATE ≈ 0.5
-#     reflects a typical dividend payout ratio (~50%).
-#   • Imputed-rent share of NNI = IMPUTED_RENT_SHARE_NNI ≈ 4 % (PSZ 2018,
-#     GGLP 2018 averages).
+# Non-cash components of a_pre_cap: retained earnings + imputed rent
+# ──────────────────────────────────────────────────────────────────
+# Two distinct components, treated separately:
 #
-# Divide by the country's capital share of NNI (from FG) to express this as a
-# fraction of a_pre_cap, the form the formula consumes:
+# 1. Retained earnings: proportional to capital income a_pre_cap.
+#    RE[c,g] = RETENTION_RATE · mprico[c]/NNI[c] · NNI[c] · cap_share_g[g]
+#    where mprico (WID) = corporate primary income, RETENTION_RATE ≈ 0.5
+#    (typical payout ratio). Fallback: median mprico/NNI ≈ 0.135.
 #
-#   imputed_frac[c] = (RETENTION_RATE · mprico[c]/NNI[c] + IMPUTED_RENT_SHARE_NNI)
-#                     / capital_share_FG[c]
-#
-# For countries without WID mprico (20 of 48 mainly EM/LIC), fallback to the
-# median mprico/NNI across the 28 countries we do have (~0.135). The result is
-# capped at [0.10, 0.60] to avoid extreme values.
-#
-# The uniform 0.33 was the previous default (PSZ 2018 US value); per-country
-# variation around it is ±0.10 typically. See README "Comparison with the WID
-# Comparator methodology" for full derivation.
+# 2. Imputed rent: proportional to housing wealth, not capital income.
+#    IR[c,g] = RENTAL_YIELD · NNI[c] · housing_norm[c,g]
+#    where RENTAL_YIELD = 3.5 % of NNI (PSZ 2018, GGLP 2018, BCG 2022 avg)
+#    and housing_norm[c,g] = shweal[c,g] · H(gp[g]) / Σ_j[shweal[c,j]·H(gp[j])·diff[j]]
+#    so that Σ_g IR[c,g]·diff[g] = RENTAL_YIELD · NNI[c] exactly.
+#    shweal (wealth shares) from Bothe distribution_simul.dta 2025.
+#    H(gp) = housing gradient — housing is a larger share of wealth for
+#    middle classes than for the top, per empirical literature:
+#      gp < 50  → 1.5×  (B50: mostly housing)
+#      gp < 90  → 1.2×  (M40: near-average housing share)
+#      gp < 99  → 0.8×  (p90-99: more financial assets)
+#      gp < 99.9 → 0.4× (T1: mostly financial/equity)
+#      gp ≥ 99.9 → 0.2× (top 0.1%+: near-zero housing share)
 
-RETENTION_RATE          <- 0.5     # share of corporate primary income retained
-IMPUTED_RENT_SHARE_NNI  <- 0.04    # owner-occupied imputed rent (~ 4% of NNI)
-IMPUTED_FRAC_FLOOR      <- 0.10
-IMPUTED_FRAC_CEILING    <- 0.60
-IMPUTED_FRAC_FALLBACK   <- 0.33    # used when neither WID nor capital share is computable
+RETENTION_RATE <- 0.5     # corporate dividend payout ≈ 50%, so retained ≈ 50% of mprico
+RENTAL_YIELD   <- 0.035   # imputed rent ≈ 3.5% of NNI (PSZ 2018 3.5%, GGLP 2018 3.6%, BCG 2022 3.5%)
+
+# Housing gradient: housing wealth as multiple of country mean, by gpercentile.
+housing_gradient <- function(gp)
+  ifelse(gp < 50, 1.5, ifelse(gp < 90, 1.2, ifelse(gp < 99, 0.8, ifelse(gp < 99.9, 0.4, 0.2))))
 
 main_countries <- c(
   "DE","DK","ES","FR","GB","IT","NL","NO","SE","US","CA","AU","NZ",
@@ -133,13 +133,31 @@ cap_share_fg <- aggregate(cbind(cap_w = a_pre_cap * weight, pre_w = a_pre * weig
 cap_share_fg$cap_share <- cap_share_fg$cap_w / cap_share_fg$pre_w
 cap_share_country <- setNames(cap_share_fg$cap_share, cap_share_fg$iso)
 
-# Imputed fraction of capital income, country-specific
-imputed_frac_country <- function(ctry) {
-  ms <- if (!is.na(mprico_share[ctry])) mprico_share[ctry] else mprico_share_default
-  cs <- cap_share_country[ctry]
-  if (is.na(ms) || is.na(cs) || cs <= 0) return(IMPUTED_FRAC_FALLBACK)
-  frac <- (RETENTION_RATE * ms + IMPUTED_RENT_SHARE_NNI) / cs
-  pmin(pmax(frac, IMPUTED_FRAC_FLOOR), IMPUTED_FRAC_CEILING)
+# Retained-earnings rate: RETENTION_RATE × mprico/NNI for country/region
+re_rate_for <- function(entity) {
+  ms <- if (!is.na(mprico_share[entity])) mprico_share[entity] else mprico_share_default
+  RETENTION_RATE * if (is.na(ms)) mprico_share_default else ms
+}
+
+# Housing-wealth normalised weights for distributing imputed rent across gpercentiles.
+# Returns a vector of length(gperc_idx) such that Σ_g housing_norm[g]*diff[g] = 1,
+# so RENTAL_YIELD * NNI * housing_norm[g] gives per-adult imputed rent at gperc g.
+housing_norm_for <- function(entity, gperc_idx) {
+  wd <- wealth_dist_2025[wealth_dist_2025$country == entity, ]
+  n  <- length(gperc_idx)
+  if (nrow(wd) == 0) return(rep(0, n))
+  p1_to_gp <- function(x)
+    ifelse(x < 99,       round(x) + 1,
+    ifelse(x < 99.9,  100 + round((x - 99)  * 10),
+    ifelse(x < 99.99, 109 + round((x - 99.9) * 100),
+                      118 + round((x - 99.99) * 1000))))
+  wd$gp <- p1_to_gp(wd$p1)
+  sw  <- wd$shweal[match(gperc_idx, wd$gp)]; sw[is.na(sw)] <- 0
+  dif <- wd$diff  [match(gperc_idx, wd$gp)]; dif[is.na(dif)] <- 0.01
+  H   <- housing_gradient(sapply(gperc_idx, gperc_to_lb))
+  den <- sum(sw * H * dif, na.rm = TRUE)
+  if (den <= 0) return(rep(0, n))
+  sw * H / den
 }
 
 # ── Bothe 2025 macro and ypt ──────────────────────────────────────────────
@@ -152,6 +170,8 @@ cfc_per_cap <- setNames(macro25$cfc_per_cap, macro25$country)
 
 ypt_2025 <- simul[simul$year == 2025, c("country","p1","ypt")]
 ypt_2025$ypt <- zero_na(ypt_2025$ypt)
+wealth_dist_2025 <- simul[simul$year == 2025, c("country","p1","shweal","diff")]
+wealth_dist_2025$shweal <- zero_na(wealth_dist_2025$shweal)
 
 # ── Per-country dimensionless components ──────────────────────────────────
 compute_components <- function(sub) {
@@ -161,11 +181,10 @@ compute_components <- function(sub) {
   data.frame(
     gperc       = sub$gperc,
     factor_pre  = sub$a_pre        / mean_nni,
-    factor_cap  = sub$a_pre_cap    / mean_nni,
     factor_dir  = (sub$tax_dir_pit + sub$tax_dir_wea + sub$tax_cit) / mean_nni,
     factor_soc  = sub$tax_soc      / mean_nni,
     factor_ind  = sub$tax_ind      / mean_nni,
-    factor_trn  = sub$gov_soc / mean_nni,
+    factor_trn  = sub$gov_soc      / mean_nni,
     cap_share_g = if (mean_cap > 0) sub$a_pre_cap / mean_cap else rep(0, nrow(sub)),
     weight      = sub$weight)
 }
@@ -180,11 +199,14 @@ main_rows <- do.call(rbind, lapply(main_countries, function(ctry) {
   nni25 <- nni_2025[ctry];   cfc25 <- cfc_per_cap[ctry]
   if (is.na(nni25) || is.na(cfc25)) { warning("Bothe macro missing for ", ctry); return(NULL) }
 
-  imp_frac <- imputed_frac_country(ctry)
-  cash_factor <- with(comp,
-    factor_pre - factor_dir - factor_soc - factor_ind +
-    factor_trn - imp_frac * factor_cap)
-  cash_eur <- cash_factor * nni25 + comp$cap_share_g * cfc25
+  re_r   <- re_rate_for(ctry)
+  h_norm <- housing_norm_for(ctry, comp$gperc)
+
+  cash_eur <- with(comp,
+    (factor_pre - factor_dir - factor_soc - factor_ind + factor_trn) * nni25
+    - re_r * cap_share_g * nni25
+    - RENTAL_YIELD * h_norm * nni25
+    + cap_share_g * cfc25)
 
   ypt_c <- ypt_2025[ypt_2025$country == ctry, ]
   ypt_v <- ypt_c$ypt[match(comp$gperc, sapply(ypt_c$p1, function(x) {
@@ -196,8 +218,7 @@ main_rows <- do.call(rbind, lapply(main_countries, function(ctry) {
   ypt_v[is.na(ypt_v)] <- 0
   cash_eur <- cash_eur - ypt_v
 
-  # imputed component (added back in imputed_income_2025.csv)
-  imputed_eur <- imp_frac * comp$factor_cap * nni25
+  imputed_eur <- (re_r * comp$cap_share_g + RENTAL_YIELD * h_norm) * nni25
 
   data.frame(country = ctry, gperc = comp$gperc,
              cash_income_2025 = cash_eur,
@@ -216,27 +237,28 @@ residual_rows <- do.call(rbind, lapply(names(residual_def), function(rcode) {
     sub <- fg[fg$iso == ctry, ]
     cc  <- compute_components(sub)
     if (is.null(cc)) return(NULL)
-    imp_frac <- imputed_frac_country(ctry)
-    cc$cash_factor   <- with(cc,
-      factor_pre - factor_dir - factor_soc - factor_ind +
-      factor_trn - imp_frac * factor_cap)
-    cc$imputed_factor <- imp_frac * cc$factor_cap
+    re_r            <- re_rate_for(ctry)
+    cc$base_factor  <- with(cc, factor_pre - factor_dir - factor_soc - factor_ind + factor_trn)
+    cc$re_factor    <- re_r * cc$cap_share_g
     cc
   })
   pc <- do.call(rbind, pieces)
   if (is.null(pc)) return(NULL)
 
-  agg <- aggregate(cbind(cash_w = cash_factor * weight,
-                         imp_w  = imputed_factor * weight,
-                         w_sum  = weight,
-                         cap_w  = cap_share_g * weight) ~ gperc,
+  agg <- aggregate(cbind(base_w = base_factor * weight,
+                         re_w   = re_factor   * weight,
+                         cap_w  = cap_share_g * weight,
+                         w_sum  = weight) ~ gperc,
                    data = pc, FUN = sum)
-  agg$cash_factor_avg <- agg$cash_w / agg$w_sum
-  agg$imp_factor_avg  <- agg$imp_w  / agg$w_sum
-  agg$cap_share_avg   <- agg$cap_w  / agg$w_sum
 
-  cash_eur    <- agg$cash_factor_avg * nni25 + agg$cap_share_avg * cfc25
-  imputed_eur <- agg$imp_factor_avg  * nni25
+  # IR uses the residual region's own Bothe shweal distribution directly
+  h_norm <- housing_norm_for(rcode, agg$gperc)
+
+  cash_eur    <- (agg$base_w/agg$w_sum - agg$re_w/agg$w_sum) * nni25 -
+                 RENTAL_YIELD * h_norm * nni25 +
+                 agg$cap_w/agg$w_sum * cfc25
+  imputed_eur <- (agg$re_w/agg$w_sum + RENTAL_YIELD * h_norm) * nni25
+
   data.frame(country = rcode, gperc = agg$gperc,
              cash_income_2025 = cash_eur,
              imputed_component = imputed_eur)

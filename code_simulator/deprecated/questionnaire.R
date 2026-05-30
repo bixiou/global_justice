@@ -80,8 +80,10 @@ inc_wide <- sort_bottom99(inc_wide, paste0("income_", yrs_inc))
 # ── 2. cash_income_2025[c, gp] from FG 2023 + Bothe 2025 macro ─────────────
 # Dimensionless FG factor at each (country, gperc) × Bothe NNI 2025, minus ypt.
 message("Building cash_income_2025...")
-RETENTION_RATE <- 0.5;  IMPUTED_RENT_NNI <- 0.04
-IMP_FLOOR <- 0.10; IMP_CEIL <- 0.60; IMP_FALLBACK <- 0.33
+RETENTION_RATE <- 0.5
+RENTAL_YIELD   <- 0.035
+housing_gradient <- function(gp)
+  ifelse(gp < 50, 1.5, ifelse(gp < 90, 1.2, ifelse(gp < 99, 0.8, ifelse(gp < 99.9, 0.4, 0.2))))
 
 main_countries <- c(
   "DE","DK","ES","FR","GB","IT","NL","NO","SE","US","CA","AU","NZ",
@@ -114,20 +116,36 @@ for (v in c("a_pre","a_pre_cap","tax_dir_pit","tax_dir_wea","tax_cit",
 wid <- read.csv(WID)
 mprico_share   <- setNames(wid$mprico_share, wid$country)
 mprico_default <- median(mprico_share)
-cs_fg <- aggregate(cbind(cap_w = a_pre_cap * weight, pre_w = a_pre * weight) ~ iso,
-                   data = fg, FUN = sum)
-cap_share_country <- setNames(cs_fg$cap_w / cs_fg$pre_w, cs_fg$iso)
-imputed_frac <- function(ctry) {
+
+re_rate_for <- function(ctry) {
   ms <- if (!is.na(mprico_share[ctry])) mprico_share[ctry] else mprico_default
-  cs <- cap_share_country[ctry]
-  if (is.na(ms) || is.na(cs) || cs <= 0) return(IMP_FALLBACK)
-  pmin(pmax((RETENTION_RATE * ms + IMPUTED_RENT_NNI) / cs, IMP_FLOOR), IMP_CEIL)
+  RETENTION_RATE * if (is.na(ms)) mprico_default else ms
+}
+
+housing_norm_for <- function(entity, gperc_idx) {
+  wd <- wealth_dist_2025[wealth_dist_2025$country == entity, ]
+  n  <- length(gperc_idx)
+  if (nrow(wd) == 0) return(rep(0, n))
+  p1_to_gp <- function(x)
+    ifelse(x < 99,       round(x) + 1,
+    ifelse(x < 99.9,  100 + round((x - 99)  * 10),
+    ifelse(x < 99.99, 109 + round((x - 99.9) * 100),
+                      118 + round((x - 99.99) * 1000))))
+  wd$gp <- p1_to_gp(wd$p1)
+  sw  <- wd$shweal[match(gperc_idx, wd$gp)]; sw[is.na(sw)] <- 0
+  dif <- wd$diff  [match(gperc_idx, wd$gp)]; dif[is.na(dif)] <- 0.01
+  H   <- housing_gradient(gperc_to_lb(gperc_idx))
+  den <- sum(sw * H * dif, na.rm = TRUE)
+  if (den <= 0) return(rep(0, n))
+  sw * H / den
 }
 
 macro25     <- unique(simul[simul$year == 2025, c("country","nni","gdp","cfc")])
 nni_2025    <- setNames(macro25$nni,                  macro25$country)
 cfc_per_cap <- setNames(macro25$cfc * macro25$gdp,    macro25$country)
 ypt_2025    <- simul[simul$year == 2025, c("country","p1","ypt")]
+wealth_dist_2025 <- simul[simul$year == 2025, c("country","p1","shweal","diff")]
+wealth_dist_2025$shweal <- ifelse(is.na(wealth_dist_2025$shweal), 0, wealth_dist_2025$shweal)
 
 # Per-(country, gperc) dimensionless components, NNI-normalised
 compute_factors <- function(sub) {
@@ -137,7 +155,6 @@ compute_factors <- function(sub) {
   data.frame(
     gperc = sub$gperc, weight = sub$weight,
     pre = sub$a_pre / mu_n,
-    cap = sub$a_pre_cap / mu_n,
     dir = (sub$tax_dir_pit + sub$tax_dir_wea + sub$tax_cit) / mu_n,
     soc = sub$tax_soc / mu_n,
     ind = sub$tax_ind / mu_n,
@@ -151,9 +168,12 @@ main_rows <- do.call(rbind, lapply(main_countries, function(ctry) {
   f <- compute_factors(sub); if (is.null(f)) return(NULL)
   nni <- nni_2025[ctry]; cfc <- cfc_per_cap[ctry]
   if (is.na(nni) || is.na(cfc)) return(NULL)
-  imp <- imputed_frac(ctry)
-  cash_eur <- with(f, (pre - dir - soc - ind + trn - imp * cap) * nni +
-                       cap_share_g * cfc)
+  re_r   <- re_rate_for(ctry)
+  h_norm <- housing_norm_for(ctry, f$gperc)
+  cash_eur <- with(f, (pre - dir - soc - ind + trn) * nni
+                      - re_r * cap_share_g * nni
+                      - RENTAL_YIELD * h_norm * nni
+                      + cap_share_g * cfc)
   y_c <- ypt_2025[ypt_2025$country == ctry, ]
   ypt_v <- y_c$ypt[match(f$gperc, sapply(y_c$p1, function(x) {
     if (x < 99)       round(x) + 1
@@ -174,14 +194,18 @@ residual_rows <- do.call(rbind, lapply(names(residual_def), function(r) {
   if (is.na(nni) || is.na(cfc)) return(NULL)
   pieces <- do.call(rbind, lapply(isos, function(c) {
     f <- compute_factors(fg[fg$iso == c, ]); if (is.null(f)) return(NULL)
-    f$cash_factor <- with(f, pre - dir - soc - ind + trn - imputed_frac(c) * cap)
+    f$base_factor <- with(f, pre - dir - soc - ind + trn)
+    f$re_factor   <- re_rate_for(c) * f$cap_share_g
     f
   }))
-  agg <- aggregate(cbind(cash_w = cash_factor * weight, w = weight,
-                          cap_w = cap_share_g * weight) ~ gperc,
+  agg <- aggregate(cbind(base_w = base_factor * weight, re_w = re_factor * weight,
+                          cap_w = cap_share_g * weight, w = weight) ~ gperc,
                    data = pieces, FUN = sum)
+  h_norm <- housing_norm_for(r, agg$gperc)
   data.frame(country = r, gperc = agg$gperc,
-             cash_income_2025 = agg$cash_w/agg$w * nni + agg$cap_w/agg$w * cfc)
+             cash_income_2025 = (agg$base_w/agg$w - agg$re_w/agg$w) * nni
+                                - RENTAL_YIELD * h_norm * nni
+                                + agg$cap_w/agg$w * cfc)
 }))
 
 ci25 <- rbind(main_rows, residual_rows)
