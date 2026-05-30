@@ -61,20 +61,32 @@ suppressPackageStartupMessages({library(haven)})
 #    and housing_norm[c,g] = shweal[c,g] · H(gp[g]) / Σ_j[shweal[c,j]·H(gp[j])·diff[j]]
 #    so that Σ_g IR[c,g]·diff[g] = RENTAL_YIELD · NNI[c] exactly.
 #    shweal (wealth shares) from Bothe distribution_simul.dta 2025.
-#    H(gp) = housing gradient — housing is a larger share of wealth for
-#    middle classes than for the top, per empirical literature:
-#      gp < 50  → 1.5×  (B50: mostly housing)
-#      gp < 90  → 1.2×  (M40: near-average housing share)
-#      gp < 99  → 0.8×  (p90-99: more financial assets)
-#      gp < 99.9 → 0.4× (T1: mostly financial/equity)
-#      gp ≥ 99.9 → 0.2× (top 0.1%+: near-zero housing share)
+#    H(gp) = net housing share of wealth at gpercentile g — empirical, France
+#    2014, from Garbinti-Goupille-Lebret-Piketty 2021 (JEEA) Appendix B
+#    (data/garbinti_etal_2021_wealth_compo_appB.xlsx, column sh_patfon_netXX).
 
 RETENTION_RATE <- 0.5     # corporate dividend payout ≈ 50%, so retained ≈ 50% of mprico
 RENTAL_YIELD   <- 0.035   # imputed rent ≈ 3.5% of NNI (PSZ 2018 3.5%, GGLP 2018 3.6%, BCG 2022 3.5%)
 
-# Housing gradient: housing wealth as multiple of country mean, by gpercentile.
-housing_gradient <- function(gp)
-  ifelse(gp < 50, 1.5, ifelse(gp < 90, 1.2, ifelse(gp < 99, 0.8, ifelse(gp < 99.9, 0.4, 0.2))))
+# Convert gperc index (1..127) → Bothe lower-bound (0, 1, ..., 99.999).
+# Defined here because housing_norm_for (below) uses it.
+gperc_to_lb <- function(g) {
+  if (g <= 99) g - 1                              # 1..99   → 0,1,...,98
+  else if (g <= 108) 99   + (g - 100) * 0.1       # 100..108 → 99, 99.1,...,99.8
+  else if (g <= 117) 99.9 + (g - 109) * 0.01      # 109..117 → 99.9, 99.91,...,99.98
+  else if (g <= 126) 99.99 + (g - 118) * 0.001    # 118..126 → 99.99, 99.991,...,99.998
+  else 99.999                                     # 127      → 99.999
+}
+
+# Net housing wealth / total wealth, by wealth percentile group (France 2014,
+# GGLP 2021 Appendix B). Bottom 30% has near-zero net housing (debt offsets
+# property); peaks at P60-P70 (73%); declines to 10% for top 0.1%.
+housing_gradient <- function(gp) {
+  brks <- c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.5, 99.9)
+  vals <- c(0.000, 0.001, 0.016, 0.299, 0.619, 0.708, 0.732, 0.707, 0.641,
+            0.540, 0.422, 0.319, 0.230, 0.102)
+  vals[findInterval(gp, brks)]
+}
 
 main_countries <- c(
   "DE","DK","ES","FR","GB","IT","NL","NO","SE","US","CA","AU","NZ",
@@ -265,13 +277,7 @@ residual_rows <- do.call(rbind, lapply(names(residual_def), function(rcode) {
 }))
 
 # ── Convert gperc index → Bothe lower-bound, export ───────────────────────
-gperc_to_lb <- function(g) {
-  if (g <= 99) g - 1                              # 1..99   → 0,1,...,98
-  else if (g <= 108) 99   + (g - 100) * 0.1       # 100..108 → 99, 99.1,...,99.8
-  else if (g <= 117) 99.9 + (g - 109) * 0.01      # 109..117 → 99.9, 99.91,...,99.98
-  else if (g <= 126) 99.99 + (g - 118) * 0.001    # 118..126 → 99.99, 99.991,...,99.998
-  else 99.999                                     # 127      → 99.999
-}
+# (gperc_to_lb is defined earlier, before housing_norm_for.)
 all_rows <- rbind(main_rows, residual_rows)
 all_rows$gpercentile <- sapply(all_rows$gperc, gperc_to_lb)
 all_rows <- all_rows[order(all_rows$country, all_rows$gpercentile), ]
