@@ -20,5 +20,4 @@ papers/build/*
 .positai
 *.tmp
 data/Bothe/distribution_proj.dta
-
 data/Bothe/distribution_simul.dta

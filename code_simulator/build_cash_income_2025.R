@@ -174,7 +174,7 @@ housing_norm_for <- function(entity, gperc_idx) {
 
 # ── Bothe 2025 macro and ypt ──────────────────────────────────────────────
 message("Reading Bothe 2025...")
-simul   <- as.data.frame(read_dta("../data/Bothe/distribution_simul.dta"))
+simul   <- as.data.frame(read_dta("../data/Bothe/distribution_simul_extract.dta"))
 macro25 <- unique(simul[simul$year == 2025, c("country","nni","gdp","cfc")])
 macro25$cfc_per_cap  <- macro25$cfc * macro25$gdp
 nni_2025    <- setNames(macro25$nni, macro25$country)
@@ -366,7 +366,7 @@ DIST_YEARS <- c(2025, 2030, 2035, 2050, 2080, 2100)
 
 # Get country populations from Bothe simul for each year
 suppressPackageStartupMessages(library(haven))
-simul_pop <- as.data.frame(read_dta("../data/Bothe/distribution_simul.dta"))
+simul_pop <- as.data.frame(read_dta("../data/Bothe/distribution_simul_extract.dta"))
 simul_pop <- unique(simul_pop[, c("country","year","pop")])
 
 # gpercentile width (within-country share of population)

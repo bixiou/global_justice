@@ -712,7 +712,52 @@ message("Done. Legacy files written to data/")
 
 message("Computing post-GIT income from distribution_simul.dta + dividends (E3bp)...")
 library(haven)
-simul <- as.data.frame(read_dta("../data/Bothe/distribution_simul.dta"))
+simul <- as.data.frame(read_dta("../data/Bothe/distribution_simul_extract.dta"))
+
+
+# ── export slim .dta extracts (variables used across the whole project) ───────
+#
+# Re-export each source Stata file keeping only the columns consumed anywhere in
+# the project (prepare_data.R, questionnaire.R, build_cash_income_2025.R), so the
+# heavy raw files (distribution_simul.dta ≈ 241 MB, 82 cols) can be replaced by
+# lightweight extracts (< 100 MB each, e.g. committable to git). Row coverage is
+# unchanged (all countries/years/percentiles kept); only unused columns drop.
+
+#' Write a column-subset of a .dta and report the resulting file size.
+#' @param src Source .dta path (only read if `df` is NULL).
+#' @param dest Destination .dta path for the extract.
+#' @param keep Character vector of column names to retain (others dropped).
+#' @param df Optional already-loaded data frame to subset (avoids re-reading).
+write_dta_extract <- function(src, dest, keep, df = NULL) {
+  d <- if (is.null(df)) as.data.frame(read_dta(src)) else df
+  miss <- setdiff(keep, names(d))
+  if (length(miss) > 0)
+    warning(sprintf("%s: requested columns absent and skipped: %s",
+                    basename(src), paste(miss, collapse = ", ")))
+  cols <- intersect(keep, names(d))
+  write_dta(d[, cols, drop = FALSE], dest)
+  mb <- file.info(dest)$size / 1024^2
+  message(sprintf("  %s: %d cols x %d rows, %.1f MB%s", basename(dest),
+                  length(cols), nrow(d), mb,
+                  if (mb >= 100) "  [WARNING: >= 100 MB]" else ""))
+}
+
+message("Exporting slim .dta extracts...")
+# distribution_simul.dta -> reuse the already-loaded `simul` (pristine here:
+# computed columns are added only below this block).
+simul_keep <- c("year", "country", "p1", "diff", "pop", "sdiinc", "shweal",
+                "gdp", "nni", "cfc", "wt", "yt", "ypt")
+write_dta_extract("../data/Bothe/distribution_simul.dta",
+                  "../data/Bothe/distribution_simul_extract.dta",
+                  simul_keep, df = simul)
+# fisher-gethin-2023-slim.dta (already small; extracted for consistency)
+fg_keep <- c("iso", "year", "gperc", "weight", "mean", "a_pre", "a_pre_cap",
+             "tax_dir_pit", "tax_dir_wea", "tax_cit", "tax_soc", "tax_ind",
+             "gov_soc", "gov_oth")
+write_dta_extract("../data/FisherGethin/fisher-gethin-2023-slim.dta",
+                  "../data/FisherGethin/fisher-gethin-2023-slim_extract.dta",
+                  fg_keep)
+
 
 # Per-adult posttax disposable income at the percentile (computed for every
 # year, including 2025 where the .dta stores yp = 0).

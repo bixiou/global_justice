@@ -13,7 +13,7 @@ suppressPackageStartupMessages({library(haven); library(readxl)})
 
 CHANCEL <- "../data/Chancel/Chanceletal2026Appendix_MacroScenarios.xlsx"
 MACRO   <- "../data/Bothe/Botheetal2026AppendixMacro.xlsx"
-SIMUL   <- "../data/Bothe/distribution_simul.dta"
+SIMUL   <- "../data/Bothe/distribution_simul_extract.dta"
 FG      <- "../data/FisherGethin/fisher-gethin-2023-slim.dta"
 WID     <- "../data/WID/wid-mprico-nni.csv"
 
