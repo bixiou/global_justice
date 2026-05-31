@@ -686,3 +686,26 @@ plot_dists_step(
   title = "IT 2035 distributions — step (IT 2025 reference dotted)",
   fname = "../data/dist_IT_2035_step.png",
   ylim_override = 300000)
+
+# ── 12. Report: first gpercentile where each ineq_IT_2035 scenario < IT 2025 ──
+scen_cols <- c("PI", "PC", "SC1", "SC2", "SC45k", "SC30k", "SC15k")
+cat("\nFirst gpercentile where ineq_IT_2035 income < IT 2025 cash_income:\n")
+for (sc in scen_cols) {
+  below <- which(ineq_IT_2035[[sc]] < ci25_IT)
+  if (length(below) == 0) {
+    cat(sprintf("  %-6s: never falls below IT 2025\n", sc))
+  } else {
+    cat(sprintf("  %-6s: gpercentile %.3f (idx %d)\n", sc,
+                ineq_IT_2035$gpercentile[below[1]], below[1]))
+  }
+}
+cat("\nFirst gpercentile where ineq_IT_2035 income < SC (2035):\n")
+for (sc in scen_cols) {
+  below <- which(ineq_IT_2035[[sc]] < sc2_2035_IT)
+  if (length(below) == 0) {
+    cat(sprintf("  %-6s: never falls below SC\n", sc))
+  } else {
+    cat(sprintf("  %-6s: gpercentile %.3f (idx %d)\n", sc,
+                ineq_IT_2035$gpercentile[below[1]], below[1]))
+  }
+}
