@@ -418,6 +418,19 @@ sc2_2035_IT       <- sc2_2035_IT_gross * (1 - as.numeric(extra_tax_rate_sc_2035[
 gp_IT2            <- ci_wide$gpercentile[ci_wide$country == "IT"]
 stopifnot(isTRUE(all.equal(gp_IT, gp_IT2)))
 
+# SI: IT 2025 shape scaled to match SC 2035 average cash income
+si_scale_2035 <- sum(sc2_2035_IT * gp_width(gp_IT)) / sum(ci25_IT * gp_width(gp_IT))
+si_2035_IT <- ci25_IT * si_scale_2035
+
+# SN: SC 2035 without GIT subtraction (ypt) and without dividend = yp_recomp × cash/income ratio
+sn_raw <- simul[simul$country == "IT" & simul$year == 2035, c("p1", "yp_recomp")]
+sn_raw <- sn_raw[order(sn_raw$p1), ]
+it_ratio <- ci_wide[ci_wide$country == "IT", c("gpercentile", "ratio")]
+sn_raw$cash_ratio <- it_ratio$ratio[match(sn_raw$p1, it_ratio$gpercentile)]
+sn_2035_IT <- sn_raw$yp_recomp * sn_raw$cash_ratio
+idx_bot <- sn_raw$p1 < 99
+sn_2035_IT[idx_bot] <- sort(sn_2035_IT[idx_bot], na.last = TRUE)
+
 # SC* columns use sc2_2035_IT (net of the flat extra-spending tax from section 5b).
 # PC is the gross 2035 SC cash income scaled by 1.15, with NO extra-tax subtraction.
 ineq_IT_2035 <- data.frame(
@@ -428,7 +441,9 @@ ineq_IT_2035 <- data.frame(
   SC2   = sc2_2035_IT,
   SC45k = (gdp_it_2025        / gdp_it_sc_2035) * sc2_2035_IT,
   SC30k = (0.95 * gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT,
-  SC15k = (0.9  * gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT)
+  SC15k = (0.9  * gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT,
+  SI    = si_2035_IT,
+  SN    = sn_2035_IT)
 ineq_IT_2035[, -1] <- lapply(ineq_IT_2035[, -1], round, digits = 0)
 write.csv(ineq_IT_2035, "../data/ineq_IT_2035.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ../data/ineq_IT_2035.csv (%d rows × %d cols)",
@@ -687,25 +702,19 @@ plot_dists_step(
   fname = "../data/dist_IT_2035_step.png",
   ylim_override = 300000)
 
-# ── 12. Report: first gpercentile where each ineq_IT_2035 scenario < IT 2025 ──
-scen_cols <- c("PI", "PC", "SC1", "SC2", "SC45k", "SC30k", "SC15k")
-cat("\nFirst gpercentile where ineq_IT_2035 income < IT 2025 cash_income:\n")
-for (sc in scen_cols) {
-  below <- which(ineq_IT_2035[[sc]] < ci25_IT)
-  if (length(below) == 0) {
-    cat(sprintf("  %-6s: never falls below IT 2025\n", sc))
-  } else {
-    cat(sprintf("  %-6s: gpercentile %.3f (idx %d)\n", sc,
-                ineq_IT_2035$gpercentile[below[1]], below[1]))
+# ── 12. Report: gpercentile range where each ineq_IT_2035 scenario < reference ──
+scen_cols <- c("PI", "PC", "SC1", "SC2", "SC45k", "SC30k", "SC15k", "SI", "SN")
+report_below <- function(label, ref, ref_name) {
+  cat(sprintf("\ngpercentile range where ineq_IT_2035 income < %s:\n", ref_name))
+  for (sc in scen_cols) {
+    below <- which(ineq_IT_2035[[sc]] < ref)
+    if (length(below) == 0) {
+      cat(sprintf("  %-6s: never falls below %s\n", sc, ref_name))
+    } else {
+      gp <- ineq_IT_2035$gpercentile
+      cat(sprintf("  %-6s: [%.3f, %.3f]\n", sc, gp[below[1]], gp[below[length(below)]]))
+    }
   }
 }
-cat("\nFirst gpercentile where ineq_IT_2035 income < SC (2035):\n")
-for (sc in scen_cols) {
-  below <- which(ineq_IT_2035[[sc]] < sc2_2035_IT)
-  if (length(below) == 0) {
-    cat(sprintf("  %-6s: never falls below SC\n", sc))
-  } else {
-    cat(sprintf("  %-6s: gpercentile %.3f (idx %d)\n", sc,
-                ineq_IT_2035$gpercentile[below[1]], below[1]))
-  }
-}
+report_below("IT 2025", ci25_IT, "IT 2025")
+report_below("SC 2035", sc2_2035_IT, "SC 2035")
