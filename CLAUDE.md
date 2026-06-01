@@ -49,3 +49,4 @@ Data was fetched on May 24, 2026:
 - Name all sections in a .R file using "##### n. Section #####".
 - Always put only one space between R text and never indent/align things over different lines, e.g. write "obj <- NA" instead of "obj    <- NA".
 - Always assume (or set) the following working directory: `/code_simulator`.
+- When exporting a .csv, do not use quotes (unless there are commas in the data).

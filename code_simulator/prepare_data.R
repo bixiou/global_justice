@@ -21,20 +21,21 @@
 # Wealth methodology: group-level scaling using K2 group average series.
 
 library(readxl)
+dir.create("../distributions", showWarnings = FALSE)
 
 BOTHE <- "../data/Bothe/Botheetal2026AppendixDistribution.xlsx"
-INCOME_YEARS <- 2020:2100          # all years for income.csv / income_world.csv
-TARGET_YEARS <- c(2025, 2030, 2035, 2050, 2080, 2100)  # wealth only
+INCOME_YEARS <- 2020:2100 # all years for income.csv / income_world.csv
+TARGET_YEARS <- c(2025, 2030, 2035, 2050, 2080, 2100) # wealth only
 
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+##### 1. helpers #####
 
 #' Read a standard time-series sheet (4 header rows, years 1800-2100 in col 1)
 read_ts <- function(sheet, file = BOTHE) {
   df <- suppressMessages(read_excel(file, sheet = sheet, col_names = FALSE))
   ctries <- unlist(df[4, -1], use.names = FALSE) |> as.character()
-  years  <- unlist(df[-(1:4), 1], use.names = FALSE) |> as.numeric()
-  vals   <- df[-(1:4), -1] |> apply(2, as.numeric) |> as.data.frame()
+  years <- unlist(df[-(1:4), 1], use.names = FALSE) |> as.numeric()
+  vals <- df[-(1:4), -1] |> apply(2, as.numeric) |> as.data.frame()
   rownames(vals) <- as.character(years)
   colnames(vals) <- ctries
   vals
@@ -45,7 +46,7 @@ read_ps <- function(sheet, file = BOTHE) {
   df <- suppressMessages(read_excel(file, sheet = sheet, col_names = FALSE))
   ctries <- unlist(df[4, -1], use.names = FALSE) |> as.character()
   groups <- unlist(df[-(1:4), 1], use.names = FALSE) |> as.character()
-  vals   <- df[-(1:4), -1] |> apply(2, as.numeric) |> as.data.frame()
+  vals <- df[-(1:4), -1] |> apply(2, as.numeric) |> as.data.frame()
   rownames(vals) <- groups
   colnames(vals) <- ctries
   vals
@@ -55,35 +56,35 @@ read_ps <- function(sheet, file = BOTHE) {
 get_year <- function(ts_df, yr) ts_df[as.character(yr), , drop = FALSE]
 
 
-# ── load income data ──────────────────────────────────────────────────────────
+##### 2. load income data #####
 
 message("Loading income data...")
-p1e  <- read_ps("P1e")   # 2025 income levels: 127 gp groups × 67 countries
-i2i  <- read_ts("I2i")   # average posttax net income (pre-GIT; for income_pre_git.csv)
-i1a  <- read_ts("I1a")   # T10 share (pre-GIT; for income_pre_git.csv)
-i1b  <- read_ts("I1b")   # B50 share
-i1c  <- read_ts("I1c")   # T1 share
-i1e  <- read_ts("I1e")   # B10 share
-i1h  <- read_ts("I1h")   # M40 share (used for wealth)
+p1e <- read_ps("P1e") # 2025 income levels: 127 gp groups × 67 countries
+i2i <- read_ts("I2i") # average posttax net income (pre-GIT; for income_pre_git.csv)
+i1a <- read_ts("I1a") # T10 share (pre-GIT; for income_pre_git.csv)
+i1b <- read_ts("I1b") # B50 share
+i1c <- read_ts("I1c") # T1 share
+i1e <- read_ts("I1e") # B10 share
+i1h <- read_ts("I1h") # M40 share (used for wealth)
 # I5 threshold series (ratio to average income): used for income_pre_git.csv only
-i5e  <- read_ts("I5e")   # P10
-i5b  <- read_ts("I5b")   # P50
-i5c  <- read_ts("I5c")   # P99
+i5e <- read_ts("I5e") # P10
+i5b <- read_ts("I5b") # P50
+i5c <- read_ts("I5c") # P99
 # I9 post-GIT group average series: 8 brackets used as income.csv anchors
-i9i  <- read_ts("I9i")   # overall average (post-GIT)
-i9e  <- read_ts("I9e")   # B10  avg (post-GIT): bracket [0, 0.10]
-i9b  <- read_ts("I9b")   # B50  avg (post-GIT): bracket [0, 0.50]
-i9h  <- read_ts("I9h")   # M40  avg (post-GIT): bracket [0.50, 0.90]
-i9a  <- read_ts("I9a")   # T10  avg (post-GIT): bracket [0.90, 1.00]
-i9c  <- read_ts("I9c")   # T1   avg (post-GIT): bracket [0.99, 1.00]
-i9d  <- read_ts("I9d")   # top 0.1%  avg (post-GIT): bracket [0.999, 1.00]
-i9f  <- read_ts("I9f")   # top 0.01% avg (post-GIT): bracket [0.9999, 1.00]
-i9g  <- read_ts("I9g")   # top 0.001% avg (post-GIT): bracket [0.99999, 1.00]
+i9i <- read_ts("I9i") # overall average (post-GIT)
+i9e <- read_ts("I9e") # B10  avg (post-GIT): bracket [0, 0.10]
+i9b <- read_ts("I9b") # B50  avg (post-GIT): bracket [0, 0.50]
+i9h <- read_ts("I9h") # M40  avg (post-GIT): bracket [0.50, 0.90]
+i9a <- read_ts("I9a") # T10  avg (post-GIT): bracket [0.90, 1.00]
+i9c <- read_ts("I9c") # T1   avg (post-GIT): bracket [0.99, 1.00]
+i9d <- read_ts("I9d") # top 0.1%  avg (post-GIT): bracket [0.999, 1.00]
+i9f <- read_ts("I9f") # top 0.01% avg (post-GIT): bracket [0.9999, 1.00]
+i9g <- read_ts("I9g") # top 0.001% avg (post-GIT): bracket [0.99999, 1.00]
 
 # keep only the valid country columns (first 67, before "diff" and "2100")
 # p1e has cols: World, Europe, ..., OI, diff, 2100
 valid_cols <- colnames(p1e)[!colnames(p1e) %in% c("diff", "2100", NA) & !is.na(colnames(p1e))]
-p1e  <- p1e[, valid_cols, drop = FALSE]
+p1e <- p1e[, valid_cols, drop = FALSE]
 
 # align I-series country columns to p1e (same first 67 countries)
 # I-series has extra pop-weighted region cols at the end - drop them
@@ -98,29 +99,29 @@ align_ts <- function(ts) {
   ts[, shared, drop = FALSE]
 }
 
-i2i  <- align_ts(i2i)
-i1a  <- align_ts(i1a)
-i1b  <- align_ts(i1b)
-i1c  <- align_ts(i1c)
-i1e  <- align_ts(i1e)
-i1h  <- align_ts(i1h)
-i5e  <- align_ts(i5e)
-i5b  <- align_ts(i5b)
-i5c  <- align_ts(i5c)
-i9i  <- align_ts(i9i)
-i9e  <- align_ts(i9e)
-i9b  <- align_ts(i9b)
-i9h  <- align_ts(i9h)
-i9a  <- align_ts(i9a)
-i9c  <- align_ts(i9c)
-i9d  <- align_ts(i9d)
-i9f  <- align_ts(i9f)
-i9g  <- align_ts(i9g)
+i2i <- align_ts(i2i)
+i1a <- align_ts(i1a)
+i1b <- align_ts(i1b)
+i1c <- align_ts(i1c)
+i1e <- align_ts(i1e)
+i1h <- align_ts(i1h)
+i5e <- align_ts(i5e)
+i5b <- align_ts(i5b)
+i5c <- align_ts(i5c)
+i9i <- align_ts(i9i)
+i9e <- align_ts(i9e)
+i9b <- align_ts(i9b)
+i9h <- align_ts(i9h)
+i9a <- align_ts(i9a)
+i9c <- align_ts(i9c)
+i9d <- align_ts(i9d)
+i9f <- align_ts(i9f)
+i9g <- align_ts(i9g)
 
-ctries <- valid_cols  # 67 country/region names
+ctries <- valid_cols # 67 country/region names
 
 
-# ── aggregate P1e 127 groups → 100 percentiles ───────────────────────────────
+##### 3. aggregate P1e 127 groups → 100 percentiles #####
 #
 # Rows 1-99 in p1e (p0p1 to p98p99) → percentiles 1-99 (1-indexed)
 # Rows 100-127 (p99pX to p99.999p100) → percentile 100 (weighted average)
@@ -132,8 +133,8 @@ ctries <- valid_cols  # 67 country/region names
 # p99.999p100 → 0.00001
 # Total = 0.01 ✓
 
-fine_rows   <- p1e[100:127, , drop = FALSE]
-fine_names  <- rownames(fine_rows)
+fine_rows <- p1e[100:127, , drop = FALSE]
+fine_names <- rownames(fine_rows)
 
 # derive population width from the percentile label (used for world CSV aggregation)
 parse_width <- function(label) {
@@ -145,10 +146,10 @@ parse_width <- function(label) {
 }
 
 fine_widths <- sapply(fine_names, parse_width)
-weights     <- fine_widths / sum(fine_widths)
+weights <- fine_widths / sum(fine_widths)
 
 # Keep all 127 groups from P1e; lower bound (%) used as gpercentile in income.csv
-income_2025  <- p1e[1:127, , drop = FALSE]
+income_2025 <- p1e[1:127, , drop = FALSE]
 lower_bounds <- sapply(rownames(income_2025), function(lbl) {
   parts <- strsplit(lbl, "p")[[1]]
   parts <- parts[parts != ""]
@@ -156,7 +157,7 @@ lower_bounds <- sapply(rownames(income_2025), function(lbl) {
 }, USE.NAMES = FALSE)
 
 
-# ── compute income for each year via spliced parametric model ────────────────
+##### 4. compute income for each year via spliced parametric model #####
 #
 # Spliced model (Bothe et al. 2026, Appendix A):
 #   - Below p_splice = 0.999: Type II Pareto with CDF
@@ -245,12 +246,12 @@ unpack_par <- function(par) {
 #' Cover a wide range of inequality levels; the data-driven start (below) takes
 #' priority but these are used as fallbacks.
 DEFAULT_STARTS <- list(
-  c( 0.00,  0.50,  0.00,  0.00),   # lambda ~ 1    (low inequality / post-SC)
-  c( 0.00,  0.50,  0.00, -3.00),   # lambda ~ 0.05 (moderate inequality)
-  c( 0.00,  0.50,  0.00, -6.00),   # lambda ~ 0.002 (high pre-SC inequality)
-  c( 0.20,  0.50, -0.70, -4.50),   # lambda ~ 0.01
-  c(-0.30,  1.00,  0.00, -1.50),   # lambda ~ 0.22
-  c( 0.10,  0.00, -0.50, -0.50)    # alternative shape
+  c( 0.00, 0.50, 0.00, 0.00), # lambda ~ 1    (low inequality / post-SC)
+  c( 0.00, 0.50, 0.00, -3.00), # lambda ~ 0.05 (moderate inequality)
+  c( 0.00, 0.50, 0.00, -6.00), # lambda ~ 0.002 (high pre-SC inequality)
+  c( 0.20, 0.50, -0.70, -4.50), # lambda ~ 0.01
+  c(-0.30, 1.00, 0.00, -1.50), # lambda ~ 0.22
+  c( 0.10, 0.00, -0.50, -0.50) # alternative shape
 )
 
 #' Analytical starting estimate for log(lambda) from the two top I9 brackets.
@@ -265,7 +266,7 @@ analytical_la_start <- function(obs_bm_norm) {
   # obs_bm_norm[8] = top-0.001% (bracket [0.99999, 1.0])
   A <- obs_bm_norm[6]; B <- obs_bm_norm[8]
   if (!is.finite(A) || !is.finite(B) || B <= A) return(NULL)
-  inv_la <- (B - A) / 4.605        # 1/lambda in normalised units
+  inv_la <- (B - A) / 4.605 # 1/lambda in normalised units
   log_la <- log(1 / max(inv_la, 1e-6))
   # rough x_m from B10 mean; rough beta from M40/B10 ratio
   b10 <- obs_bm_norm[1]; m40 <- obs_bm_norm[3]
@@ -327,22 +328,22 @@ fit_spliced_normed <- function(obs_pL, obs_pH, obs_bm_norm, par0) {
   }
   if (is.null(best)) return(NULL)
 
-  p_hat  <- unpack_par(best$par)
+  p_hat <- unpack_par(best$par)
   mu_hat <- mu_spliced(p_hat$xm, p_hat$al, p_hat$be, p_hat$la)
   if (!is.finite(mu_hat) || mu_hat <= 1e-6) return(NULL)
 
   # rescale so model has mean = 1 (xm scales, be scales, q_splice scales,
   # and the exponential rate transforms as la_new = la_old * mu_hat).
   c(
-    xm  = p_hat$xm / mu_hat,
-    al  = p_hat$al,
-    be  = p_hat$be / mu_hat,
-    la  = p_hat$la * mu_hat,
-    par_raw_xm = best$par[1],   # warm-start params (raw scale) for next year
+    xm = p_hat$xm / mu_hat,
+    al = p_hat$al,
+    be = p_hat$be / mu_hat,
+    la = p_hat$la * mu_hat,
+    par_raw_xm = best$par[1], # warm-start params (raw scale) for next year
     par_raw_la = best$par[2],
     par_raw_lb = best$par[3],
     par_raw_ll = best$par[4],
-    obj_value  = best$value
+    obj_value = best$value
   )
 }
 
@@ -356,7 +357,7 @@ build_income_gpinter <- function(ts_b10, ts_b50, ts_m40, ts_t10,
                                   ts_t1, ts_d01, ts_d001, ts_d0001,
                                   ts_mean, years = INCOME_YEARS) {
   # 8 non-overlapping bracket bounds
-  br_lo <- c(0,    0.10, 0.50, 0.90, 0.99, 0.999, 0.9999, 0.99999)
+  br_lo <- c(0, 0.10, 0.50, 0.90, 0.99, 0.999, 0.9999, 0.99999)
   br_hi <- c(0.10, 0.50, 0.90, 0.99, 0.999, 0.9999, 0.99999, 1.0)
 
   # output 127-group bounds (from lower_bounds and the next-row lower bound)
@@ -378,23 +379,23 @@ build_income_gpinter <- function(ts_b10, ts_b50, ts_m40, ts_t10,
       message(sprintf("  year %d ...", yr))
     }
 
-    b10   <- as.numeric(ts_b10[yr_s,   ctries])
-    b50   <- as.numeric(ts_b50[yr_s,   ctries])
-    m40   <- as.numeric(ts_m40[yr_s,   ctries])
-    t10   <- as.numeric(ts_t10[yr_s,   ctries])
-    t1    <- as.numeric(ts_t1[yr_s,    ctries])
-    d01   <- as.numeric(ts_d01[yr_s,   ctries])
-    d001  <- as.numeric(ts_d001[yr_s,  ctries])
+    b10 <- as.numeric(ts_b10[yr_s, ctries])
+    b50 <- as.numeric(ts_b50[yr_s, ctries])
+    m40 <- as.numeric(ts_m40[yr_s, ctries])
+    t10 <- as.numeric(ts_t10[yr_s, ctries])
+    t1 <- as.numeric(ts_t1[yr_s, ctries])
+    d01 <- as.numeric(ts_d01[yr_s, ctries])
+    d001 <- as.numeric(ts_d001[yr_s, ctries])
     d0001 <- as.numeric(ts_d0001[yr_s, ctries])
-    mu_yr <- as.numeric(ts_mean[yr_s,  ctries])
+    mu_yr <- as.numeric(ts_mean[yr_s, ctries])
 
     # derived non-overlapping bracket averages (positive)
     eps <- 1e-9
-    p10_50      <- pmax((b50  * 0.5     - b10  * 0.1)     / 0.4,    eps)
-    p90_99      <- pmax((t10  * 0.1     - t1   * 0.01)    / 0.09,   eps)
-    p99_999     <- pmax((t1   * 0.01    - d01  * 0.001)   / 0.009,  eps)
-    p999_9999   <- pmax((d01  * 0.001   - d001 * 0.0001)  / 0.0009, eps)
-    p9999_99999 <- pmax((d001 * 0.0001  - d0001* 0.00001) / 0.00009, eps)
+    p10_50 <- pmax((b50 * 0.5 - b10 * 0.1) / 0.4, eps)
+    p90_99 <- pmax((t10 * 0.1 - t1 * 0.01) / 0.09, eps)
+    p99_999 <- pmax((t1 * 0.01 - d01 * 0.001) / 0.009, eps)
+    p999_9999 <- pmax((d01 * 0.001 - d001 * 0.0001) / 0.0009, eps)
+    p9999_99999 <- pmax((d001 * 0.0001 - d0001* 0.00001) / 0.00009, eps)
 
     out_mat <- matrix(NA_real_, length(out_pL), length(ctries),
                       dimnames = list(NULL, ctries))
@@ -412,7 +413,7 @@ build_income_gpinter <- function(ts_b10, ts_b50, ts_m40, ts_t10,
       obs_norm <- obs / mu_c
 
       par0 <- warm[[ctry]]
-      fit  <- tryCatch(fit_spliced_normed(br_lo, br_hi, obs_norm, par0),
+      fit <- tryCatch(fit_spliced_normed(br_lo, br_hi, obs_norm, par0),
                        error = function(e) NULL)
       if (is.null(fit)) next
 
@@ -446,7 +447,7 @@ build_income_gpinter <- function(ts_b10, ts_b50, ts_m40, ts_t10,
     for (bad in col_na) {
       yr_bad <- years[bad]
       before <- col_ok[years[col_ok] < yr_bad]
-      after  <- col_ok[years[col_ok] > yr_bad]
+      after <- col_ok[years[col_ok] > yr_bad]
       if (length(before) == 0 && length(after) == 0) next
       if (length(before) == 0) {
         ctry_mat[, bad] <- ctry_mat[, after[1]]
@@ -472,7 +473,7 @@ inc_by_year <- build_income_gpinter(i9e, i9b, i9h, i9a, i9c, i9d, i9f, i9g,
                                      i9i, years = INCOME_YEARS)
 
 
-# ── write income.csv ─────────────────────────────────────────────────────────
+##### 5. write income.csv #####
 # Wide format: one row per (country, gpercentile), one col per year 2020-2100
 
 message("Writing income.csv...")
@@ -487,10 +488,10 @@ rows <- do.call(rbind, lapply(ctries, function(ctry) {
 }))
 inc_cols <- grep("^income_", names(rows), value = TRUE)
 rows[, inc_cols] <- lapply(rows[, inc_cols], round, digits = 0)
-write.csv(rows, "../data/income_legacy.csv", row.names = FALSE, quote = FALSE)
+write.csv(rows, "../distributions/income_legacy.csv", row.names = FALSE, quote = FALSE)
 
 
-# ── write income_world.csv ────────────────────────────────────────────────────
+##### 6. write income_world.csv #####
 # Distribution chart: 100 world percentiles × target years
 
 message("Writing income_world.csv...")
@@ -507,18 +508,18 @@ wld_cols <- setNames(
 world_df <- as.data.frame(c(list(gpercentile = 1:100), wld_cols))
 wld_inc_cols <- grep("^income_", names(world_df), value = TRUE)
 world_df[, wld_inc_cols] <- lapply(world_df[, wld_inc_cols], round, digits = 0)
-write.csv(world_df, "../data/income_world_legacy.csv", row.names = FALSE, quote = FALSE)
+write.csv(world_df, "../distributions/income_world_legacy.csv", row.names = FALSE, quote = FALSE)
 
 
-# ── write income_pre_git.csv ──────────────────────────────────────────────────
+##### 7. write income_pre_git.csv #####
 # I5 sheets: Px threshold as ratio to average income (SC scenario, 1800-2100)
 # income_pre_git = I5x × I2i  for each country and year 2020-2100
 
 message("Writing income_pre_git.csv...")
 # i5e, i5b, i5c already loaded; load the remaining fine-top thresholds
-i5d  <- align_ts(read_ts("I5d"))   # P99.9
-i5f  <- align_ts(read_ts("I5f"))   # P99.99
-i5g  <- align_ts(read_ts("I5g"))   # P99.999
+i5d <- align_ts(read_ts("I5d")) # P99.9
+i5f <- align_ts(read_ts("I5f")) # P99.99
+i5g <- align_ts(read_ts("I5g")) # P99.999
 
 pre_git_years <- as.character(2020:2100)
 
@@ -527,72 +528,72 @@ make_threshold <- function(ratio_ts, avg_ts) {
     avg_ts[pre_git_years, , drop = FALSE]
 }
 
-t10   <- make_threshold(i5e, i2i)
-t50   <- make_threshold(i5b, i2i)
-t99   <- make_threshold(i5c, i2i)
+t10 <- make_threshold(i5e, i2i)
+t50 <- make_threshold(i5b, i2i)
+t99 <- make_threshold(i5c, i2i)
 t99_9 <- make_threshold(i5d, i2i)
 t9999 <- make_threshold(i5f, i2i)
 t99999 <- make_threshold(i5g, i2i)
 
 pre_git_rows <- do.call(rbind, lapply(ctries, function(ctry) {
   data.frame(
-    country       = ctry,
-    year          = 2020:2100,
-    p10           = t10[, ctry],
-    p50           = t50[, ctry],
-    p99           = t99[, ctry],
-    p99.9         = t99_9[, ctry],
-    p99.99        = t9999[, ctry],
-    p99.999       = t99999[, ctry],
+    country = ctry,
+    year = 2020:2100,
+    p10 = t10[, ctry],
+    p50 = t50[, ctry],
+    p99 = t99[, ctry],
+    p99.9 = t99_9[, ctry],
+    p99.99 = t9999[, ctry],
+    p99.999 = t99999[, ctry],
     stringsAsFactors = FALSE
   )
 }))
 pg_cols <- c("p10","p50","p99","p99.9","p99.99","p99.999")
 pre_git_rows[, pg_cols] <- lapply(pre_git_rows[, pg_cols], round, digits = 0)
-write.csv(pre_git_rows, "../data/income_pre_git_legacy.csv", row.names = FALSE, quote = FALSE)
+write.csv(pre_git_rows, "../distributions/income_pre_git_legacy.csv", row.names = FALSE, quote = FALSE)
 
 
-# ── load wealth data ──────────────────────────────────────────────────────────
+##### 8. load wealth data #####
 
 message("Loading wealth data...")
-k1a  <- read_ts("K1a"); k1a  <- align_ts(k1a)   # T10 wealth share
-k1b  <- read_ts("K1b"); k1b  <- align_ts(k1b)   # B50
-k1c  <- read_ts("K1c"); k1c  <- align_ts(k1c)   # T1
-k1e  <- read_ts("K1e"); k1e  <- align_ts(k1e)   # B10
-k1h  <- read_ts("K1h"); k1h  <- align_ts(k1h)   # M40
-k2a  <- read_ts("K2a"); k2a  <- align_ts(k2a)   # T10 avg wealth
-k2b  <- read_ts("K2b"); k2b  <- align_ts(k2b)   # B50 avg wealth
-k2c  <- read_ts("K2c"); k2c  <- align_ts(k2c)   # T1 avg wealth
-k2e  <- read_ts("K2e"); k2e  <- align_ts(k2e)   # B10 avg wealth
-k2h  <- read_ts("K2h"); k2h  <- align_ts(k2h)   # M40 avg wealth
+k1a <- read_ts("K1a"); k1a <- align_ts(k1a) # T10 wealth share
+k1b <- read_ts("K1b"); k1b <- align_ts(k1b) # B50
+k1c <- read_ts("K1c"); k1c <- align_ts(k1c) # T1
+k1e <- read_ts("K1e"); k1e <- align_ts(k1e) # B10
+k1h <- read_ts("K1h"); k1h <- align_ts(k1h) # M40
+k2a <- read_ts("K2a"); k2a <- align_ts(k2a) # T10 avg wealth
+k2b <- read_ts("K2b"); k2b <- align_ts(k2b) # B50 avg wealth
+k2c <- read_ts("K2c"); k2c <- align_ts(k2c) # T1 avg wealth
+k2e <- read_ts("K2e"); k2e <- align_ts(k2e) # B10 avg wealth
+k2h <- read_ts("K2h"); k2h <- align_ts(k2h) # M40 avg wealth
 
 
-# ── build 2025 wealth starting distribution ───────────────────────────────────
+##### 9. build 2025 wealth starting distribution #####
 # Group averages: p1-10 = K2e, p11-50 = (K2b*0.5 - K2e*0.1)/0.4, etc.
 
 wlth_2025_base <- function(yr = 2025) {
-  b10   <- as.numeric(get_year(k2e, yr)[, ctries])
-  b50   <- as.numeric(get_year(k2b, yr)[, ctries])
-  m40   <- as.numeric(get_year(k2h, yr)[, ctries])
-  t10   <- as.numeric(get_year(k2a, yr)[, ctries])
-  t1    <- as.numeric(get_year(k2c, yr)[, ctries])
+  b10 <- as.numeric(get_year(k2e, yr)[, ctries])
+  b50 <- as.numeric(get_year(k2b, yr)[, ctries])
+  m40 <- as.numeric(get_year(k2h, yr)[, ctries])
+  t10 <- as.numeric(get_year(k2a, yr)[, ctries])
+  t1 <- as.numeric(get_year(k2c, yr)[, ctries])
   p10_50 <- (b50 * 0.5 - b10 * 0.1) / 0.4
   t10_t1 <- (t10 * 0.1 - t1 * 0.01) / 0.09
 
   # matrix: 100 rows × length(ctries) cols
   mat <- matrix(NA_real_, 100, length(ctries), dimnames = list(1:100, ctries))
-  mat[1:10,  ] <- matrix(b10,    10, length(ctries), byrow = TRUE)
+  mat[1:10, ] <- matrix(b10, 10, length(ctries), byrow = TRUE)
   mat[11:50, ] <- matrix(p10_50, 40, length(ctries), byrow = TRUE)
-  mat[51:90, ] <- matrix(m40,    40, length(ctries), byrow = TRUE)
-  mat[91:99, ] <- matrix(t10_t1, 9,  length(ctries), byrow = TRUE)
-  mat[100,   ] <- matrix(t1,     1,  length(ctries), byrow = TRUE)
+  mat[51:90, ] <- matrix(m40, 40, length(ctries), byrow = TRUE)
+  mat[91:99, ] <- matrix(t10_t1, 9, length(ctries), byrow = TRUE)
+  mat[100, ] <- matrix(t1, 1, length(ctries), byrow = TRUE)
   as.data.frame(mat)
 }
 
 wealth_2025 <- wlth_2025_base(2025)
 
 
-# ── compute wealth for each target year ──────────────────────────────────────
+##### 10. compute wealth for each target year #####
 
 # Group label for each percentile (used only in wealth builder)
 grp <- c(rep("B10", 10), rep("p10_50", 40), rep("M40", 40),
@@ -606,24 +607,24 @@ build_wealth_matrix <- function(base, sh_b10, sh_b50, sh_m40, sh_t10, sh_t1,
   result[["2025"]] <- base
 
   g_base <- list(
-    B10    = as.numeric(get_year(av_b10, 2025)[, ctries]),
+    B10 = as.numeric(get_year(av_b10, 2025)[, ctries]),
     p10_50 = (as.numeric(get_year(av_b50, 2025)[, ctries]) * 0.5 -
               as.numeric(get_year(av_b10, 2025)[, ctries]) * 0.1) / 0.4,
-    M40    = as.numeric(get_year(av_m40, 2025)[, ctries]),
+    M40 = as.numeric(get_year(av_m40, 2025)[, ctries]),
     T10_T1 = (as.numeric(get_year(av_t10, 2025)[, ctries]) * 0.1 -
-              as.numeric(get_year(av_t1,  2025)[, ctries]) * 0.01) / 0.09,
-    T1     = as.numeric(get_year(av_t1,  2025)[, ctries])
+              as.numeric(get_year(av_t1, 2025)[, ctries]) * 0.01) / 0.09,
+    T1 = as.numeric(get_year(av_t1, 2025)[, ctries])
   )
 
   for (yr in TARGET_YEARS[TARGET_YEARS != 2025]) {
     g_yr <- list(
-      B10    = as.numeric(get_year(av_b10, yr)[, ctries]),
+      B10 = as.numeric(get_year(av_b10, yr)[, ctries]),
       p10_50 = (as.numeric(get_year(av_b50, yr)[, ctries]) * 0.5 -
                 as.numeric(get_year(av_b10, yr)[, ctries]) * 0.1) / 0.4,
-      M40    = as.numeric(get_year(av_m40, yr)[, ctries]),
+      M40 = as.numeric(get_year(av_m40, yr)[, ctries]),
       T10_T1 = (as.numeric(get_year(av_t10, yr)[, ctries]) * 0.1 -
-                as.numeric(get_year(av_t1,  yr)[, ctries]) * 0.01) / 0.09,
-      T1     = as.numeric(get_year(av_t1,  yr)[, ctries])
+                as.numeric(get_year(av_t1, yr)[, ctries]) * 0.01) / 0.09,
+      T1 = as.numeric(get_year(av_t1, yr)[, ctries])
     )
 
     scale_mat <- matrix(NA_real_, 100, length(ctries))
@@ -645,47 +646,47 @@ wlth_by_year <- build_wealth_matrix(wealth_2025,
                                      k2e, k2b, k2h, k2a, k2c)
 
 
-# ── write wealth.csv ──────────────────────────────────────────────────────────
+##### 11. write wealth.csv #####
 
 message("Writing wealth.csv...")
 wrows <- do.call(rbind, lapply(ctries, function(ctry) {
   data.frame(
-    country      = ctry,
-    gpercentile  = 1:100,
-    wealth_2025  = wlth_by_year[["2025"]][[ctry]],
-    wealth_2030  = wlth_by_year[["2030"]][[ctry]],
-    wealth_2035  = wlth_by_year[["2035"]][[ctry]],
-    wealth_2050  = wlth_by_year[["2050"]][[ctry]],
-    wealth_2080  = wlth_by_year[["2080"]][[ctry]],
-    wealth_2100  = wlth_by_year[["2100"]][[ctry]],
+    country = ctry,
+    gpercentile = 1:100,
+    wealth_2025 = wlth_by_year[["2025"]][[ctry]],
+    wealth_2030 = wlth_by_year[["2030"]][[ctry]],
+    wealth_2035 = wlth_by_year[["2035"]][[ctry]],
+    wealth_2050 = wlth_by_year[["2050"]][[ctry]],
+    wealth_2080 = wlth_by_year[["2080"]][[ctry]],
+    wealth_2100 = wlth_by_year[["2100"]][[ctry]],
     stringsAsFactors = FALSE
   )
 }))
 wlth_cols <- grep("^wealth_", names(wrows), value = TRUE)
 wrows[, wlth_cols] <- lapply(wrows[, wlth_cols], round, digits = 0)
-write.csv(wrows, "../data/wealth_legacy.csv", row.names = FALSE, quote = FALSE)
+write.csv(wrows, "../distributions/wealth_legacy.csv", row.names = FALSE, quote = FALSE)
 
 
-# ── write wealth_world.csv ────────────────────────────────────────────────────
+##### 12. write wealth_world.csv #####
 
 message("Writing wealth_world.csv...")
 wworld_df <- data.frame(
-  gpercentile  = 1:100,
-  wealth_2025  = wlth_by_year[["2025"]][["World"]],
-  wealth_2030  = wlth_by_year[["2030"]][["World"]],
-  wealth_2035  = wlth_by_year[["2035"]][["World"]],
-  wealth_2050  = wlth_by_year[["2050"]][["World"]],
-  wealth_2080  = wlth_by_year[["2080"]][["World"]],
-  wealth_2100  = wlth_by_year[["2100"]][["World"]]
+  gpercentile = 1:100,
+  wealth_2025 = wlth_by_year[["2025"]][["World"]],
+  wealth_2030 = wlth_by_year[["2030"]][["World"]],
+  wealth_2035 = wlth_by_year[["2035"]][["World"]],
+  wealth_2050 = wlth_by_year[["2050"]][["World"]],
+  wealth_2080 = wlth_by_year[["2080"]][["World"]],
+  wealth_2100 = wlth_by_year[["2100"]][["World"]]
 )
 wwld_cols <- grep("^wealth_", names(wworld_df), value = TRUE)
 wworld_df[, wwld_cols] <- lapply(wworld_df[, wwld_cols], round, digits = 0)
-write.csv(wworld_df, "../data/wealth_world_legacy.csv", row.names = FALSE, quote = FALSE)
+write.csv(wworld_df, "../distributions/wealth_world_legacy.csv", row.names = FALSE, quote = FALSE)
 
-message("Done. Legacy files written to data/")
+message("Done. Legacy files written to distributions/")
 
 
-# ── new: post-GIT income from distribution_simul.dta + country dividends ─────
+##### 13. new: post-GIT income from distribution_simul.dta + country dividends #####
 #
 # Reads the Bothe Stata simulator output and computes a per-adult post-GIT
 # income series for every (country, year, percentile):
@@ -715,7 +716,7 @@ library(haven)
 simul <- as.data.frame(read_dta("../data/Bothe/distribution_simul_extract.dta"))
 
 
-# ── export slim .dta extracts (variables used across the whole project) ───────
+##### 14. export slim .dta extracts (variables used across the whole project) #####
 #
 # Re-export each source Stata file keeping only the columns consumed anywhere in
 # the project (prepare_data.R, questionnaire.R, build_cash_income_2025.R), so the
@@ -776,7 +777,7 @@ e3bp_world <- suppressWarnings(as.numeric(unlist(e3bp[-(1:4), 2])))
 dividend <- setNames(e3bp_world, as.character(e3bp_years))
 
 simul$dividend <- dividend[as.character(simul$year)]
-simul$income   <- simul$yp_recomp - simul$ypt + simul$dividend # yp_recomp = diinc
+simul$income <- simul$yp_recomp - simul$ypt + simul$dividend # yp_recomp = diinc
 
 # ---- Variant: add GJF TOTAL revenues (E2), not the post-reinvestment dividend
 #
@@ -805,8 +806,8 @@ read_world_col <- function(sheet) {
   val <- suppressWarnings(as.numeric(unlist(d[-(1:4), 2])))
   setNames(val, as.character(yr))
 }
-e2aw_world <- read_world_col("E2aw")   # GJF total revenues, % world GDP MER
-e3bw_world <- read_world_col("E3bw")   # GJF dividends,        % world GDP MER
+e2aw_world <- read_world_col("E2aw") # GJF total revenues, % world GDP MER
+e3bw_world <- read_world_col("E3bw") # GJF dividends,        % world GDP MER
 
 # .dta-based fallback: (yt + wt) world per-adult average in EUR PPP 2025
 cy <- unique(simul[, c("country", "year", "pop", "yt", "wt")])
@@ -842,8 +843,8 @@ sort_bottom99 <- function(d, value_cols, p_col = "gpercentile",
 }
 
 # Wide format: one row per (country, gpercentile), one column per year.
-yrs   <- sort(unique(simul$year))
-wide  <- reshape(simul[, c("country", "p1", "year", "income")],
+yrs <- sort(unique(simul$year))
+wide <- reshape(simul[, c("country", "p1", "year", "income")],
                  idvar = c("country", "p1"), timevar = "year",
                  v.names = "income", direction = "wide")
 yr_cols <- paste0("income.", yrs)
@@ -853,8 +854,8 @@ wide <- wide[order(wide$country, wide$gpercentile), ]
 wide <- sort_bottom99(wide, paste0("income_", yrs))
 wide_inc_cols <- paste0("income_", yrs)
 wide[, wide_inc_cols] <- lapply(wide[, wide_inc_cols], round, digits = 0)
-write.csv(wide, "../data/income.csv", row.names = FALSE, quote = FALSE)
-message(sprintf("Wrote ../data/income.csv: %d rows x %d cols (post-GIT, dividend E3bp)",
+write.csv(wide, "../distributions/income.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ../distributions/income.csv: %d rows x %d cols (post-GIT, dividend E3bp)",
                 nrow(wide), ncol(wide)))
 
 wide2 <- reshape(simul[, c("country", "p1", "year", "income_full_rev")],
@@ -866,15 +867,15 @@ names(wide2) <- c("country", "gpercentile", paste0("income_", yrs))
 wide2 <- wide2[order(wide2$country, wide2$gpercentile), ]
 wide2 <- sort_bottom99(wide2, paste0("income_", yrs))
 wide2[, wide_inc_cols] <- lapply(wide2[, wide_inc_cols], round, digits = 0)
-write.csv(wide2, "../data/income_full_revenues.csv", row.names = FALSE, quote = FALSE)
-message(sprintf("Wrote ../data/income_full_revenues.csv: %d rows x %d cols (post-GIT, full GJF revenue E2)",
+write.csv(wide2, "../distributions/income_full_revenues.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ../distributions/income_full_revenues.csv: %d rows x %d cols (post-GIT, full GJF revenue E2)",
                 nrow(wide2), ncol(wide2)))
 
 
-# ── copy rounded versions to code_simulator/data/ (used by the webpage) ───────
+##### 15. copy rounded versions to code_simulator/data/ (used by the webpage) #####
 
 message("Writing rounded copies to code_simulator/data/...")
-src_files <- list.files("../data", pattern = "\\.csv$", full.names = TRUE)
+src_files <- list.files("../distributions", pattern = "\\.csv$", full.names = TRUE)
 dir.create("data", showWarnings = FALSE)
 for (f in src_files) {
   d <- read.csv(f, check.names = FALSE)
