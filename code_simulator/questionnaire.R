@@ -1,7 +1,7 @@
 # code_simulator/questionnaire.R
 # Generates the inputs for the questionnaire pages:
 #   - ../data/ineq_2100.csv      21 brackets × 14 cols ({IT,World} × {PI,PC,SC1,SC2,SC45k,SC30k,SC15k})
-#   - ../data/ineq_IT_2035.csv   127 gpercentiles × 7 cols (PI,PC,SC1,SC2,SC45k,SC30k,SC15k)
+#   - ../data/ineq_IT_2035.csv   127 gpercentiles × 11 cols (IT25,PI,PC,SC1,SC2,SC45k,SC30k,SC15k,SI,SN)
 #   - ../data/world_pi_2100.png  World PI 2100 distribution (country-specific vs uniform growth)
 #
 # Self-contained: every quantity is rebuilt from raw data (.dta + .xlsx); no
@@ -402,7 +402,7 @@ write.csv(ineq2100, "../data/ineq_2100.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ../data/ineq_2100.csv (%d rows × %d cols)",
                 nrow(ineq2100), ncol(ineq2100)))
 
-# ── 7. ineq_IT_2035.csv: 127 gpercentiles × 7 cols ─────────────────────────
+# ── 7. ineq_IT_2035.csv: 127 gpercentiles × 11 cols ────────────────────────
 # Per-capita GDP PPP for IT in EUR PPP 2025/year, taken from
 # Chanceletal2026Appendix_MacroScenarios sheets A0 (SC), A0pi (PI), A0pc (PC).
 # Used here only to set the SC45k / SC30k / SC15k scaling and to motivate the
@@ -435,6 +435,7 @@ sn_2035_IT[idx_bot] <- sort(sn_2035_IT[idx_bot], na.last = TRUE)
 # PC is the gross 2035 SC cash income scaled by 1.15, with NO extra-tax subtraction.
 ineq_IT_2035 <- data.frame(
   gpercentile = gp_IT,
+  IT25  = ci25_IT,
   PI    = 1.4 * ci25_IT,
   PC    = 1.15 * sc2_2035_IT_gross, # 1.3 * ci25_IT,
   SC1   = sc2_2035_IT,
