@@ -11,7 +11,8 @@
 - Beef and flights: none; -60% beef; half flights; half both
 Each attribute is uniformly drawn, leading to 5*2*2*3*2*4=480 cases, and 480^2=230k pairs.
 
-### Six displayed features:
+### Seven displayed features:
+- Temperature
 - Own income
 - Working hours
 - National incomes
@@ -34,7 +35,8 @@ Note that hours pc decrease only from 630 to 480 in SC (960 in PC/PI) due to inc
 
 The base scenario is defined using working hours and global redistribution:
      GIT     no global redistr
-30h: SC-45k       SI-30k
+25h: SC-30k       SI-30k
+30h: SC-45k       SI-45k
 35h: SC           SI
 40h: MC           MI  
 45h: PC           PI
@@ -42,6 +44,8 @@ Global redistribution activates Convergence; otherwise it's Inequality
 Public services: version 2 if increased; 1 otherwise
 Decarbonization: Slow: SD; Intermediary: ID; Fast: FD
 Hence there are 5*2*2*3=30 scenarios
+
+TODO remove PI2 scenarios from the .csv since they don't  model sectoral change
 
 ### How parameters determine incomes
 SC/PC imply hourly productivity growth of .085%/year for IT over 2025-2100 (66 -> 125€/h)
@@ -68,18 +72,17 @@ Finally, a public services tax is added to 2035 incomes of *scope* I, G if publi
 ### How parameters affect temperature
 For scenarios that are either 1=(public services stable & no beef nor flight reduction) or 2=(public services increased & both beef and flights reduction) and that are not of *hours* M, we use the value given by Chancel in chancel_temp2100_completed.csv for the 2100 temperature.
 Otherwise, we use 2100 GDP, decarbonization, public services, beef/flights to estimate it: 
-- if decarbonization = SD, we fix the change in function of public services (stable: 1, increased: 2) since material vs. immaterial sectors matter in this case
+- if decarbonization = SD or ID, we fix the change in function of public services (stable: 1, increased: 2) since material vs. immaterial sectors matter in this case
 - if decarbonization = FD, we fix the change in function of beef (no beef reduction: 1, beef reduction: 2) since land-use effects dominate in this case
-TODO ID: take 1.5? no because we don't know what to add/subtract then; check value of 1-2 T agri vs. rest for ID: 
 
 Then, if change is fixed to 1:
 - subtract .24°C in case of beef reduction
-- subtract °C in case of flights reduction
-- subtract °C in case of increased public services (estimated as change in fossil between 1 and 2, potentially varying with hours)
+- subtract .155°C in case of flights reduction
+- subtract .0004875⋅(67.25+2.06*GDPpc2100/1000)°C in case of increased public services (estimated as change in fossil between 1 and 2, potentially varying with hours)
 if change is fixed to 2:
 - add .24°C in case of no beef reduction
-- add TODO°C in case of no flights reduction
-- add TODO°C in case of increased public services
+- add .155°C in case of no flights reduction
+- add .0004875⋅(67.25+2.06*GDPpc2100/1000)°C in case of increased public services
 
 Chanceletal2026Appendix_Emission_Output reports cumulative emissions of almost all scenarios and 2100 temperature of most scenarios, where a scenario is defined by the combination of type (SC, PI, PC, SC-45k, SC-30k, SC-15k), structural change (1 if not, 2 if yes) and decarbonization pace (FD, ID, SD). E.g. sheet SC2_FD reports emissions and temperature of the benchmark scenario.
 When Chancel doesn't report the temperature, we predict it using cumulative emissions, their square, the type, decarbonization pace, structural change indicator, and the interaction between cumulative emissions and structural change, from a model estimated on complete data. The model always accurately predicts the temperature rounded at a tenth of a Celsius degree. 
@@ -92,6 +95,8 @@ Great model (adjusted-R² = .9989; max_diff_round=0):
 T ~ emissions*sectoral_change + emissions² + type + decarb
 Great model (adjusted-R² = .9996; max_diff_round=0):
 T ~ emissions * sectoral_change * type + emissions² * type + decarb
+adj‑R² 0.999, max_diff_round = 0:
+T ~ emissions + emissions:sectoral_change + emissions:gdp + decarb:sectoral_change
 
 Best model without emissions (adj-R²= .9978, max_diff=0.10): 
 T ~ type:decarb + decarb:sectoral_change 
@@ -99,8 +104,10 @@ Great model without emissions (adjusted-R² = .9978; max_diff_round=0):
 T ~ type * decarb + decarb:sectoral_change
 Great model without emissions (adjusted-R² = .9978; max_diff_round=0): 
 T ~  type:decarb + type:sectoral_change + decarb:sectoral_change
+adj‑R² 0.989, max_diff = 0.10:
+T ~ I(gdp²) + sectoral_change + gdp:decarb
 
-TODO: find most parciminious model (highest degrees of freedom) such that max_diff_round=0, both with and without emissions; compute GDP and have it replace type; check temp in SG30k
+T ~ 1.227 + .0004875⋅emissions
 
 Missing temperatures: SC1_SD, PC2_ID, PC2_SD, PI1_ID, PI2_FD, PI2_SD
 
@@ -168,3 +175,7 @@ Other scenarios in IT35:
 - SC45k: we rescale IT35 by GDP_IT25/GDP_IT35 since 2025 GDP this roughly corresponds to the GDP in 2035 in scenario SC45k from sheet A0, and this makes it more easily interpretable. We also express the other two as a deviation from current GDP:
 - SC30k: we rescale IT35 by 0.95*GDP_IT25/GDP_IT35
 - SC15k: we rescale IT35 by 0.9*GDP_IT25/GDP_IT35
+
+### Question wording
+
+Say scenarios are consistent, recall Paris target and where current policies would bring us.
