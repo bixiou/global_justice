@@ -3,13 +3,13 @@
 ## Consistent scenarios
 
 ### Six underlying parameters
-- Decarbonization: Slow; Intermediary; Fast
-- Working hours: baseline 40h, 30h (-25%); 35h (-12.5%); 45h (+12.5%)
+- Decarbonization: Slow; Intermediary; Fast (corresponding to IEA's CPS, STEPS, NZE)
+- Working hours: baseline 40h, 25h (-37.5%), 30h (-25%); 35h (-12.5%); 45h (+12.5%)
 - National redistribution: current; SN
 - Global redistribution: current; GIT
 - Public services: stable; increased
 - Beef and flights: none; -60% beef; half flights; half both
-Each attribute is uniformly drawn, leading to 4*2*2*3*2*4=384 scenarios, and 384^2=147k pairs.
+Each attribute is uniformly drawn, leading to 5*2*2*3*2*4=480 cases, and 480^2=230k pairs.
 
 ### Six displayed features:
 - Own income
@@ -20,21 +20,94 @@ Each attribute is uniformly drawn, leading to 4*2*2*3*2*4=384 scenarios, and 384
 - Beef and flights
 The order of features is randomized.
 
-### How parameters affect incomes
-- Decarbonization: Slow costs nothing; Inter 2% of each cash income; Fast 4% (PB: already counted in GIT)
-- Working hours: GDP is proportional to working hours.
+### How parameters define the scenario
+Global 2100 GDP pc is defined using working hours and global redistribution:
+     GIT   no-GIT
+(25h 30    25)
+30h: 45?   37.5
+35h: 60    50
+40h: 79    66
+45h: 120   100
+Note that 40h is current norm in IT where 15-64 employed work 1672h/year (paid work).
+In SC, hours converge to 1000h/yr in 2100 and are ~(35/40)*1672 in 2035, vs. 2000h in PC/PI (where they are ~41h in 2035; in SC-45k/30k/15k they are 31/29/28 in 2035).
+Note that hours pc decrease only from 630 to 480 in SC (960 in PC/PI) due to increasing employment (converging from 60% (incl. 68% for men) to 80% for both genders).
+
+The base scenario is defined using working hours and global redistribution:
+     GIT     no global redistr
+30h: SC-45k       SI-30k
+35h: SC           SI
+40h: MC           MI  
+45h: PC           PI
+Global redistribution activates Convergence; otherwise it's Inequality
+Public services: version 2 if increased; 1 otherwise
+Decarbonization: Slow: SD; Intermediary: ID; Fast: FD
+Hence there are 5*2*2*3=30 scenarios
+
+### How parameters determine incomes
+SC/PC imply hourly productivity growth of .085%/year for IT over 2025-2100 (66 -> 125€/h)
+
+The income distribution depends on hours, global redistribution and national redistribution. We use C under both redistributions, I under none, N if only national, G if only global. Hence there are 5*4=20 income distributions.
+When they exist, we use Bothe distributions. Otherwise:
+Define GR = country dividend - GIT (in SC2)
+PI = current income ⋅ national growth PI
+SN = SC - GR
+SI = 0.5⋅PI (in 2100, another factor in 2035)
+SG = SI + GR
+
+Then other distributions are defined as a coef times the reference S case, e.g.:
+SI-30k = .5⋅SI, SN-30k = .5⋅SN, SG-30k = .5⋅SG, SC-30k = .5⋅SC
+2100 coefs are as follows: S30k: .5, S45k: .75, M: 630/480 (keeping hours pc constant), P: 2
+From them, we easily recover the 2100 GDP of each scenario.
+2035 coefs are TODO
+
+Then a decarbonization factor is applied to 2035 incomes: 1 for SD, .98 for ID, .96 for FD.
+
+Finally, a public services tax is added to 2035 incomes of *scope* I, G if public services = increased; and subtracted to 2035 incomes of scope N, C if public services = stable.
+
 
 ### How parameters affect temperature
-Chanceletal2026Appendix_Emission_Output reports cumulative emissions and 2100 temperature of most scenarios, where a scenario is defined by the combination of type (SC, PI, PC, SC-45k, SC-30k, SC-15k), structural change (1 if not, 2 if yes) and decarbonization pace (FD, ID, SD). E.g. sheet SC2_FD reports emissions and temperature of the benchmark scenario.
+For scenarios that are either 1=(public services stable & no beef nor flight reduction) or 2=(public services increased & both beef and flights reduction) and that are not of *hours* M, we use the value given by Chancel in chancel_temp2100_completed.csv for the 2100 temperature.
+Otherwise, we use 2100 GDP, decarbonization, public services, beef/flights to estimate it: 
+- if decarbonization = SD, we fix the change in function of public services (stable: 1, increased: 2) since material vs. immaterial sectors matter in this case
+- if decarbonization = FD, we fix the change in function of beef (no beef reduction: 1, beef reduction: 2) since land-use effects dominate in this case
+TODO ID: take 1.5? no because we don't know what to add/subtract then; check value of 1-2 T agri vs. rest for ID: 
+
+Then, if change is fixed to 1:
+- subtract .24°C in case of beef reduction
+- subtract °C in case of flights reduction
+- subtract °C in case of increased public services (estimated as change in fossil between 1 and 2, potentially varying with hours)
+if change is fixed to 2:
+- add .24°C in case of no beef reduction
+- add TODO°C in case of no flights reduction
+- add TODO°C in case of increased public services
+
+Chanceletal2026Appendix_Emission_Output reports cumulative emissions of almost all scenarios and 2100 temperature of most scenarios, where a scenario is defined by the combination of type (SC, PI, PC, SC-45k, SC-30k, SC-15k), structural change (1 if not, 2 if yes) and decarbonization pace (FD, ID, SD). E.g. sheet SC2_FD reports emissions and temperature of the benchmark scenario.
+When Chancel doesn't report the temperature, we predict it using cumulative emissions, their square, the type, decarbonization pace, structural change indicator, and the interaction between cumulative emissions and structural change, from a model estimated on complete data. The model always accurately predicts the temperature rounded at a tenth of a Celsius degree. 
 
 
+
+Best model (highest adjusted-R² = .9999; max_diff_round=0):
+T ~ emissions*sectoral_change + emissions² *decarb + type + type:decarb:sectoral_change
+Great model (adjusted-R² = .9989; max_diff_round=0):
+T ~ emissions*sectoral_change + emissions² + type + decarb
+Great model (adjusted-R² = .9996; max_diff_round=0):
+T ~ emissions * sectoral_change * type + emissions² * type + decarb
+
+Best model without emissions (adj-R²= .9978, max_diff=0.10): 
+T ~ type:decarb + decarb:sectoral_change 
+Great model without emissions (adjusted-R² = .9978; max_diff_round=0): 
+T ~ type * decarb + decarb:sectoral_change
+Great model without emissions (adjusted-R² = .9978; max_diff_round=0): 
+T ~  type:decarb + type:sectoral_change + decarb:sectoral_change
+
+TODO: find most parciminious model (highest degrees of freedom) such that max_diff_round=0, both with and without emissions; compute GDP and have it replace type; check temp in SG30k
 
 Missing temperatures: SC1_SD, PC2_ID, PC2_SD, PI1_ID, PI2_FD, PI2_SD
 
 Based on 2035 GDP figures and assuming SC variants only differ by working hours (and have same productivity), I get:
 SC-45k: 31h, SC-30k: 29h, SC-15k: 28h
 
-TODO: remove SC growth from 2035 scenarios given that 1. it's already baked in the respondent's expected income
+TODO: remove SC growth from 2035 scenarios given that it's already baked in the respondent's expected income
 - Working hours => GDP: baseline 40h, 30h (-25%); 35h (-12.5%); 45h (+12.5%)
 - National distribution: current; SN
 - Global distribution: current; GIT
@@ -42,6 +115,13 @@ TODO: remove SC growth from 2035 scenarios given that 1. it's already baked in t
 - Structural change: tax health/educ and T-x°C; none
 - Beef and flights: none; half beef and T-x°C; half flights and T-x°C; half both and T-x°C
 4*2*2*3*2*4
+
+Current ratio IT/World GDP = 2.45
+2100 PI ratio: 2.03
+
+- Decarbonization: Slow costs nothing; Inter 2% of each cash income; Fast 4% (PB: already counted in GIT)
+- Working hours: GDP is proportional to working hours.
+
 
 ## Income distributions for the questionnaire
 

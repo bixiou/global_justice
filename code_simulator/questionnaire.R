@@ -724,8 +724,8 @@ report_below("SC 2035", sc2_2035_IT, "SC 2035")
 
 ##### 13. Chancel 2100 temperatures by scenario: fetch, interaction model, export #####
 # Reads the per-scenario sheets of Chanceletal2026Appendix_Emission_Output.xlsx (the 18
-# "conv+food+_+decarb" sheets, e.g. "SC2_ID", plus the 12 lower-GDP-target SC sheets
-# "A{1,2,3}{p,s}_{FD,ID}" where A1/A2/A3 = SC at 45k/30k/15k euros and p=food1, s=food2)
+# "conv+sectoral_change+_+decarb" sheets, e.g. "SC2_ID", plus the 12 lower-GDP-target SC sheets
+# "SC{45k,30k,15k}{1,2}_{FD,ID}" where SC45k/SC30k/SC15k = SC at 45k/30k/15k euros and 1/2=sectoral_change)
 # and extracts (a) the 2100
 # predicted temperature and (b) the cumulative 2025-2100 emissions (column "emissions" =
 # the row labelled "Total" just below the 2100 row, in the Total Emissions column). The workbook
@@ -749,68 +749,192 @@ read_temp_total <- function(sheet, file = EMISOUT) {
   c(temp = suppressWarnings(as.numeric(d[r, tcol])), total = suppressWarnings(as.numeric(d[r + 1, 2])))
 }
 
-# Scenario grid. Base 18: conv {SC,PC,PI} x food {1,2} x decarb {FD,ID,SD}, GDP target
+# Scenario grid. Base 18: conv {SC,PC,PI} x sectoral_change {1,2} x decarb {FD,ID,SD}, GDP target
 # 60k (SC) / 120k (PC) / NA (PI). Plus 12 SC variants at lower GDP targets (A1=45k, A2=30k,
-# A3=15k), food p=1/s=2, decarb FD/ID only. scenario id = sheet name.
-base <- expand.grid(conv = c("SC", "PC", "PI"), food = c("1", "2"), decarb = c("FD", "ID", "SD"), stringsAsFactors = FALSE)
-base$gdp <- c(SC = 60, PC = 120, PI = NA_real_)[base$conv]
-base$scenario <- paste0(base$conv, base$food, "_", base$decarb)
+# A3=15k), sectoral_change p=1/s=2, decarb FD/ID only.
+# scenario_xl = Excel sheet name (A1p_FD etc.); scenario = output label (SC45k1_FD etc.).
+base <- expand.grid(hours_scenario = c("SC", "PC", "PI"), food = c("1", "2"), decarb = c("FD", "ID", "SD"), stringsAsFactors = FALSE)
+base$gdp <- c(SC = 60, PC = 120, PI = NA_real_)[base$hours_scenario]
+base$scenario <- paste0(base$hours_scenario, base$food, "_", base$decarb)
+base$scenario_xl <- base$scenario
 gdp_a <- c(A1 = 45, A2 = 30, A3 = 15)
+gdp_label <- c(A1 = "SC45k", A2 = "SC30k", A3 = "SC15k")
 av <- expand.grid(grp = names(gdp_a), food = c("1", "2"), decarb = c("FD", "ID"), stringsAsFactors = FALSE)
-av$conv <- "SC"
+av$hours_scenario <- "SC"
 av$gdp <- gdp_a[av$grp]
-av$scenario <- paste0(av$grp, ifelse(av$food == "1", "p", "s"), "_", av$decarb)
-temp_scen <- rbind(base[, c("conv", "gdp", "food", "decarb", "scenario")],
-                   av[, c("conv", "gdp", "food", "decarb", "scenario")])
+av$scenario <- paste0(gdp_label[av$grp], av$food, "_", av$decarb)
+av$scenario_xl <- paste0(av$grp, ifelse(av$food == "1", "p", "s"), "_", av$decarb)
+temp_scen <- rbind(base[, c("hours_scenario", "gdp", "food", "decarb", "scenario", "scenario_xl")],
+                   av[, c("hours_scenario", "gdp", "food", "decarb", "scenario", "scenario_xl")])
 
-tt <- t(vapply(temp_scen$scenario, read_temp_total, c(temp = NA_real_, total = NA_real_)))
+tt <- t(vapply(temp_scen$scenario_xl, read_temp_total, c(temp = NA_real_, total = NA_real_)))
 temp_scen$temp_observed <- as.numeric(tt[, "temp"])
 temp_scen$emissions <- as.numeric(tt[, "total"])
-temp_scen$conv <- factor(temp_scen$conv, levels = c("SC", "PC", "PI"))
 temp_scen$food <- factor(temp_scen$food, levels = c("1", "2"))
 temp_scen$decarb <- factor(temp_scen$decarb, levels = c("FD", "ID", "SD"))
-temp_scen <- temp_scen[order(temp_scen$conv, -temp_scen$gdp, temp_scen$food, temp_scen$decarb), ]
+temp_scen$type <- factor(
+  with(temp_scen, ifelse(hours_scenario == "PC", "PC",
+                  ifelse(hours_scenario == "PI", "PI",
+                  ifelse(is.na(gdp) | gdp == 60, "SC",
+                  ifelse(gdp == 45, "SC45k",
+                  ifelse(gdp == 30, "SC30k", "SC15k")))))),
+  levels = c("SC", "SC45k", "SC30k", "SC15k", "PC", "PI"))
+temp_scen <- temp_scen[order(temp_scen$type, temp_scen$food, temp_scen$decarb), ]
 
-obs_out <- temp_scen[, c("scenario", "conv", "gdp", "food", "decarb", "emissions", "temp_observed")]
+obs_out <- temp_scen[, c("scenario", "type", "food", "decarb", "emissions", "temp_observed")]
 obs_out$emissions <- round(obs_out$emissions, 0)
 obs_out$temp_observed <- round(obs_out$temp_observed, 3)
 write.csv(obs_out, "../data/chancel_temp2100_observed.csv", row.names = FALSE, quote = FALSE, na = "")
 message(sprintf("Wrote ../chancel_temp2100_observed.csv (%d scenarios, %d observed)", nrow(temp_scen), sum(!is.na(temp_scen$temp_observed))))
 
-# Two models for the 2100 temperature, fitted on the observed scenarios:
-# (a) "caracs": scenario characteristics with interaction terms - a per-scenario
-#     decarbonization effect (conv x decarb); a food-shift effect that applies only where
-#     the diet actually changes (not PI, whose food columns are near-identical); and a
-#     GDP-target slope (deviation from the 60k SC benchmark, 0 outside the SC family)
-#     interacted with decarbonization (steeper at slower decarb).
-# (b) "emissions": quadratic in cumulative 2025-2100 emissions, enriched with the scenario
-#     characteristics (conv, decarb, food, GDP target) and an emissions x food interaction
-#     (food shifts the gas mix toward shorter-lived methane). This had the best leave-one-out
-#     CV among the candidates tried; temp_final uses it where the temperature is missing.
-temp_scen$food_active <- as.integer(temp_scen$food == "2" & temp_scen$conv != "PI")
-temp_scen$gdp_dev <- ifelse(temp_scen$conv == "SC" & !is.na(temp_scen$gdp), temp_scen$gdp - 60, 0)
-temp_fit <- lm(temp_observed ~ conv * decarb + food_active + gdp_dev + gdp_dev:decarb, data = temp_scen)
-temp_fit_emis <- lm(temp_observed ~ emissions + I(emissions^2) + conv + decarb + food_active + emissions:food_active + gdp_dev, data = temp_scen)
-# Simpler emissions-only baselines for the comparison columns below.
-temp_fit_emis_simple <- lm(temp_observed ~ emissions, data = temp_scen)
-temp_fit_emis2 <- lm(temp_observed ~ emissions + I(emissions^2), data = temp_scen)
-pred_caracs <- predict(temp_fit, temp_scen)
+# Best adj-R2 model with emissions (section 14 search, adj-R2=0.9999, diff_round=0 everywhere):
+# I(emissions^2):decarb + type:decarb:sectoral_change added to base.
+temp_scen$sectoral_change <- as.integer(temp_scen$food == "2" & temp_scen$type != "PI")
+temp_fit_emis <- lm(temp_observed ~ emissions + I(emissions^2) + type + decarb + sectoral_change + emissions:sectoral_change + I(emissions^2):decarb + type:decarb:sectoral_change, data = temp_scen)
 pred_emis <- predict(temp_fit_emis, temp_scen)
-pred_emis_simple <- predict(temp_fit_emis_simple, temp_scen)
-pred_emis2 <- predict(temp_fit_emis2, temp_scen)
 temp_scen$temp_observed <- round(temp_scen$temp_observed, 1)
-temp_scen$temp_pred_caracs <- round(pred_caracs, 1)
 temp_scen$temp_pred_emissions <- round(pred_emis, 1)
 temp_scen$temp_final <- round(ifelse(is.na(temp_scen$temp_observed), pred_emis, temp_scen$temp_observed), 1)
-# diff_caracs / diff_emissions: rounding of the (raw) difference, to 2 dp.
-temp_scen$diff_caracs <- round(temp_scen$temp_observed - pred_caracs, 2)
 temp_scen$diff_emissions <- round(temp_scen$temp_observed - pred_emis, 2)
-# *_round / _simple / _2: difference of the rounded (1 dp) values - for the enriched model,
-# and for the emissions-only and emissions+emissions^2 baselines respectively.
 temp_scen$diff_emissions_round <- round(temp_scen$temp_observed - round(pred_emis, 1), 1)
-temp_scen$diff_emissions_simple <- round(temp_scen$temp_observed - round(pred_emis_simple, 1), 1)
-temp_scen$diff_emissions2 <- round(temp_scen$temp_observed - round(pred_emis2, 1), 1)
 temp_scen$emissions <- round(temp_scen$emissions, 0)
 
-write.csv(temp_scen[, c("scenario", "conv", "gdp", "food", "decarb", "emissions", "temp_observed", "temp_pred_caracs", "temp_pred_emissions", "temp_final", "diff_caracs", "diff_emissions", "diff_emissions_round", "diff_emissions_simple", "diff_emissions2")], "../data/chancel_temp2100_completed.csv", row.names = FALSE, quote = FALSE, na = "")
-message(sprintf("Wrote ../chancel_temp2100_completed.csv (R2 caracs=%.4f, R2 emissions=%.4f, %d temperatures deduced)", summary(temp_fit)$r.squared, summary(temp_fit_emis)$r.squared, sum(is.na(temp_scen$temp_observed))))
+write.csv(temp_scen[, c("scenario", "type", "food", "decarb", "emissions", "temp_observed", "temp_pred_emissions", "temp_final", "diff_emissions", "diff_emissions_round")], "../data/chancel_temp2100_completed.csv", row.names = FALSE, quote = FALSE, na = "")
+message(sprintf("Wrote ../data/chancel_temp2100_completed.csv (R2=%.4f, %d temperatures deduced)", summary(temp_fit_emis)$r.squared, sum(is.na(temp_scen$temp_observed))))
+
+##### 14. Model search: best adj-R2 model with emissions (drop-one, add-one, add-two, drop+add) #####
+# Uses type (6 levels) instead of hours_scenario + gdp_dev.
+# Extra terms include 3-way and 4-way interactions as requested.
+obs <- temp_scen[!is.na(temp_scen$temp_observed), ]
+
+base_terms <- c("emissions", "I(emissions^2)", "type", "decarb", "sectoral_change",
+                "emissions:sectoral_change")
+extra_terms <- c(
+  "type:decarb", "type:sectoral_change", "decarb:sectoral_change",
+  "emissions:type", "emissions:decarb",
+  "I(emissions^2):type", "I(emissions^2):decarb", "I(emissions^2):sectoral_change",
+  "type:decarb:sectoral_change",
+  "emissions:type:decarb", "emissions:type:sectoral_change", "emissions:decarb:sectoral_change",
+  "I(emissions^2):type:decarb", "I(emissions^2):type:sectoral_change",
+  "I(emissions^2):decarb:sectoral_change",
+  "emissions:type:decarb:sectoral_change", "I(emissions^2):type:decarb:sectoral_change")
+
+try_model <- function(terms, dat = obs) {
+  fml <- as.formula(paste("temp_observed ~", paste(terms, collapse = " + ")))
+  fit <- tryCatch(lm(fml, data = dat), error = function(e) NULL)
+  if (is.null(fit)) return(list(ok = FALSE, max_diff = NA, r2 = NA, adj_r2 = NA, nterms = length(terms)))
+  pred <- tryCatch(predict(fit, dat), error = function(e) NULL)
+  if (is.null(pred) || any(is.na(pred))) return(list(ok = FALSE, max_diff = NA, r2 = NA, adj_r2 = NA, nterms = length(terms)))
+  pred <- predict(fit, dat)
+  diffs <- round(dat$temp_observed - round(pred, 1), 1)
+  s <- summary(fit)
+  list(ok = all(diffs == 0, na.rm = TRUE), max_diff = max(abs(diffs), na.rm = TRUE),
+       r2 = s$r.squared, adj_r2 = s$adj.r.squared, nterms = length(terms))
+}
+
+results <- list()
+# (a) drop-one
+for (i in seq_along(base_terms)) {
+  terms <- base_terms[-i]
+  results[[paste("drop:", base_terms[i])]] <- try_model(terms)
+}
+# (b) add-one
+for (t in extra_terms) {
+  results[[paste("add:", t)]] <- try_model(c(base_terms, t))
+}
+# (c) base model
+results[["base (no change)"]] <- try_model(base_terms)
+# (d) add two extra terms
+for (i in seq_along(extra_terms)) {
+  for (j in seq_along(extra_terms)[seq_along(extra_terms) >= i]) {
+    if (i == j) next
+    nm <- paste0("add:", extra_terms[i], " + add:", extra_terms[j])
+    results[[nm]] <- try_model(c(base_terms, extra_terms[i], extra_terms[j]))
+  }
+}
+# (e) drop-one + add-one: only for pairs where drop-one gives finite max_diff
+drop_finite <- grep("^drop: ", names(results)[vapply(results, function(r) !is.na(r$max_diff), logical(1))], value = TRUE)
+for (dn in drop_finite) {
+  drop_t <- sub("^drop: ", "", dn)
+  base_d <- base_terms[base_terms != drop_t]
+  for (t in extra_terms[extra_terms != drop_t])
+    results[[paste0("drop:", drop_t, " + add:", t)]] <- try_model(c(base_d, t))
+}
+
+cat("\nModel search (diff_emissions_round == 0 means all rounded residuals are zero):\n")
+cat(sprintf("  %-52s  ok    max_diff  R2\n", "model variant"))
+for (nm in names(results)) {
+  r <- results[[nm]]
+  cat(sprintf("  %-52s  %-5s  %5.2f  adjR2=%.4f  nterms=%d\n",
+              nm, r$ok, if (is.na(r$max_diff)) NA else r$max_diff,
+              if (is.na(r$adj_r2)) NA else r$adj_r2, r$nterms))
+}
+ok_variants <- names(results)[vapply(results, `[[`, logical(1), "ok")]
+if (length(ok_variants) > 0) {
+  cat("\nVariants achieving diff_emissions_round == 0 everywhere:\n")
+  for (nm in ok_variants) cat("  ", nm, " (nterms=", results[[nm]]$nterms, ", adjR2=", round(results[[nm]]$adj_r2, 4), ")\n")
+}
+# Best adj-R² across all valid variants
+valid <- names(results)[vapply(results, function(r) !is.na(r$adj_r2), logical(1))]
+best_nm <- valid[which.max(vapply(results[valid], `[[`, numeric(1), "adj_r2"))]
+best <- results[[best_nm]]
+cat(sprintf("\nBest adj-R2: %.4f  → %s  (nterms=%d, max_diff=%.2f)\n",
+            best$adj_r2, best_nm, best$nterms, if (is.na(best$max_diff)) NA else best$max_diff))
+# Top 5 by adj-R²
+adj_r2_vec <- vapply(results[valid], `[[`, numeric(1), "adj_r2")
+top5 <- head(valid[order(-adj_r2_vec)], 5)
+cat("\nTop 5 variants by adj-R2:\n")
+for (nm in top5) {
+  r <- results[[nm]]
+  cat(sprintf("  adjR2=%.4f  max_diff=%.2f  nterms=%d  %s\n",
+              r$adj_r2, if (is.na(r$max_diff)) NA else r$max_diff, r$nterms, nm))
+}
+
+##### 15. Best model without emissions: all-subsets search #####
+# Candidate terms: type, decarb, sectoral_change and their interactions up to 3-way.
+# All 2^k non-empty subsets are tested; tracks best adj-R2 AND best (min) max_diff_round.
+# Predictions added to chancel_temp2100_completed.csv as temp_pred_noem / diff_noem_round.
+cand_noem <- c("type", "decarb", "sectoral_change",
+               "type:decarb", "type:sectoral_change", "decarb:sectoral_change",
+               "type:decarb:sectoral_change")
+
+best_noem <- list(adj_r2 = -Inf, formula = NULL, max_diff = NA, nterms = NA)
+best_noem_md <- list(max_diff = Inf, adj_r2 = -Inf, formula = NULL, nterms = NA)
+k <- length(cand_noem)
+for (bits in seq_len(2^k - 1)) {
+  terms <- cand_noem[as.logical(intToBits(bits)[1:k])]
+  fml <- as.formula(paste("temp_observed ~", paste(terms, collapse = " + ")))
+  fit <- tryCatch(lm(fml, data = obs), error = function(e) NULL)
+  if (is.null(fit)) next
+  pred <- tryCatch(predict(fit, obs), error = function(e) NULL)
+  if (is.null(pred) || any(is.na(pred))) next
+  s <- summary(fit)
+  if (is.na(s$adj.r.squared)) next
+  diffs <- round(obs$temp_observed - round(pred, 1), 1)
+  md <- max(abs(diffs), na.rm = TRUE)
+  rec <- list(adj_r2 = s$adj.r.squared, r2 = s$r.squared, formula = fml, terms = terms,
+              max_diff = md, ok = all(diffs == 0, na.rm = TRUE), nterms = length(terms))
+  if (s$adj.r.squared > best_noem$adj_r2) best_noem <- rec
+  if (md < best_noem_md$max_diff || (md == best_noem_md$max_diff && s$adj.r.squared > best_noem_md$adj_r2))
+    best_noem_md <- rec
+}
+cat(sprintf("\nBest no-emissions by adj-R2:    adj-R2=%.4f  R2=%.4f  nterms=%d  max_diff=%.2f\n",
+            best_noem$adj_r2, best_noem$r2, best_noem$nterms, best_noem$max_diff))
+cat("  Formula:", deparse(best_noem$formula), "\n")
+cat(sprintf("Best no-emissions by max_diff:  adj-R2=%.4f  R2=%.4f  nterms=%d  max_diff=%.2f\n",
+            best_noem_md$adj_r2, best_noem_md$r2, best_noem_md$nterms, best_noem_md$max_diff))
+cat("  Formula:", deparse(best_noem_md$formula), "\n")
+cat("  diff_noem_round == 0 everywhere:", best_noem_md$ok, "\n")
+
+# Use the min-max_diff model for predictions (best practical accuracy)
+fit_noem <- lm(best_noem_md$formula, data = obs)
+temp_scen$temp_pred_noem <- round(predict(fit_noem, temp_scen), 1)
+temp_scen$temp_final_noem <- ifelse(is.na(temp_scen$temp_observed), temp_scen$temp_pred_noem, temp_scen$temp_observed)
+temp_scen$diff_noem_round <- round(temp_scen$temp_observed - temp_scen$temp_pred_noem, 1)
+out_cols <- c("scenario", "type", "sectoral_change", "decarb", "emissions",
+              "temp_observed", "temp_pred_emissions", "temp_final",
+              "diff_emissions", "diff_emissions_round",
+              "temp_pred_noem", "temp_final_noem", "diff_noem_round")
+write.csv(temp_scen[, out_cols], "../data/chancel_temp2100_completed.csv",
+          row.names = FALSE, quote = FALSE, na = "")
+message(sprintf("Updated ../data/chancel_temp2100_completed.csv with temp_pred_noem (adj-R2=%.4f)", best_noem$adj_r2))
