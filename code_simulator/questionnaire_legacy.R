@@ -1,0 +1,924 @@
+# code_simulator/questionnaire.R
+# Generates the inputs for the questionnaire pages:
+#   - ../distributions/ineq_2100.csv      21 brackets × 14 cols ({IT,World} × {PI,PC,SC1,SC2,SC45k,SC30k,SC15k})
+#   - ../distributions/ineq_IT_2035.csv   127 gpercentiles × 11 cols (IT25,PI,PC,SC1,SC2,SC45k,SC30k,SC15k,SI,SN)
+#   - ../figures/world_pi_2100.png  World PI 2100 distribution (country-specific vs uniform growth)
+#
+# Self-contained: every quantity is rebuilt from raw data (.dta + .xlsx); no
+# .csv produced by other R scripts is consumed. Construction follows
+# build_cash_income_2025.R (FG → cash_income_2025) and prepare_data.R
+# (Bothe simul → post-GIT income), with the new monotonicity rule applied.
+
+suppressPackageStartupMessages({library(haven); library(readxl)})
+dir.create("../distributions", showWarnings = FALSE)
+dir.create("../figures", showWarnings = FALSE)
+
+CHANCEL <- "../data/Chancel/Chanceletal2026Appendix_MacroScenarios.xlsx"
+MACRO <- "../data/Bothe/Botheetal2026AppendixMacro.xlsx"
+SIMUL <- "../data/Bothe/distribution_simul_extract.dta"
+FG <- "../data/FisherGethin/fisher-gethin-2023-slim.dta"
+WID <- "../data/WID/wid-mprico-nni.csv"
+
+# Population-share width of each Bothe 127-bracket lower bound (sums to 1)
+gp_width <- function(g) ifelse(g < 99, 0.01,
+                       ifelse(g < 99.9, 0.001,
+                       ifelse(g < 99.99, 0.0001, 0.00001)))
+
+# FG / Bothe gperc index (1..127) → lower-bound (0, 1, ..., 99.999)
+gperc_to_lb <- function(g) ifelse(g <= 99, g - 1,
+                          ifelse(g <= 108, 99 + (g - 100) * 0.1,
+                          ifelse(g <= 117, 99.9 + (g - 109) * 0.01,
+                          ifelse(g <= 126, 99.99 + (g - 118) * 0.001, 99.999))))
+
+# Sort each value column ascending over rows with gpercentile < 99, per country,
+# leaving top-1% values (gpercentile >= 99) untouched. Used to neutralise local
+# non-monotonicities inherited from FG / Bothe raw data.
+sort_bottom99 <- function(d, value_cols, p_col = "gpercentile", country_col = "country") {
+  for (ctry in unique(d[[country_col]])) {
+    r <- which(d[[country_col]] == ctry & d[[p_col]] < 99)
+    for (vc in value_cols) d[r, vc] <- sort(d[r, vc], na.last = TRUE)
+  }
+  d
+}
+
+# Read a Chancel macro-scenario sheet (year × {World, 8 regions, 57 countries}).
+# Some sheets have trailing growth-rate rows (e.g. "2025-2100"); we filter to
+# rows with a numeric year so rownames stay plain "YYYY" strings.
+read_chancel_ts <- function(sheet, file = CHANCEL) {
+  d <- suppressMessages(read_excel(file, sheet = sheet, col_names = FALSE))
+  hdr <- as.character(unlist(d[4, ]))
+  yrs <- suppressWarnings(as.numeric(unlist(d[-(1:4), 1])))
+  body <- d[-(1:4), -1][!is.na(yrs), ]
+  yrs <- yrs[!is.na(yrs)]
+  v <- suppressWarnings(apply(body, 2, as.numeric))
+  if (is.null(dim(v))) v <- matrix(v, nrow = 1)
+  colnames(v) <- hdr[-1]
+  df <- as.data.frame(v); rownames(df) <- as.character(yrs)
+  df
+}
+
+##### 1. income[c, gp, y] from Bothe distribution_simul.dta #####
+# Same formula as prepare_data.R: income = sdiinc * nni / diff - ypt + dividend[y]
+message("Building income...")
+simul <- as.data.frame(read_dta(SIMUL))
+for (v in c("sdiinc","nni","diff","ypt","pop"))
+  simul[[v]] <- ifelse(is.na(simul[[v]]), 0, simul[[v]])
+simul$yp_recomp <- with(simul, ifelse(diff > 0, sdiinc * nni / diff, NA_real_))
+# Equal-per-adult worldwide GJF dividend (E3bp col 2 = World, uniform across countries)
+e3bp <- suppressMessages(read_excel(MACRO, sheet = "E3bp", col_names = FALSE))
+dividend <- setNames(
+  suppressWarnings(as.numeric(unlist(e3bp[-(1:4), 2]))),
+  as.character(suppressWarnings(as.numeric(unlist(e3bp[-(1:4), 1])))))
+simul$income <- simul$yp_recomp - simul$ypt + dividend[as.character(simul$year)]
+
+yrs_inc <- sort(unique(simul$year))
+inc_wide <- reshape(simul[, c("country","p1","year","income")],
+                    idvar = c("country","p1"), timevar = "year",
+                    v.names = "income", direction = "wide")
+names(inc_wide) <- c("country", "gpercentile", paste0("income_", yrs_inc))
+inc_wide <- inc_wide[order(inc_wide$country, inc_wide$gpercentile), ]
+inc_wide <- sort_bottom99(inc_wide, paste0("income_", yrs_inc))
+
+##### 2. cash_income_2025[c, gp] from FG 2023 + Bothe 2025 macro #####
+# Dimensionless FG factor at each (country, gperc) × Bothe NNI 2025, minus ypt.
+message("Building cash_income_2025...")
+RETENTION_RATE <- 0.5
+RENTAL_YIELD <- 0.035 # imputed rent ≈ 3.5% of NNI (PSZ 2018, GGLP 2018, BCG 2022 avg)
+# Net housing wealth / total wealth, by wealth percentile group (France 2014,
+# GGLP 2021 Appendix B; data/garbinti_etal_2021_wealth_compo_appB.xlsx, col
+# sh_patfon_netXX). Bottom 30% ≈ 0 (debt offsets property); peaks at P60-P70.
+housing_gradient <- function(gp) {
+  brks <- c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.5, 99.9)
+  vals <- c(0.000, 0.001, 0.016, 0.299, 0.619, 0.708, 0.732, 0.707, 0.641,
+            0.540, 0.422, 0.319, 0.230, 0.102)
+  vals[findInterval(gp, brks)]
+}
+
+main_countries <- c(
+  "DE","DK","ES","FR","GB","IT","NL","NO","SE","US","CA","AU","NZ",
+  "AR","BR","CL","CO","MX","AE","DZ","EG","IR","MA","SA","TR",
+  "CD","CI","ET","KE","ML","NE","NG","RW","SD","ZA","RU","CN","JP","KR","TW",
+  "BD","IN","ID","MM","PK","PH","TH","VN")
+
+# Residual WID regions (9): non-main constituent country lists by area
+WEUR <- c("AD","AT","BE","CH","DE","DK","ES","FI","FR","GB","GG","GI","GR","IE","IM","IS","IT","JE","LI","LU","MC","MT","NL","NO","PT","SE","SM")
+EEUR <- c("AL","BA","BG","CY","CZ","EE","HR","HU","KS","LT","LV","MD","ME","MK","PL","RO","RS","SI","SK")
+NAOC <- c("AU","BM","CA","FJ","FM","GL","KI","MH","NC","NR","NZ","PF","PG","PW","SB","TO","TV","US","VU","WS")
+LATA <- c("AG","AI","AR","AW","BB","BO","BQ","BR","BS","BZ","CL","CO","CR","CU","CW","DM","DO","EC","GD","GT","GY","HN","HT","JM","KN","KY","LC","MS","MX","NI","PA","PE","PR","PY","SR","SV","SX","TC","TT","UY","VC","VE","VG")
+MENA <- c("AE","BH","DZ","EG","IL","IQ","IR","JO","KW","LB","LY","MA","OM","PS","QA","SA","SY","TN","TR","YE")
+SSAF <- c("AO","BF","BI","BJ","BW","CD","CF","CG","CI","CM","CV","DJ","ER","ET","GA","GH","GM","GN","GQ","GW","KE","KM","LR","LS","MG","ML","MR","MU","MW","MZ","NA","NE","NG","RW","SC","SD","SL","SN","SO","SS","ST","SZ","TD","TG","TZ","UG","ZA","ZM","ZW")
+RUCA <- c("AM","AZ","BY","GE","KG","KZ","RU","TJ","TM","UA","UZ")
+EASA <- c("CN","HK","JP","KP","KR","MN","MO","TW")
+SSEA <- c("AF","BD","BN","BT","ID","IN","KH","LA","LK","MM","MV","MY","NP","PH","PK","SG","TH","TL","VN")
+residual_def <- list(
+  OC = setdiff(WEUR, main_countries), QM = EEUR,
+  OH = setdiff(NAOC, main_countries), OD = setdiff(LATA, main_countries),
+  OE = setdiff(MENA, main_countries), OJ = setdiff(SSAF, main_countries),
+  OA = setdiff(RUCA, main_countries), OB = setdiff(EASA, main_countries),
+  OI = setdiff(SSEA, main_countries))
+
+fg <- as.data.frame(read_dta(FG)); fg <- fg[fg$year == 2023, ]
+for (v in c("a_pre","a_pre_cap","tax_dir_pit","tax_dir_wea","tax_cit",
+            "tax_soc","tax_ind","gov_soc","weight"))
+  fg[[v]] <- ifelse(is.na(fg[[v]]), 0, fg[[v]])
+
+wid <- read.csv(WID)
+mprico_share <- setNames(wid$mprico_share, wid$country)
+mprico_default <- median(mprico_share)
+
+re_rate_for <- function(ctry) {
+  ms <- if (!is.na(mprico_share[ctry])) mprico_share[ctry] else mprico_default
+  RETENTION_RATE * if (is.na(ms)) mprico_default else ms
+}
+
+housing_norm_for <- function(entity, gperc_idx) {
+  wd <- wealth_dist_2025[wealth_dist_2025$country == entity, ]
+  n <- length(gperc_idx)
+  if (nrow(wd) == 0) return(rep(0, n))
+  p1_to_gp <- function(x)
+    ifelse(x < 99, round(x) + 1,
+    ifelse(x < 99.9, 100 + round((x - 99) * 10),
+    ifelse(x < 99.99, 109 + round((x - 99.9) * 100),
+                      118 + round((x - 99.99) * 1000))))
+  wd$gp <- p1_to_gp(wd$p1)
+  sw <- wd$shweal[match(gperc_idx, wd$gp)]; sw[is.na(sw)] <- 0
+  dif <- wd$diff [match(gperc_idx, wd$gp)]; dif[is.na(dif)] <- 0.01
+  H <- housing_gradient(gperc_to_lb(gperc_idx))
+  den <- sum(sw * H * dif, na.rm = TRUE)
+  if (den <= 0) return(rep(0, n))
+  sw * H / den
+}
+
+macro25 <- unique(simul[simul$year == 2025, c("country","nni","gdp","cfc")])
+nni_2025 <- setNames(macro25$nni, macro25$country)
+cfc_per_cap <- setNames(macro25$cfc * macro25$gdp, macro25$country)
+ypt_2025 <- simul[simul$year == 2025, c("country","p1","ypt")]
+wealth_dist_2025 <- simul[simul$year == 2025, c("country","p1","shweal","diff")]
+wealth_dist_2025$shweal <- ifelse(is.na(wealth_dist_2025$shweal), 0, wealth_dist_2025$shweal)
+
+# Per-(country, gperc) dimensionless components, NNI-normalised
+compute_factors <- function(sub) {
+  mu_n <- sum(sub$a_pre * sub$weight) / sum(sub$weight)
+  mu_c <- sum(sub$a_pre_cap * sub$weight) / sum(sub$weight)
+  if (mu_n <= 0) return(NULL)
+  data.frame(
+    gperc = sub$gperc, weight = sub$weight,
+    pre = sub$a_pre / mu_n,
+    dir = (sub$tax_dir_pit + sub$tax_dir_wea + sub$tax_cit) / mu_n,
+    soc = sub$tax_soc / mu_n,
+    ind = sub$tax_ind / mu_n,
+    trn = sub$gov_soc / mu_n,
+    cap_share_g = if (mu_c > 0) sub$a_pre_cap / mu_c else rep(0, nrow(sub)))
+}
+
+# (a) 48 main countries
+main_rows <- do.call(rbind, lapply(main_countries, function(ctry) {
+  sub <- fg[fg$iso == ctry, ]; if (nrow(sub) == 0) return(NULL)
+  f <- compute_factors(sub); if (is.null(f)) return(NULL)
+  nni <- nni_2025[ctry]; cfc <- cfc_per_cap[ctry]
+  if (is.na(nni) || is.na(cfc)) return(NULL)
+  re_r <- re_rate_for(ctry)
+  h_norm <- housing_norm_for(ctry, f$gperc)
+  cash_eur <- with(f, (pre - dir - soc - ind + trn) * nni
+                      - re_r * cap_share_g * nni
+                      - RENTAL_YIELD * h_norm * nni
+                      + cap_share_g * cfc)
+  y_c <- ypt_2025[ypt_2025$country == ctry, ]
+  ypt_v <- y_c$ypt[match(f$gperc, sapply(y_c$p1, function(x) {
+    if (x < 99) round(x) + 1
+    else if (x < 99.9) 100 + round((x - 99) * 10)
+    else if (x < 99.99) 109 + round((x - 99.9) * 100)
+    else 118 + round((x - 99.99) * 1000)
+  }))]
+  ypt_v[is.na(ypt_v)] <- 0
+  data.frame(country = ctry, gperc = f$gperc, cash_income_2025 = cash_eur - ypt_v)
+}))
+
+# (b) 9 residual regions: FG-population-weighted average factor across constituent
+#     countries, scaled by Bothe NNI for the WID region.
+residual_rows <- do.call(rbind, lapply(names(residual_def), function(r) {
+  isos <- intersect(residual_def[[r]], unique(fg$iso))
+  if (length(isos) == 0) return(NULL)
+  nni <- nni_2025[r]; cfc <- cfc_per_cap[r]
+  if (is.na(nni) || is.na(cfc)) return(NULL)
+  pieces <- do.call(rbind, lapply(isos, function(c) {
+    f <- compute_factors(fg[fg$iso == c, ]); if (is.null(f)) return(NULL)
+    f$base_factor <- with(f, pre - dir - soc - ind + trn)
+    f$re_factor <- re_rate_for(c) * f$cap_share_g
+    f
+  }))
+  agg <- aggregate(cbind(base_w = base_factor * weight, re_w = re_factor * weight,
+                          cap_w = cap_share_g * weight, w = weight) ~ gperc,
+                   data = pieces, FUN = sum)
+  h_norm <- housing_norm_for(r, agg$gperc)
+  data.frame(country = r, gperc = agg$gperc,
+             cash_income_2025 = (agg$base_w/agg$w - agg$re_w/agg$w) * nni
+                                - RENTAL_YIELD * h_norm * nni
+                                + agg$cap_w/agg$w * cfc)
+}))
+
+ci25 <- rbind(main_rows, residual_rows)
+ci25$gpercentile <- gperc_to_lb(ci25$gperc)
+ci25 <- ci25[order(ci25$country, ci25$gpercentile), ]
+ci25 <- sort_bottom99(ci25, "cash_income_2025")
+
+##### 3. cash_income[c, gp, y] = income_y × cash_income_2025 / income_2025 #####
+message("Building cash_income (2025-2100)...")
+ci_wide <- merge(inc_wide, ci25[, c("country","gpercentile","cash_income_2025")],
+                 by = c("country","gpercentile"), all.x = TRUE)
+ci_wide$ratio <- with(ci_wide, ifelse(is.finite(income_2025) & income_2025 > 0,
+                                       cash_income_2025 / income_2025, NA_real_))
+cash_cols <- paste0("cash_income_", yrs_inc)
+for (i in seq_along(yrs_inc))
+  ci_wide[[cash_cols[i]]] <- ci_wide[[paste0("income_", yrs_inc[i])]] * ci_wide$ratio
+ci_wide <- ci_wide[!is.na(ci_wide$ratio), ]
+ci_wide <- ci_wide[order(ci_wide$country, ci_wide$gpercentile), ]
+ci_wide <- sort_bottom99(ci_wide, cash_cols)
+
+##### 4. Populations and PI per-capita-GDP growth from Chancel #####
+# Scenario-specific populations: SC = Z0a (GJP path, accelerated ABR decline);
+# PI = Z0b (UN Medium variant). 2025 values are essentially identical, but they
+# diverge by 2100 (Z0a World 2100 ≈ 9.41 B vs Z0b ≈ 10.18 B).
+z0a <- read_chancel_ts("Z0a")
+z0b <- read_chancel_ts("Z0b")
+a0pi <- read_chancel_ts("A0pi") # GDP per capita PPP, PI scenario
+growth_pi_2025_2100 <- as.numeric(a0pi["2100", ]) / as.numeric(a0pi["2025", ])
+names(growth_pi_2025_2100) <- colnames(a0pi)
+pop_sc <- function(y) setNames(as.numeric(z0a[as.character(y), ]), colnames(z0a))
+pop_pi <- function(y) setNames(as.numeric(z0b[as.character(y), ]), colnames(z0b))
+pop_sc_2025 <- pop_sc(2025); pop_sc_2100 <- pop_sc(2100)
+pop_pi_2100 <- pop_pi(2100)
+
+##### 5. avg_income / avg_cash_income per country×year #####
+# within country: width-weighted mean of percentile means;
+# World: population-weighted mean of country means.
+country_avg <- function(df, ycol) {
+  num <- tapply(df[[ycol]] * gp_width(df$gpercentile), df$country, sum)
+  den <- tapply(gp_width(df$gpercentile), df$country, sum)
+  num / den
+}
+world_avg <- function(cmeans, pop_y) {
+  cs <- intersect(names(cmeans), names(pop_y))
+  sum(cmeans[cs] * pop_y[cs]) / sum(pop_y[cs])
+}
+avg_with_world <- function(df, ycol, y) {
+  # inc_wide and ci_wide are SC-scenario series → use SC populations (Z0a).
+  cm <- country_avg(df, ycol)
+  c(cm, World = unname(world_avg(cm, pop_sc(y))))
+}
+avg_inc <- setNames(lapply(yrs_inc, function(y) avg_with_world(inc_wide, paste0("income_", y), y)), as.character(yrs_inc))
+avg_cash <- setNames(lapply(yrs_inc, function(y) avg_with_world(ci_wide, paste0("cash_income_", y), y)), as.character(yrs_inc))
+
+message("avg_cash_income / avg_income (EUR PPP 2025 per adult per year):")
+for (y in c(2025, 2100)) for (k in c("IT","World"))
+  message(sprintf("  %-5s %d:  cash=%8.0f   income=%8.0f",
+                  k, y, avg_cash[[as.character(y)]][k], avg_inc[[as.character(y)]][k]))
+
+##### 5b. Flat tax to finance higher educ/health/PS spending (2035 vs 2025) #####
+# G5s = share of educ+health+public-services spending in GNE (SC scenario).
+# G0p = per-capita GNE under SC in EUR PPP 2025/year.
+# Per country/region X:
+#   extra_share_sc_2035[X]    = G5s[2035, X] − G5s[2025, X]              (% of GNE)
+#   extra_tax_eur_sc_2035[X]  = extra_share_sc_2035[X] × G0p[2035, X]    (EUR/adult/year)
+#   extra_tax_rate_sc_2035[X] = extra_tax_eur_sc_2035[X] / avg_cash_income[2035, X]
+# Applied in section 7 as a flat-rate reduction (same proportion at every
+# percentile) to the SC 2035 IT cash-income distribution.
+G5s <- read_chancel_ts("G5s")
+G0p <- read_chancel_ts("G0p")
+
+ctry_cols <- intersect(colnames(G5s), colnames(G0p))
+extra_share_sc_2035 <- setNames(as.numeric(G5s["2035", ctry_cols]) -
+                                    as.numeric(G5s["2025", ctry_cols]), ctry_cols)
+extra_tax_eur_sc_2035 <- setNames(extra_share_sc_2035 * as.numeric(G0p["2035", ctry_cols]), ctry_cols)
+
+ac35_sc <- avg_cash[["2035"]]
+shrd <- function(v, ref) v[intersect(names(v), names(ref))] / ref[intersect(names(v), names(ref))]
+extra_tax_rate_sc_2035 <- shrd(extra_tax_eur_sc_2035, ac35_sc)
+
+message("Flat-rate tax for extra educ/health/PS (2035 vs 2025), EUR and % of",
+        " SC avg_cash_income 2035:")
+for (k in c("IT","World")) message(sprintf(
+  "  %-5s: %5.0f EUR (%5.2f%% of %.0f)",
+  k, extra_tax_eur_sc_2035[k], 100*extra_tax_rate_sc_2035[k], ac35_sc[k]))
+
+##### 6. ineq_2100.csv: 21 brackets × 14 cols #####
+message("Building ineq_2100.csv...")
+
+# Pool (country, gperc) cells weighted by gp_width × country pop, sort by
+# value, and return a length-`n_bins` vector of mean income within each
+# global percentile bin. Robust to cells whose cumulative-weight extent
+# spans more than one bin: each cell's weighted income is *split* across
+# the bins it crosses via the cw-overlap, so no bin is ever skipped. Any
+# residual missing bin (e.g. extreme tails) is filled by linear
+# interpolation on the bin index (`rule = 2` carries endpoints flat).
+build_world_dist <- function(df, val_col, gp_col, pop_y, n_bins = 100) {
+  d <- data.frame(v = df[[val_col]],
+                  w = gp_width(df[[gp_col]]) * pop_y[df$country])
+  d <- d[is.finite(d$v) & d$v > 0 & is.finite(d$w) & d$w > 0, ]
+  d <- d[order(d$v), ]
+  W <- sum(d$w)
+  d$cw_hi <- cumsum(d$w) / W
+  d$cw_lo <- c(0, head(d$cw_hi, -1))
+  bin_lo <- (0:(n_bins - 1)) / n_bins
+  bin_hi <- (1:n_bins) / n_bins
+  res <- vapply(seq_len(n_bins), function(p) {
+    ov <- pmax(0, pmin(d$cw_hi, bin_hi[p]) - pmax(d$cw_lo, bin_lo[p]))
+    s <- sum(ov)
+    if (s > 0) sum(d$v * ov) / s else NA_real_
+  }, numeric(1))
+  if (any(is.na(res))) {
+    ok <- which(!is.na(res))
+    if (length(ok) >= 2) res <- approx(ok, res[ok], xout = seq_len(n_bins), rule = 2)$y
+  }
+  res
+}
+
+# Income concepts used in ineq_2100:
+#   SC / PC / SC1 / SC45k / SC30k / SC15k → Bothe SC "income" = sdiinc*nni/diff − ypt + dividend
+#       (post-GIT + dividend, already in inc_wide as income_2100).
+#   PI → cash_income_2025 × growth_pi[c] (per-country PI growth from A0pi). We
+#       cannot use Bothe SC's sdiinc*nni/diff at 2100 because that scenario
+#       fully converges (sdiinc, nni become identical across countries by 2100),
+#       collapsing IT and World PI distributions to the same vector.
+# All 2100 values are then uniformly inflated by avg_cash_2025[IT] / avg_inc_2025[IT]
+# (the IT cash/income ratio at 2025), including the World columns.
+
+# IT 127-grid: gpercentile vector + per-distribution value vectors
+gp_IT <- ci25$gpercentile[ci25$country == "IT"]
+ci25_IT <- ci25$cash_income_2025[ci25$country == "IT"]
+inc_IT_2100 <- inc_wide$income_2100[inc_wide$country == "IT"]
+stopifnot(isTRUE(all.equal(gp_IT, inc_wide$gpercentile[inc_wide$country == "IT"])))
+
+# Country-specific PI base for 2100 = cash_income_2025 × growth_pi[c]
+pi_pool <- ci25
+pi_pool$v_pi <- pi_pool$cash_income_2025 * growth_pi_2025_2100[pi_pool$country]
+pi_IT_2100 <- pi_pool$v_pi[pi_pool$country == "IT"]
+
+# World 100-grid distributions — scenario-specific population weighting
+inc_World_2100 <- build_world_dist(inc_wide, "income_2100", "gpercentile", pop_sc_2100)
+pi_World_2100 <- build_world_dist(pi_pool, "v_pi", "gpercentile", pop_pi_2100)
+
+# Uniform inflation factor (IT 2025 cash/income ratio), applied to all distributions
+ratio_IT <- as.numeric(avg_cash[["2025"]]["IT"] / avg_inc[["2025"]]["IT"])
+
+# Build the pre-bracket distributions (extra educ/health/PS tax NOT applied).
+sc2_IT <- inc_IT_2100 * ratio_IT
+sc2_World <- inc_World_2100 * ratio_IT
+pi_IT_dist <- pi_IT_2100 * ratio_IT
+pi_World_dist <- pi_World_2100 * ratio_IT
+
+# 21 brackets
+bracket_lo <- c(seq(0, 90, 5), 95, 99)
+bracket_hi <- c(seq(5, 95, 5), 99, 100)
+bracket_names <- paste0("p", bracket_lo, "p", bracket_hi)
+
+# IT: 127-grid mean within [pL, pH), weight = gp_width; pH=100 → inclusive
+bracket_avg_IT <- function(v) vapply(seq_along(bracket_lo), function(i) {
+  m <- gp_IT >= bracket_lo[i] &
+       (if (bracket_hi[i] >= 100) TRUE else gp_IT < bracket_hi[i])
+  w <- gp_width(gp_IT[m]); sum(v[m] * w) / sum(w)
+}, numeric(1))
+# World: 100-row distribution. Bin k = (k-1, k]% of pop → bracket rows (lo+1):hi
+bracket_avg_World <- function(v) vapply(seq_along(bracket_lo), function(i)
+  mean(v[(bracket_lo[i] + 1):bracket_hi[i]], na.rm = TRUE), numeric(1))
+
+ineq2100 <- data.frame(
+  bracket = bracket_names,
+  IT_PI = bracket_avg_IT(pi_IT_dist),
+  IT_PC = bracket_avg_IT(2.0 * sc2_IT),
+  IT_SC1 = bracket_avg_IT(sc2_IT),
+  IT_SC2 = bracket_avg_IT(sc2_IT),
+  IT_SC45k = bracket_avg_IT(0.75 * sc2_IT),
+  IT_SC30k = bracket_avg_IT(0.5 * sc2_IT),
+  IT_SC15k = bracket_avg_IT(0.25 * sc2_IT),
+  World_PI = bracket_avg_World(pi_World_dist),
+  World_PC = bracket_avg_World(2.0 * sc2_World),
+  World_SC1 = bracket_avg_World(sc2_World),
+  World_SC2 = bracket_avg_World(sc2_World),
+  World_SC45k = bracket_avg_World(0.75 * sc2_World),
+  World_SC30k = bracket_avg_World(0.5 * sc2_World),
+  World_SC15k = bracket_avg_World(0.25 * sc2_World))
+# Round income values to integer EUR (no fractional cents in exported CSVs)
+ineq2100[, -1] <- lapply(ineq2100[, -1], round, digits = 0)
+write.csv(ineq2100, "../distributions/ineq_2100.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ../distributions/ineq_2100.csv (%d rows × %d cols)",
+                nrow(ineq2100), ncol(ineq2100)))
+
+##### 7. ineq_IT_2035.csv: 127 gpercentiles × 11 cols #####
+# Per-capita GDP PPP for IT in EUR PPP 2025/year, taken from
+# Chanceletal2026Appendix_MacroScenarios sheets A0 (SC), A0pi (PI), A0pc (PC).
+# Used here only to set the SC45k / SC30k / SC15k scaling and to motivate the
+# 1.4× and 1.3× multipliers (gdp_it_pi_2035 / gdp_it_2025 ≈ 1.4,
+# gdp_it_pc_2035 / gdp_it_2025 ≈ 1.3).
+gdp_it_2025 <- 41346
+gdp_it_sc_2035 <- 47519
+gdp_it_pi_2035 <- 57503 # source: sheet A0pi col IT row 2035; 1.4 ≈ 57503/41346
+gdp_it_pc_2035 <- 55073 # source: sheet A0pc col IT row 2035; 1.3 ≈ 55073/41346
+
+sc2_2035_IT_gross <- ci_wide$cash_income_2035[ci_wide$country == "IT"]
+sc2_2035_IT <- sc2_2035_IT_gross * (1 - as.numeric(extra_tax_rate_sc_2035["IT"]))
+gp_IT2 <- ci_wide$gpercentile[ci_wide$country == "IT"]
+stopifnot(isTRUE(all.equal(gp_IT, gp_IT2)))
+
+# SI: IT 2025 shape scaled to match SC 2035 average cash income
+si_scale_2035 <- sum(sc2_2035_IT * gp_width(gp_IT)) / sum(ci25_IT * gp_width(gp_IT))
+si_2035_IT <- ci25_IT * si_scale_2035
+
+# SN: SC 2035 without GIT subtraction (ypt) and without dividend = yp_recomp × cash/income ratio
+sn_raw <- simul[simul$country == "IT" & simul$year == 2035, c("p1", "yp_recomp")]
+sn_raw <- sn_raw[order(sn_raw$p1), ]
+it_ratio <- ci_wide[ci_wide$country == "IT", c("gpercentile", "ratio")]
+sn_raw$cash_ratio <- it_ratio$ratio[match(sn_raw$p1, it_ratio$gpercentile)]
+sn_2035_IT <- sn_raw$yp_recomp * sn_raw$cash_ratio
+idx_bot <- sn_raw$p1 < 99
+sn_2035_IT[idx_bot] <- sort(sn_2035_IT[idx_bot], na.last = TRUE)
+
+# SC* columns use sc2_2035_IT (net of the flat extra-spending tax from section 5b).
+# PC is the gross 2035 SC cash income scaled by 1.15, with NO extra-tax subtraction.
+ineq_IT_2035 <- data.frame(
+  gpercentile = gp_IT,
+  IT25 = ci25_IT,
+  PI = 1.4 * ci25_IT,
+  PC = 1.15 * sc2_2035_IT_gross, # 1.3 * ci25_IT,
+  SC1 = sc2_2035_IT,
+  SC2 = sc2_2035_IT,
+  SC45k = (gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT,
+  SC30k = (0.95 * gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT,
+  SC15k = (0.9 * gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT,
+  SI = si_2035_IT,
+  SN = sn_2035_IT)
+ineq_IT_2035[, -1] <- lapply(ineq_IT_2035[, -1], round, digits = 0)
+write.csv(ineq_IT_2035, "../distributions/ineq_IT_2035.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ../distributions/ineq_IT_2035.csv (%d rows × %d cols)",
+                nrow(ineq_IT_2035), ncol(ineq_IT_2035)))
+
+##### 8. Figure: World PI distribution at 2100 #####
+# Two curves: (a) PI World aggregated with country-specific growth (used in
+# ineq_2100), (b) uniform-growth approximation cash_income_world × growth_pi[World].
+cash_world_2025 <- build_world_dist(ci25, "cash_income_2025", "gpercentile", pop_sc_2025)
+uniform_world <- cash_world_2025 * growth_pi_2025_2100["World"]
+
+png("../figures/world_pi_2100.png", width = 900, height = 520)
+op <- par(mar = c(4.5, 5, 3, 1))
+ylim_top <- 1.15 * max(pi_World_dist[1:99], uniform_world[1:99], na.rm = TRUE)
+plot(1:100, pi_World_dist, type = "l", lwd = 2.2, col = "firebrick",
+     xlab = "World gpercentile",
+     ylab = "Income (EUR PPP 2025 / adult / year)",
+     main = "World PI distribution at 2100",
+     ylim = c(0, ylim_top))
+lines(1:100, uniform_world, lwd = 2.2, col = "steelblue", lty = 2)
+legend("topleft", lty = c(1, 2), col = c("firebrick", "steelblue"), lwd = 2.2,
+       legend = c("PI World (country-specific growth, ineq_2100)",
+                  "cash_income_world × growth_pi[\"World\"] (uniform growth)"),
+       bty = "n")
+par(op); dev.off()
+message("Wrote ../figures/world_pi_2100.png")
+
+##### 9. Figure: IT 2025 cash_income / income ratio by gpercentile #####
+ci_it_2025 <- ci25$cash_income_2025[ci25$country == "IT"]
+inc_it_2025 <- inc_wide$income_2025[inc_wide$country == "IT"]
+ratio_g_IT <- ci_it_2025 / inc_it_2025
+
+png("../figures/cash_over_income_IT_2025.png", width = 900, height = 520)
+op <- par(mar = c(4.5, 5, 3, 1))
+plot(gp_IT, ratio_g_IT, type = "l", lwd = 2.2, col = "steelblue",
+     xlab = "gpercentile", ylab = "cash_income_2025 / income_2025",
+     main = "IT 2025: cash_income / income, by gpercentile",
+     ylim = c(0.5, 1.2))
+abline(h = .69, col = "grey60", lty = 2)
+abline(h = ratio_IT, col = "firebrick", lty = 2)
+legend("topleft", lty = 2, col = c("grey60", "firebrick"),
+       legend = c("ratio = 1", sprintf("ratio_IT = %.3f (aggregate cash / income)", ratio_IT)),
+       bty = "n")
+par(op); dev.off()
+message("Wrote ../figures/cash_over_income_IT_2025.png")
+
+##### 10. Report: avg income & cash income, 25/35/100, IT/World, SC/PI/PC #####
+# 127-grid weighted mean (gp_width sums to 1); 100-grid is uniform → mean().
+avg_127 <- function(v) sum(v * gp_width(gp_IT))
+avg_100 <- function(v) mean(v, na.rm = TRUE)
+pull <- function(x) if (is.null(x) || length(x) == 0 || !is.finite(x)) NA_real_ else as.numeric(x)
+
+# 2025 baseline (SC = PI = PC).
+inc_25_IT <- avg_inc[["2025"]]["IT"]; cash_25_IT <- avg_cash[["2025"]]["IT"]
+inc_25_W <- avg_inc[["2025"]]["World"]; cash_25_W <- avg_cash[["2025"]]["World"]
+# 2035 IT — SC net of flat tax, PI/PC as built in ineq_IT_2035.
+inc_35_IT <- avg_inc[["2035"]]["IT"]
+cash_35_IT_sc <- avg_127(sc2_2035_IT)
+cash_35_IT_pi <- avg_127(1.4 * ci25_IT)
+cash_35_IT_pc <- avg_127(1.15 * sc2_2035_IT_gross)
+# 2035 World — only SC modelled.
+inc_35_W <- avg_inc[["2035"]]["World"]
+cash_35_W_sc <- avg_cash[["2035"]]["World"]
+# 2100 IT (127-grid).
+inc_100_IT <- avg_inc[["2100"]]["IT"]
+cash_100_IT_sc <- avg_127(sc2_IT)
+cash_100_IT_pi <- avg_127(pi_IT_dist)
+cash_100_IT_pc <- avg_127(2.0 * sc2_IT)
+# 2100 World (100-grid).
+inc_100_W <- avg_inc[["2100"]]["World"]
+cash_100_W_sc <- avg_100(sc2_World)
+cash_100_W_pi <- avg_100(pi_World_dist)
+cash_100_W_pc <- avg_100(2.0 * sc2_World)
+
+report <- data.frame(
+  row.names = c("IT_SC","IT_PI","IT_PC","World_SC","World_PI","World_PC"),
+  inc_2025 = c(pull(inc_25_IT), pull(inc_25_IT), pull(inc_25_IT),
+                 pull(inc_25_W), pull(inc_25_W), pull(inc_25_W)),
+  cash_2025 = c(pull(cash_25_IT), pull(cash_25_IT),pull(cash_25_IT),
+                 pull(cash_25_W), pull(cash_25_W), pull(cash_25_W)),
+  inc_2035 = c(pull(inc_35_IT), NA, NA, pull(inc_35_W), NA, NA),
+  cash_2035 = c(pull(cash_35_IT_sc), pull(cash_35_IT_pi), pull(cash_35_IT_pc),
+                 pull(cash_35_W_sc), NA, NA),
+  inc_2100 = c(pull(inc_100_IT), NA, NA, pull(inc_100_W), NA, NA),
+  cash_2100 = c(pull(cash_100_IT_sc), pull(cash_100_IT_pi), pull(cash_100_IT_pc),
+                 pull(cash_100_W_sc), pull(cash_100_W_pi), pull(cash_100_W_pc)))
+report[] <- lapply(report, function(x) ifelse(is.na(x), "—", formatC(x, format = "d", big.mark = "")))
+
+cat("\nAvg income & cash income (EUR PPP 2025/adult/year):\n")
+print.data.frame(report, right = TRUE)
+
+##### 11. Figures: all simulator distributions per (region, year) #####
+# Each plot overlays the 6 distributions used by the simulator at that
+# (region, year) along with the IT 2025 reference (ci25_IT).
+plot_dists <- function(x, dists, ref_x, ref_v, title, fname, ylim_override = NULL) {
+  cols <- c("firebrick","steelblue","darkgreen","goldenrod","darkmagenta","tomato")
+  if (!is.null(ylim_override)) {
+    ymax <- ylim_override
+  } else {
+    # Clip y at max value over gpercentile <= 95 (×1.3 headroom) so the steep
+    # top-1% spike doesn't crush the rest of the curves on a linear scale.
+    cap <- function(v, axis) max(v[axis <= 95], na.rm = TRUE)
+    ymax <- 1.3 * max(c(sapply(dists, cap, axis = x), cap(ref_v, gp_IT)), na.rm = TRUE)
+  }
+  png(fname, width = 1000, height = 600)
+  op <- par(mar = c(4.5, 5, 3, 1))
+  plot(x, dists[[1]], type = "l", lwd = 2, col = cols[1],
+       xlab = "gpercentile", ylab = "Income (EUR PPP 2025/adult/year)",
+       main = title, ylim = c(0, ymax))
+  for (i in seq_along(dists)[-1]) lines(x, dists[[i]], lwd = 2, col = cols[i])
+  lines(ref_x, ref_v, lwd = 2, col = "black", lty = 3)
+  legend("topleft", legend = c(names(dists), "IT 2025"),
+         col = c(cols[seq_along(dists)], "black"),
+         lty = c(rep(1, length(dists)), 3), lwd = 2, bty = "n", cex = 0.9)
+  par(op); dev.off()
+  message("Wrote ", fname)
+}
+
+# Step-function variant: mean income per vingtile (5% bracket).
+# 20 equal vingtiles; the top 5% is treated like any other vingtile.
+# (Previous version split the top 5% into p95-p99 and p99-p100 → 21 brackets:
+# bracket_lo_v <- c(seq(0, 90, 5), 95, 99)
+# bracket_hi_v <- c(seq(5, 95, 5), 99, 100))
+bracket_lo_v <- seq(0, 95, 5)
+bracket_hi_v <- seq(5, 100, 5)
+
+bracket_avg_IT_v <- function(v) vapply(seq_along(bracket_lo_v), function(i) {
+  m <- gp_IT >= bracket_lo_v[i] &
+       (if (bracket_hi_v[i] >= 100) TRUE else gp_IT < bracket_hi_v[i])
+  w <- gp_width(gp_IT[m]); sum(v[m] * w) / sum(w)
+}, numeric(1))
+bracket_avg_World_v <- function(v) vapply(seq_along(bracket_lo_v), function(i)
+  mean(v[(bracket_lo_v[i] + 1):bracket_hi_v[i]], na.rm = TRUE), numeric(1))
+
+plot_dists_step <- function(dists_b, ref_b, title, fname, ylim_override = NULL) {
+  cols <- c("firebrick","steelblue","darkgreen","goldenrod","darkmagenta","tomato")
+  if (!is.null(ylim_override)) {
+    ymax <- ylim_override
+  } else {
+    # Exclude the last bracket from the y-cap; ×1.3 headroom.
+    cap <- function(v) max(v[seq_len(length(bracket_lo_v) - 1)], na.rm = TRUE)
+    ymax <- 1.3 * max(c(sapply(dists_b, cap), cap(ref_b)), na.rm = TRUE)
+  }
+  png(fname, width = 1000, height = 600)
+  op <- par(mar = c(4.5, 5, 3, 1))
+  plot(NA, xlim = c(0, 100), ylim = c(0, ymax),
+       xlab = "gpercentile bracket", ylab = "Mean income (EUR PPP 2025/adult/year)",
+       main = title)
+  # Horizontal segments per bracket + vertical connectors at bracket boundaries.
+  draw_steps <- function(v, col, lty = 1) {
+    n <- length(v)
+    for (i in seq_len(n)) {
+      segments(bracket_lo_v[i], v[i], bracket_hi_v[i], v[i],
+               col = col, lwd = 2.4, lty = lty)
+      if (i < n)
+        segments(bracket_hi_v[i], v[i], bracket_hi_v[i], v[i + 1],
+                 col = col, lwd = 2.4, lty = lty)
+    }
+  }
+  for (i in seq_along(dists_b)) draw_steps(dists_b[[i]], cols[i])
+  draw_steps(ref_b, "black", lty = 3)
+  legend("topleft", legend = c(names(dists_b), "IT 2025"),
+         col = c(cols[seq_along(dists_b)], "black"),
+         lty = c(rep(1, length(dists_b)), 3), lwd = 2.4, bty = "n", cex = 0.9)
+  par(op); dev.off()
+  message("Wrote ", fname)
+}
+
+# (a) World 2100 (100-grid, gpercentile 1..100)
+plot_dists(
+  x = 1:100,
+  dists = list(
+    PI = pi_World_dist,
+    PC = 2.0 * sc2_World,
+    SC1_2 = sc2_World,
+    SC45k = 0.75 * sc2_World,
+    SC30k = 0.5 * sc2_World,
+    SC15k = 0.25 * sc2_World),
+  ref_x = gp_IT, ref_v = ci25_IT,
+  title = "World 2100 distributions (IT 2025 reference dotted)",
+  fname = "../figures/dist_World_2100.png",
+  ylim_override = 200000)
+
+# (b) IT 2100 (127-grid)
+plot_dists(
+  x = gp_IT,
+  dists = list(
+    PI = pi_IT_dist,
+    PC = 2.0 * sc2_IT,
+    SC1_2 = sc2_IT,
+    SC45k = 0.75 * sc2_IT,
+    SC30k = 0.5 * sc2_IT,
+    SC15k = 0.25 * sc2_IT),
+  ref_x = gp_IT, ref_v = ci25_IT,
+  title = "IT 2100 distributions (IT 2025 reference dotted)",
+  fname = "../figures/dist_IT_2100.png",
+  ylim_override = 200000)
+
+# (c) IT 2035 (127-grid) — SC* are net of flat tax; PC uses gross.
+plot_dists(
+  x = gp_IT,
+  dists = list(
+    PI = 1.4 * ci25_IT,
+    PC = 1.15 * sc2_2035_IT_gross,
+    SC1_2 = sc2_2035_IT,
+    SC45k = (gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT,
+    SC30k = (0.95 * gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT,
+    SC15k = (0.9 * gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT),
+  ref_x = gp_IT, ref_v = ci25_IT,
+  title = "IT 2035 distributions (IT 2025 reference dotted)",
+  fname = "../figures/dist_IT_2035.png")
+
+# Step-function variants: mean income per 5% bracket (20 equal vingtiles).
+# Uses bracket_avg_IT_v / bracket_avg_World_v defined alongside plot_dists_step.
+ref_b_IT <- bracket_avg_IT_v(ci25_IT)
+
+# (a') World 2100 — step
+plot_dists_step(
+  dists_b = list(
+    PI = bracket_avg_World_v(pi_World_dist),
+    PC = bracket_avg_World_v(2.0 * sc2_World),
+    SC1_2 = bracket_avg_World_v(sc2_World),
+    SC45k = bracket_avg_World_v(0.75 * sc2_World),
+    SC30k = bracket_avg_World_v(0.5 * sc2_World),
+    SC15k = bracket_avg_World_v(0.25 * sc2_World)),
+  ref_b = ref_b_IT,
+  title = "World 2100 distributions — step (IT 2025 reference dotted)",
+  fname = "../figures/dist_World_2100_step.png",
+  ylim_override = 300000)
+
+# (b') IT 2100 — step
+plot_dists_step(
+  dists_b = list(
+    PI = bracket_avg_IT_v(pi_IT_dist),
+    PC = bracket_avg_IT_v(2.0 * sc2_IT),
+    SC1_2 = bracket_avg_IT_v(sc2_IT),
+    SC45k = bracket_avg_IT_v(0.75 * sc2_IT),
+    SC30k = bracket_avg_IT_v(0.5 * sc2_IT),
+    SC15k = bracket_avg_IT_v(0.25 * sc2_IT)),
+  ref_b = ref_b_IT,
+  title = "IT 2100 distributions — step (IT 2025 reference dotted)",
+  fname = "../figures/dist_IT_2100_step.png",
+  ylim_override = 300000)
+
+# (c') IT 2035 — step
+plot_dists_step(
+  dists_b = list(
+    PI = bracket_avg_IT_v(1.4 * ci25_IT),
+    PC = bracket_avg_IT_v(1.15 * sc2_2035_IT_gross),
+    SC1_2 = bracket_avg_IT_v(sc2_2035_IT),
+    SC45k = bracket_avg_IT_v((gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT),
+    SC30k = bracket_avg_IT_v((0.95 * gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT),
+    SC15k = bracket_avg_IT_v((0.9 * gdp_it_2025 / gdp_it_sc_2035) * sc2_2035_IT)),
+  ref_b = ref_b_IT,
+  title = "IT 2035 distributions — step (IT 2025 reference dotted)",
+  fname = "../figures/dist_IT_2035_step.png",
+  ylim_override = 300000)
+
+##### 12. Report: gpercentile range where each ineq_IT_2035 scenario < reference #####
+scen_cols <- c("PI", "PC", "SC1", "SC2", "SC45k", "SC30k", "SC15k", "SI", "SN")
+report_below <- function(label, ref, ref_name) {
+  cat(sprintf("\ngpercentile range where ineq_IT_2035 income < %s:\n", ref_name))
+  for (sc in scen_cols) {
+    below <- which(ineq_IT_2035[[sc]] < ref)
+    if (length(below) == 0) {
+      cat(sprintf("  %-6s: never falls below %s\n", sc, ref_name))
+    } else {
+      gp <- ineq_IT_2035$gpercentile
+      cat(sprintf("  %-6s: [%.3f, %.3f]\n", sc, gp[below[1]], gp[below[length(below)]]))
+    }
+  }
+}
+report_below("IT 2025", ci25_IT, "IT 2025")
+report_below("SC 2035", sc2_2035_IT, "SC 2035")
+
+##### 13. Chancel 2100 temperatures by scenario: fetch, interaction model, export #####
+# Reads the per-scenario sheets of Chanceletal2026Appendix_Emission_Output.xlsx (the 18
+# "conv+sectoral_change+_+decarb" sheets, e.g. "SC2_ID", plus the 12 lower-GDP-target SC sheets
+# "SC{45k,30k,15k}{1,2}_{FD,ID}" where SC45k/SC30k/SC15k = SC at 45k/30k/15k euros and 1/2=sectoral_change)
+# and extracts (a) the 2100
+# predicted temperature and (b) the cumulative 2025-2100 emissions (column "emissions" =
+# the row labelled "Total" just below the 2100 row, in the Total Emissions column). The workbook
+# leaves some scenarios' temperature blank; we fit a regression with interaction terms on
+# the observed scenarios and fill the missing ones. Outputs (no quotes, NA left blank):
+#   - ../chancel_temp2100_observed.csv   fetched values only
+#   - ../chancel_temp2100_completed.csv  with deduced temperatures and residual column
+EMISOUT <- "../data/Chancel/Chanceletal2026Appendix_Emission_Output.xlsx"
+
+#' Read the 2100 temperature and cumulative 2025-2100 emissions from one scenario sheet.
+#' @param sheet Scenario sheet name (e.g. "SC2_ID").
+#' @param file Path to the Emission_Output workbook.
+#' @return Named numeric c(temp, total, fossil); NA where the sheet or value is absent.
+#'   total = cumulative 2025-2100 Total Emissions (col 2 of the "Total" row); fossil =
+#'   cumulative Total Fossil Fuel (col 3) + Industry (col 7) emissions on the same row.
+read_temp_total <- function(sheet, file = EMISOUT) {
+  if (!sheet %in% readxl::excel_sheets(file)) return(c(temp = NA_real_, total = NA_real_, fossil = NA_real_))
+  d <- as.data.frame(suppressMessages(read_excel(file, sheet = sheet, col_names = FALSE)))
+  tcol <- which(vapply(d, function(col) any(grepl("Temperature", col[1:5], fixed = TRUE), na.rm = TRUE), logical(1)))[1]
+  yrs <- suppressWarnings(as.numeric(d[[1]]))
+  r <- which(yrs == 2100)[1]
+  if (is.na(r) || is.na(tcol)) return(c(temp = NA_real_, total = NA_real_, fossil = NA_real_))
+  c(temp = suppressWarnings(as.numeric(d[r, tcol])),
+    total = suppressWarnings(as.numeric(d[r + 1, 2])),
+    fossil = suppressWarnings(as.numeric(d[r + 1, 3]) + as.numeric(d[r + 1, 7])))
+}
+
+# Scenario grid. Base 18: conv {SC,PC,PI} x sectoral_change {1,2} x decarb {FD,ID,SD}, GDP target
+# 60k (SC) / 120k (PC) / NA (PI). Plus 12 SC variants at lower GDP targets (A1=45k, A2=30k,
+# A3=15k), sectoral_change p=1/s=2, decarb FD/ID only.
+# scenario_xl = Excel sheet name (A1p_FD etc.); scenario = output label (SC45k1_FD etc.).
+base <- expand.grid(hours_scenario = c("SC", "PC", "PI"), food = c("1", "2"), decarb = c("FD", "ID", "SD"), stringsAsFactors = FALSE)
+base$gdp <- c(SC = 60, PC = 120, PI = NA_real_)[base$hours_scenario]
+base$scenario <- paste0(base$hours_scenario, base$food, "_", base$decarb)
+base$scenario_xl <- base$scenario
+gdp_a <- c(A1 = 45, A2 = 30, A3 = 15)
+gdp_label <- c(A1 = "SC45k", A2 = "SC30k", A3 = "SC15k")
+av <- expand.grid(grp = names(gdp_a), food = c("1", "2"), decarb = c("FD", "ID"), stringsAsFactors = FALSE)
+av$hours_scenario <- "SC"
+av$gdp <- gdp_a[av$grp]
+av$scenario <- paste0(gdp_label[av$grp], av$food, "_", av$decarb)
+av$scenario_xl <- paste0(av$grp, ifelse(av$food == "1", "p", "s"), "_", av$decarb)
+temp_scen <- rbind(base[, c("hours_scenario", "gdp", "food", "decarb", "scenario", "scenario_xl")],
+                   av[, c("hours_scenario", "gdp", "food", "decarb", "scenario", "scenario_xl")])
+
+tt <- t(vapply(temp_scen$scenario_xl, read_temp_total, c(temp = NA_real_, total = NA_real_, fossil = NA_real_)))
+temp_scen$temp_observed <- as.numeric(tt[, "temp"])
+temp_scen$emissions <- as.numeric(tt[, "total"])
+temp_scen$fossil_emissions <- as.numeric(tt[, "fossil"])
+temp_scen$food <- factor(temp_scen$food, levels = c("1", "2"))
+temp_scen$decarb <- factor(temp_scen$decarb, levels = c("FD", "ID", "SD"))
+temp_scen$type <- factor(
+  with(temp_scen, ifelse(hours_scenario == "PC", "PC",
+                  ifelse(hours_scenario == "PI", "PI",
+                  ifelse(is.na(gdp) | gdp == 60, "SC",
+                  ifelse(gdp == 45, "SC45k",
+                  ifelse(gdp == 30, "SC30k", "SC15k")))))),
+  levels = c("SC", "SC45k", "SC30k", "SC15k", "PC", "PI"))
+# 2100 world GDP (T€) = GDP per capita (method_questionnaire.md GDP table, k€) x 2100
+# population (billion: Z0a = 9.41 for the SC family and PC, Z0b = 10.18 for PI). Replaces
+# `type` as a single numeric scale variable (matches the paper: SC 565, PC 1129, PI 1018 T€).
+gdp_pc <- c(SC = 60, SC45k = 45, SC30k = 30, SC15k = 15, PC = 120, PI = 100)
+gdp_pop <- c(SC = 9.41, SC45k = 9.41, SC30k = 9.41, SC15k = 9.41, PC = 9.41, PI = 10.18)
+temp_scen$gdp <- unname((gdp_pc * gdp_pop)[as.character(temp_scen$type)])
+temp_scen$sectoral_change <- as.integer(temp_scen$food == "2" & temp_scen$type != "PI")
+temp_scen <- temp_scen[order(temp_scen$type, temp_scen$food, temp_scen$decarb), ]
+
+obs_out <- temp_scen[, c("scenario", "gdp", "sectoral_change", "decarb", "emissions", "temp_observed")]
+obs_out$emissions <- round(obs_out$emissions, 0)
+obs_out$temp_observed <- round(obs_out$temp_observed, 3)
+write.csv(obs_out, "../data/chancel_temp2100_observed.csv", row.names = FALSE, quote = FALSE, na = "")
+message(sprintf("Wrote ../chancel_temp2100_observed.csv (%d scenarios, %d observed)", nrow(temp_scen), sum(!is.na(temp_scen$temp_observed))))
+
+# Most parsimonious model WITH emissions reaching max_diff_round = 0 (rank 6, resid df 18;
+# found by the section 14 search). World GDP enters via emissions:gdp, so `type` is dropped
+# (cumulative emissions already encode scenario scale). adj-R2 = 0.999.
+# Round emissions (unit) and temperature (0.1C) *before* fitting, so the fit here matches the
+# section 14 search and max_diff_round = 0 holds (the target accuracy is 0.1C anyway).
+temp_scen$emissions <- round(temp_scen$emissions, 0)
+temp_scen$fossil_emissions <- round(temp_scen$fossil_emissions, 0)
+temp_scen$temp_observed <- round(temp_scen$temp_observed, 1)
+temp_fit_emis <- lm(temp_observed ~ emissions + emissions:sectoral_change + emissions:gdp + decarb:sectoral_change, data = temp_scen)
+pred_emis <- predict(temp_fit_emis, temp_scen)
+temp_scen$temp_pred_emissions <- round(pred_emis, 1)
+temp_scen$temp_final <- round(ifelse(is.na(temp_scen$temp_observed), pred_emis, temp_scen$temp_observed), 1)
+temp_scen$diff_emissions <- round(temp_scen$temp_observed - pred_emis, 2)
+temp_scen$diff_emissions_round <- round(temp_scen$temp_observed - round(pred_emis, 1), 1)
+
+write.csv(temp_scen[, c("scenario", "gdp", "sectoral_change", "decarb", "emissions", "fossil_emissions", "temp_observed", "temp_pred_emissions", "temp_final", "diff_emissions", "diff_emissions_round")], "../data/chancel_temp2100_completed.csv", row.names = FALSE, quote = FALSE, na = "")
+message(sprintf("Wrote ../data/chancel_temp2100_completed.csv (R2=%.4f, %d temperatures deduced)", summary(temp_fit_emis)$r.squared, sum(is.na(temp_scen$temp_observed))))
+
+##### 14. Most parsimonious model WITH emissions (max_diff_round = 0) #####
+# `type` (6-level factor) is replaced by world GDP (numeric). Exhaustive search over subsets
+# of gdp-based candidate terms; objective = minimise the number of estimable coefficients
+# (= maximise residual df) subject to max_diff_round == 0 on the observed scenarios, with
+# non-NA predictions on all 30 rows. Aliased coefficients (e.g. for the non-existent SC45k:SD
+# cell) are allowed since they are never used in prediction.
+obs <- temp_scen[!is.na(temp_scen$temp_observed), ]
+
+#' Fit a subset model; return its rank, max_diff_round and adj-R2 (NULL if unusable).
+eval_subset <- function(terms, dat = obs, full = temp_scen) {
+  fit <- tryCatch(lm(as.formula(paste("temp_observed ~", paste(terms, collapse = " + "))),
+                     data = dat), error = function(e) NULL)
+  if (is.null(fit)) return(NULL)
+  pr_full <- suppressWarnings(tryCatch(predict(fit, full), error = function(e) NULL))
+  if (is.null(pr_full) || any(is.na(pr_full))) return(NULL)
+  md <- max(abs(round(dat$temp_observed - round(suppressWarnings(predict(fit, dat)), 1), 1)))
+  list(rank = fit$rank, max_diff = md, adj_r2 = summary(fit)$adj.r.squared, terms = terms)
+}
+
+#' Among all subsets, the most parsimonious (min rank) with max_diff_round == 0, tie-break adj-R2.
+search_min_diff0 <- function(cands) {
+  best <- NULL
+  for (bits in seq_len(2^length(cands) - 1)) {
+    r <- eval_subset(cands[as.logical(intToBits(bits)[seq_along(cands)])])
+    if (is.null(r) || r$max_diff != 0) next
+    if (is.null(best) || r$rank < best$rank || (r$rank == best$rank && r$adj_r2 > best$adj_r2)) best <- r
+  }
+  best
+}
+
+cand_emis <- c("emissions", "I(emissions^2)", "gdp", "decarb", "sectoral_change",
+               "emissions:sectoral_change", "emissions:decarb", "emissions:gdp",
+               "gdp:decarb", "gdp:sectoral_change", "decarb:sectoral_change",
+               "I(emissions^2):decarb", "I(emissions^2):sectoral_change")
+best_emis <- search_min_diff0(cand_emis)
+cat(sprintf("\nMost parsimonious WITH emissions (max_diff_round = 0): rank %d, resid df %d, adj-R2 %.4f\n",
+            best_emis$rank, nrow(obs) - best_emis$rank, best_emis$adj_r2))
+cat("  temp ~", paste(best_emis$terms, collapse = " + "), "\n")
+
+##### 15. Most parsimonious model WITHOUT emissions + no-emissions predictions #####
+# With world GDP (numeric) replacing the `type` factor, max_diff_round == 0 is NOT attainable
+# without emissions (the 6-level factor's per-cell freedom is required, and even then needs
+# ~21 coefs / df 3). We therefore report the most parsimonious gdp model by MINIMUM
+# max_diff_round and use it to fill temp_pred_noem.
+cand_noem <- c("gdp", "I(gdp^2)", "decarb", "sectoral_change", "gdp:decarb",
+               "I(gdp^2):decarb", "gdp:sectoral_change", "decarb:sectoral_change",
+               "gdp:decarb:sectoral_change")
+best_noem <- NULL
+for (bits in seq_len(2^length(cand_noem) - 1)) {
+  r <- eval_subset(cand_noem[as.logical(intToBits(bits)[seq_along(cand_noem)])])
+  if (is.null(r)) next
+  if (is.null(best_noem) || r$max_diff < best_noem$max_diff ||
+      (r$max_diff == best_noem$max_diff && r$rank < best_noem$rank)) best_noem <- r
+}
+cat(sprintf("Most parsimonious WITHOUT emissions: max_diff_round %.2f, rank %d, resid df %d, adj-R2 %.4f\n",
+            best_noem$max_diff, best_noem$rank, nrow(obs) - best_noem$rank, best_noem$adj_r2))
+cat("  temp ~", paste(best_noem$terms, collapse = " + "), "\n")
+
+fit_noem <- lm(as.formula(paste("temp_observed ~", paste(best_noem$terms, collapse = " + "))), data = obs)
+temp_scen$temp_pred_noem <- round(predict(fit_noem, temp_scen), 1)
+temp_scen$temp_final_noem <- ifelse(is.na(temp_scen$temp_observed), temp_scen$temp_pred_noem, temp_scen$temp_observed)
+temp_scen$diff_noem_round <- round(temp_scen$temp_observed - temp_scen$temp_pred_noem, 1)
+out_cols <- c("scenario", "gdp", "sectoral_change", "decarb", "emissions", "fossil_emissions",
+              "temp_observed", "temp_pred_emissions", "temp_final",
+              "diff_emissions", "diff_emissions_round",
+              "temp_pred_noem", "temp_final_noem", "diff_noem_round")
+write.csv(temp_scen[, out_cols], "../data/chancel_temp2100_completed.csv",
+          row.names = FALSE, quote = FALSE, na = "")
+message(sprintf("Updated ../data/chancel_temp2100_completed.csv with temp_pred_noem (no-emissions max_diff = %.2f)", best_noem$max_diff))
+
+##### 16. Check: temperature of SG-30k (global-redistribution variant of SC-30k) #####
+# GDP per capita - and thus emissions and temperature - depends on working hours and *global*
+# redistribution: scopes WITH global redistribution (C, G) share the higher GIT GDP, those
+# WITHOUT (I, N) the lower no-GIT GDP (e.g. 35h: 60 vs 50k€; method_questionnaire.md). National
+# redistribution and the C-vs-G choice do not change GDP. So SG-30k (global redistribution, like
+# SC-30k) shares SC-30k's GDP (282 T€), emissions and temperature; SI-30k / SN-30k (no global
+# redistribution) would have lower GDP and be cooler. Confirm SG30k2_FD via the emissions model.
+ref <- temp_scen[temp_scen$scenario == "SC30k2_FD", ]
+sg <- data.frame(emissions = ref$emissions, gdp = ref$gdp, sectoral_change = 1L,
+                 decarb = factor("FD", levels = c("FD", "ID", "SD")))
+cat(sprintf("\nSG30k2_FD (global redistr -> same GDP as SC-30k): GDP=%.0f T€, emissions=%.0f Gt -> %.1f C  (observed SC30k2_FD = %.1f C)\n",
+            sg$gdp, sg$emissions, round(predict(temp_fit_emis, sg), 1), ref$temp_observed))
+
+##### 17. Sectoral-change reduction in cumulative fossil + industry emissions, vs 2100 GDP pc #####
+# For each (type, decarb) with both structural-change variants, the drop in fossil+industry
+# emissions from structural change = fossil_emissions(food1) - fossil_emissions(food2). We then
+# regress that reduction on the scenario's 2100 GDP per capita (gdp_pc, k€, from section 13).
+pairs <- unique(temp_scen[order(temp_scen$type, temp_scen$decarb), c("type", "decarb")])
+fe_diff <- do.call(rbind, lapply(seq_len(nrow(pairs)), function(i) {
+  ty <- pairs$type[i]; de <- pairs$decarb[i]
+  f1 <- temp_scen$fossil_emissions[temp_scen$type == ty & temp_scen$decarb == de & temp_scen$food == "1"]
+  f2 <- temp_scen$fossil_emissions[temp_scen$type == ty & temp_scen$decarb == de & temp_scen$food == "2"]
+  if (length(f1) != 1 || length(f2) != 1) return(NULL)
+  data.frame(type = as.character(ty), decarb = as.character(de),
+             gdp_pc = unname(gdp_pc[as.character(ty)]), var1 = f1, var2 = f2, diff = f1 - f2)
+}))
+cat("\nfossil_emissions (cumulative fossil+industry, GtCO2e) reduction from structural change (1 - 2):\n")
+print(fe_diff, row.names = FALSE)
+
+# Regress the reduction on 2100 GDP per capita (k€).
+fe_fit <- lm(diff ~ gdp_pc, data = fe_diff)
+cat("\nRegression: structural-change fossil+industry reduction ~ 2100 GDP per capita (k€)\n")
+print(round(summary(fe_fit)$coefficients, 4))
+cat(sprintf("R2 = %.3f, adj-R2 = %.3f, n = %d\n",
+            summary(fe_fit)$r.squared, summary(fe_fit)$adj.r.squared, nrow(fe_diff)))

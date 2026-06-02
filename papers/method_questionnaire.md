@@ -1,8 +1,69 @@
 # Methodology of the questionnaire's conjoint analysis
 
-## Consistent scenarios
+### Scenario naming
+In the data, a scenario is defined by four elements:
+- hours (or class): P, M, S (i.e. S60k), S45k, S30k, S15k
+- scope: N (national redistribution), G (global redistribution), C (convergence: combines G and N), I (inequality: neither N nor G)
+- sectoral_change: 1 (no sectoral change), 2 (structural change: more public services, less material sectors, less red meat and dairy, more reforestation)
+- decarbonization: SD (slow), ID (intermediary, closer to SD than to FD), FD (fast)
 
-### Six underlying parameters
+By an abuse of notation, we generally embed the scope into hours in the notation, writing e.g. SC45k2_FD instead of S45kC2_FD.
+The default scenario (named SC) is SC2_FD corresponding to S60k, C, 2 and FD.
+The combination of hours and scope is called a type. The combination of sectoral_change and decarbonization is called modality. For short, the modality (1_SD) can be denoted 0 (e.g. PC0=PC1_SD). 
+
+In the questionnaire, the scenario will also depends on a beef/flight parameter, which will modulate the sectoral_change. 
+
+## Income distributions for the questionnaire
+
+We use 4 kinds of income distributions:
+- IT25: Italy 2025 to situate the respondent
+- IT35: Italy 2035 to compute their own future income in a given scenario
+- IT100: Italy 2100 to show the end level of within-country inequality
+- World100: World 2100 to show the end level of between-country inequality
+We use an income concept relevant to the respondents: cash income after direct taxes and monetary transfers (or "cash income" for short), gross of CFC (as in GDP and not NDP). 
+
+We estimate the distributions in the SC scenario as follows:
+- IT25: We first use Fisher-Post & Gethin data to recover cash income distributions. We use 2019 data and first define:
+net cash income pre-GIT = pretax - all taxes + govt cash transfers - imputed rents and retained earnings
+all taxes = tax_dir_pit + tax_dir_wea + tax_cit + tax_soc + tax_ind (PIT, wealth, CIT, social contrib, VAT)
+We include tax_ind ~ VAT because pretax income is at market prices, so we need to subtract VAT from it to recover the NNI at factor prices (to which cash income sums).
+Imputed rents and retained earnings are estimated at respectively 3.5% of housing capital and 50% of capital income, and the housing share of capital is assumed to increase with income along a housing_gradient calibrated using 2014 French data from Garbintini et al. (2021).
+At this stage, we re-order the distribution since adding/subtracting terms to pretax sometimes makes it non-monotone. 
+We then scale net cash income to 2025 NNI from Bothe et al. data and add depreciation (CFC times the capital share) to arrive at gross cash income pre-GIT.  
+cash_income_2025 = (net cash income pre-GIT 2019 shares)*NNI_2025 + CFC
+
+- IT35: For the shape of the distribution we use "full income", taken from Bothe as diinc (corresponding to national secondary income after taxes and all transfers, including in-kind public services and collective expenditures) which accounts for changes in inequality due to SC scenario, we subtract the global income tax and add country dividends modeled as a global equal cash transfer (given in Bothe sheet E3bp):
+income = full income (diinc) - GIT + country dividend
+To make results comparable with the cash income entered by the respondent, we rescale at each gpercentile:
+IT35 = gross cash income_2035 = income_2035 * cash_income_2025/income_2025.
+Finally, define the extra taxes needed to achieve the expansion of public spending between 2025 (20% of IT GNI) and 2035 (23%): 
+extra_tax_rate = (spending_share_public_services_2035 - spending_share_public_services_2025)*spending_pc_2035/avg_cash_income_2035 (using G5s, G0p)
+- IT100, World100: While cash income makes sense at the individual level to understand the short-term change in one's purchasing power; "full income" inclusive of public services makes more sense to compare standards of living between countries and across time or scenarios (especially when they vastly differ in terms of public provision). Therefore, for 2100 we use full income - GIT + country dividends (both very small in 2100 and zero in 2025). But to make both IT100 and World100 comparable to IT25 and IT35, we re-scale them by the ratio of average cash income over average full income in 2025 IT. In other words we use:
+rescaled income = (full income (diinc) - GIT + dividend)*avg_cash_income_2025_IT/avg_full_income_2025_IT (this ratio_IT=.69)
+
+(We rescale by a constant ratio across gpercentiles because the shape that accurately reflects inequality is given by income; for IT35 on the contrary we want comparability with IT25 so we rescale by a percentile-specific ratio and use diinc, GIT and dividend for the shape change.) 
+=>  check percentile-specific ratio is roughly constant
+=> TODO report avg income & cash income 25/35/100 IT/World SC/PI/PC
+=> graphs World, IT with all distributions we use
+
+Other scenarios in IT100, World100:
+Note that Bothe et al. give future distributions only for the SC scenario. This is how we proceed for other scenarios:
+- PI: we assume that inequality does not change and simply rescale every country's distribution by the growth in GDP in PI scenario according to sheet A0pi of Chancel's Appendix. There is no GIT nor dividend in this scenario.
+- For the other scenarios, we assume the same transfers as in SC in proportion of GDP, and simply rescale the country distributions by a given factor: PC=2, SC1=1, SC45k=0.75, SC30k=0.5, SC15k=0.25, MC=630/480. 
+To aggregate country distributions into the world one, we use higher population projections for PI and PC (UN medium, Chancel sheet Z0b) than for SC (Z0a).
+
+Other scenarios in IT35: [this paragaph is deprecated, kept only for archiving]
+- PI: we rescale IT25 by 1.4, an approximation of growth given by Chancel sheet A0pi. This is the only scenario for which we use the current level of inequality (for the other we use SC's shape).
+- PC: we rescale IT35 by 1.15, an approximation of GDP in 2035 in PC over SC
+- SC45k: we rescale IT35 by GDP_IT25/GDP_IT35 since 2025 GDP this roughly corresponds to the GDP in 2035 in scenario SC45k from sheet A0, and this makes it more easily interpretable. We also express the other two as a deviation from current GDP:
+- SC30k: we rescale IT35 by 0.95*GDP_IT25/GDP_IT35
+- SC15k: we rescale IT35 by 0.9*GDP_IT25/GDP_IT35
+
+
+## Consistent scenarios in the questionnaire
+
+### Seven underlying parameters
+- Respondent's 2025 individualized income (household monthly cash income and whether they are in a couple)
 - Decarbonization: Slow; Intermediary; Fast (corresponding to IEA's CPS, STEPS, NZE)
 - Working hours: baseline 40h, 25h (-37.5%), 30h (-25%); 35h (-12.5%); 45h (+12.5%)
 - National redistribution: current; SN
@@ -10,6 +71,7 @@
 - Public services: stable; increased
 - Beef and flights: none; -60% beef; half flights; half both
 Each attribute is uniformly drawn, leading to 5*2*2*3*2*4=480 cases, and 480^2=230k pairs.
+The respondent's annual income is computed from their household income (dividing the latter by two in case of couple), and from that and IT25 we interpolate their position in the distribution, and will use this precise quantile to interpolate their 2035 income in the scenario defined by the other parameters.
 
 ### Seven displayed features:
 - Temperature
@@ -48,25 +110,56 @@ Hence there are 5*2*2*3=30 scenarios
 TODO remove PI2 scenarios from the .csv since they don't  model sectoral change
 
 ### How parameters determine incomes
-SC/PC imply hourly productivity growth of .085%/year for IT over 2025-2100 (66 -> 125€/h)
+
+#### Primitives needed
 
 The income distribution depends on hours, global redistribution and national redistribution. We use C under both redistributions, I under none, N if only national, G if only global. Hence there are 5*4=20 income distributions.
-When they exist, we use Bothe distributions. Otherwise:
-Define GR = country dividend - GIT (in SC2)
-PI = current income ⋅ national growth PI
-SN = SC - GR
-SI = 0.5⋅PI (in 2100, another factor in 2035)
-SG = SI + GR
+
+SC/PC imply hourly productivity growth of .085%/year for IT over 2025-2100 (66 -> 125€/h). With this average productivity, 2025-35 growth should be 1.0889, but it's 1.333 in SC (productivity peaks at 135 in 2080 before decreasing). This seems odd, so we define a scenario MC converging to SC 2100 productivity with a constant growth, leading to a more reasonable 2035 estimate. In MC, we also take per capita economic labour hours as fixed at their 2025 value.
+Using sheet F0a of Chancel MacroScenarios, we define for every country/region: avg_productivity_growth = (125/productivity_2025)^(1/(2100-2025))
+productivity_growth_2035 = productivity_2035/productivity_2025
+Then, using sheet E0h, we define 
+change_hours_pc = hours_pc_2035/hours_pc_2025
+
+The cash income distribution in IT in 2035 of scenario SC60k1_SD (= SC1_SD) is IT35.
+
+Other primitives needed to construct all elements of a scenario:
+Distributions IT25, IT35, GR35, 2025 and 2100 GDP by country/region in PI (given in sheet A0pi of Chancel), and diverse constants.
+
+#### Computations
+When they exist, we use Bothe distributions. Otherwise, for 2100:
+Define GR = country dividend - GIT (in SC2). In 2100, GIT=0, and country dividend is (sheet E3bp of Bothe Macro).
+PI0 = current income ⋅ national growth PI
+SN0 = SC - GR
+SI0 = 0.5⋅PI0 (in 2100, another factor in 2035)
+SG0 = SI0 + GR
 
 Then other distributions are defined as a coef times the reference S case, e.g.:
 SI-30k = .5⋅SI, SN-30k = .5⋅SN, SG-30k = .5⋅SG, SC-30k = .5⋅SC
 2100 coefs are as follows: S30k: .5, S45k: .75, M: 630/480 (keeping hours pc constant), P: 2
 From them, we easily recover the 2100 GDP of each scenario.
-2035 coefs are TODO
+
+To compute 2035 distributions:
+PC0 = 1.15*IT35
+MC0 = avg_productivity_growth^10 * IT35/ (change_hours_pc*productivity_growth_2035)
+SC45k0 =     (GDP_IT25/GDP_IT35)*IT35
+SC30k0 = .95*(GDP_IT25/GDP_IT35)*IT35
+SC15k0 =  .9*(GDP_IT25/GDP_IT35)*IT35
+
+PI0 = 1.4*IT25
+MI0 = avg_productivity_growth^10*IT25
+SI0 = (gdp_it_sc_2035/gdp_it_2025)*IT25
+SIx0 = (avg_SCx/avg_SC45k)*IT25
+
+SN0 = IT35 - GR35 (where GR35 is the distribution of GR in 2035)
+SG0 = SI0 + GR35
+
+yNx0 = (avg_yCx/avg_SC)*yN = (avg_yCx/avg_SC) *(IT35 - GR35)
+yGx0 = (avg_yCx/avg_SC)*yG = (avg_yCx/avg_SC) *(SI0 + GR35) = (avg_yCx/avg_SC) * (IT35 * avg_SC/avg_SC45k + GR35)
+where yx denotes any remaining class.
 
 Then a decarbonization factor is applied to 2035 incomes: 1 for SD, .98 for ID, .96 for FD.
-
-Finally, a public services tax is added to 2035 incomes of *scope* I, G if public services = increased; and subtracted to 2035 incomes of scope N, C if public services = stable.
+Finally, if public services = increased, 2035 cash incomes are multiplied by a factor (1-extra_tax_rate) ~ 95%.
 
 
 ### How parameters affect temperature
@@ -82,12 +175,24 @@ Then, if change is fixed to 1:
 if change is fixed to 2:
 - add .24°C in case of no beef reduction
 - add .155°C in case of no flights reduction
-- add .0004875⋅(67.25+2.06*GDPpc2100/1000)°C in case of increased public services
+- add .0004875⋅(67.25+2.06*GDPpc2100/1000)°C in case of increased public services (where the formula is taken from the model: fossil_emissions ~ gdp_pc)
 
 Chanceletal2026Appendix_Emission_Output reports cumulative emissions of almost all scenarios and 2100 temperature of most scenarios, where a scenario is defined by the combination of type (SC, PI, PC, SC-45k, SC-30k, SC-15k), structural change (1 if not, 2 if yes) and decarbonization pace (FD, ID, SD). E.g. sheet SC2_FD reports emissions and temperature of the benchmark scenario.
-When Chancel doesn't report the temperature, we predict it using cumulative emissions, their square, the type, decarbonization pace, structural change indicator, and the interaction between cumulative emissions and structural change, from a model estimated on complete data. The model always accurately predicts the temperature rounded at a tenth of a Celsius degree. 
+When Chancel doesn't report the temperature but report (cumulative) emissions, we predict it using the following model, estimated on complete data:
+T ~ emissions + emissions:sectoral_change + emissions:gdp + decarb:sectoral_change
+The model always accurately predicts the temperature rounded at a tenth of a Celsius degree. 
+When Chancel doesn't report emissions either, we predict temperature using the following model, estimated on complete data:
+T ~ type * decarb + decarb:sectoral_change
 
+## Selected scenarios
+Scenarios selected for export in ineq_2100 and ineq_IT_2035 are:
+IT35 = SC1_SD, SC = SC2_FD, PC = PC1_FD, PI = PI1_FD, SC45k = SC45k2_FD, SC15k = SC15k2_FD, SCmat = SC1_FD, SI = SI2_FD, SN = SN2_FD, SG = SG2_FD, MC = MC2_FD.
+ineq_IT_2035 also includes IT25 and GR35.
+ineq_2100 contains both World and IT 2100 distributions.
 
+#### Sandbox (deprecated)
+
+ emissions, their square, the type, decarbonization pace, structural change indicator, and the interaction between cumulative emissions and structural change, from a model estimated on complete data. 
 
 Best model (highest adjusted-R² = .9999; max_diff_round=0):
 T ~ emissions*sectoral_change + emissions² *decarb + type + type:decarb:sectoral_change
@@ -114,7 +219,6 @@ Missing temperatures: SC1_SD, PC2_ID, PC2_SD, PI1_ID, PI2_FD, PI2_SD
 Based on 2035 GDP figures and assuming SC variants only differ by working hours (and have same productivity), I get:
 SC-45k: 31h, SC-30k: 29h, SC-15k: 28h
 
-TODO: remove SC growth from 2035 scenarios given that it's already baked in the respondent's expected income
 - Working hours => GDP: baseline 40h, 30h (-25%); 35h (-12.5%); 45h (+12.5%)
 - National distribution: current; SN
 - Global distribution: current; GIT
@@ -126,56 +230,6 @@ TODO: remove SC growth from 2035 scenarios given that it's already baked in the 
 Current ratio IT/World GDP = 2.45
 2100 PI ratio: 2.03
 
-- Decarbonization: Slow costs nothing; Inter 2% of each cash income; Fast 4% (PB: already counted in GIT)
+- Decarbonization: Slow costs nothing; Inter 2% of each cash income; Fast 4% (PB: already counted in GIT, TODO?)
 - Working hours: GDP is proportional to working hours.
 
-
-## Income distributions for the questionnaire
-
-We use 4 types of income distributions:
-- IT25: Italy 2025 to situate the respondent
-- IT35: Italy 2035 to compute their own future income in a given scenario
-- IT100: Italy 2100 to show the end level of within-country inequality
-- World100: World 2100 to show the end level of between-country inequality
-We use an income concept relevant to the respondents: cash income after direct taxes and monetary transfers (or "cash income" for short), gross of CFC (as in GDP and not NDP). 
-
-We estimate the distributions in the SC scenario as follows:
-- IT25: We first use Fisher-Post & Gethin data to recover cash income distributions. We use 2019 data and first define:
-net cash income pre-GIT = pretax - all taxes + govt cash transfers - imputed rents and retained earnings
-all taxes = tax_dir_pit + tax_dir_wea + tax_cit + tax_soc + tax_ind (PIT, wealth, CIT, social contrib, VAT)
-We include tax_ind ~ VAT because pretax income is at market prices, so we need to subtract VAT from it to recover the NNI at factor prices (to which cash income sums).
-Imputed rents and retained earnings are estimated at respectively 3.5% of housing capital and 50% of capital income, and the housing share of capital is assumed to increase with income along a housing_gradient calibrated using 2014 French data from Garbintini et al. (2021).
-At this stage, we re-order the distribution since adding/subtracting terms to pretax sometimes makes it non-monotone. 
-We then scale net cash income to 2025 NNI from Bothe et al. data and add depreciation (CFC times the capital share) to arrive at gross cash income pre-GIT.  
-cash_income_2025 = (net cash income pre-GIT 2019 shares)*NNI_2025 + CFC
-
-- IT35: For the shape of the distribution we use "full income", taken from Bothe as diinc (corresponding to national secondary income after taxes and all transfers, including in-kind public services and collective expenditures) which accounts for changes in inequality due to SC scenario, we subtract the global income tax and add country dividends modeled as a global equal cash transfer (given in Bothe sheet E3bp):
-income = full income (diinc) - GIT + country dividend
-To make results comparable with the cash income entered by the respondent, we rescale at each gpercentile:
-grossIT35 = gross cash income 2035 = income 2035 * cash_income_2025/income_2025.
-Finally, we subtract from this extra taxes needed to achieve the expansion of public spending between 2025 (20% of IT GNI) and 2035 (23%). 
-IT35 = cash income 2035 = income 2035 * cash_income_2025/income_2025 * (1-income 2035 * cash_income_2025/income_2025).
-- IT100, World100: While cash income makes sense at the individual level to understand the short-term change in one's purchasing power; "full income" inclusive of public services makes more sense to compare standards of living between countries and across time or scenarios (especially when they vastly differ in terms of public provision). Therefore, for 2100 we use full income - GIT + country dividends (both very small in 2100 and zero in 2025). But to make both IT100 and World100 comparable to IT25 and IT35, we re-scale them by the ratio of average cash income over average full income in 2025 IT. In other words we use:
-rescaled income = (full income (diinc) - GIT + dividend)*avg_cash_income_2025_IT/avg_full_income_2025_IT (this ratio_IT=.69)
-
-(We rescale by a constant ratio across gpercentiles because the shape that accurately reflects inequality is given by income; for IT35 on the contrary we want comparability with IT25 so we rescale by a percentile-specific ratio and use diinc, GIT and dividend for the shape change.) 
-=>  check percentile-specific ratio is roughly constant
-=> TODO report avg income & cash income 25/35/100 IT/World SC/PI/PC
-=> graphs World, IT with all distributions we use
-
-Other scenarios in IT100, World100:
-Note that Bothe et al. give future distributions only for the SC scenario. This is how we proceed for other scenarios:
-- PI: we assume that inequality does not change and simply rescale every country's distribution by the growth in GDP in PI scenario according to sheet A0pi of Chancel's Appendix. There is no GIT nor dividend in this scenario.
-- For the other scenarios, we assume the same transfers as in SC in proportion of GDP, and simply rescale the country distributions by a given factor: PC=2, SC1=1, SC45k=0.75, SC30k=0.5, SC15k=0.25. 
-To aggregate country distributions into the world one, we use higher population projections for PI and PC (UN medium, Chancel sheet Z0b) than for SC (Z0a).
-
-Other scenarios in IT35:
-- PI: we rescale IT25 by 1.4, an approximation of growth given by Chancel sheet A0pi. This is the only scenario for which we use the current level of inequality (for the other we use SC's shape).
-- PC: we rescale grossIT35 by 1.15, an approximation of GDP in 2035 in PC over SC
-- SC45k: we rescale IT35 by GDP_IT25/GDP_IT35 since 2025 GDP this roughly corresponds to the GDP in 2035 in scenario SC45k from sheet A0, and this makes it more easily interpretable. We also express the other two as a deviation from current GDP:
-- SC30k: we rescale IT35 by 0.95*GDP_IT25/GDP_IT35
-- SC15k: we rescale IT35 by 0.9*GDP_IT25/GDP_IT35
-
-### Question wording
-
-Say scenarios are consistent, recall Paris target and where current policies would bring us.
