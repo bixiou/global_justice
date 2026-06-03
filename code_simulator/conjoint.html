@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conjoint Scenario Preview</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="js/conjoint.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Helvetica Neue", Arial, sans-serif; background: #f5f5f5; color: #222; }
+
+    header { background: #1a3a5c; color: #fff; padding: 16px 32px; }
+    header h1 { font-size: 1.3rem; font-weight: 600; }
+    header p  { font-size: 0.85rem; opacity: 0.8; margin-top: 4px; }
+
+    .page { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+
+    /* ── Form ─────────────────────────────────────────────────────── */
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+            padding: 20px 24px; margin-bottom: 20px; }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 14px;
+               border-bottom: 2px solid #1a3a5c; padding-bottom: 6px; color: #1a3a5c; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                 gap: 14px 24px; }
+    .field label { display: block; font-size: 0.78rem; font-weight: 600; color: #555;
+                   text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+    .field select, .field input[type=number] {
+      width: 100%; padding: 7px 10px; border: 1px solid #ccc; border-radius: 5px;
+      font-size: 0.9rem; background: #fff; }
+    .field select:focus, .field input:focus { outline: none; border-color: #1a3a5c; }
+
+    .field-income { display: flex; gap: 8px; align-items: flex-start; }
+    .field-income input { flex: 1; }
+    .field-income label.couple { font-size: 0.85rem; font-weight: 400; color: #444;
+      display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap;
+      padding-top: 26px; }
+
+    button#computeBtn {
+      margin-top: 16px; padding: 10px 28px; background: #1a3a5c; color: #fff;
+      border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer;
+      font-weight: 600; transition: background .15s; }
+    button#computeBtn:hover { background: #2a5a8c; }
+    button#computeBtn:disabled { background: #888; cursor: not-allowed; }
+
+    #statusMsg { margin-top: 10px; font-size: 0.85rem; color: #666; min-height: 18px; }
+
+    /* ── Results ──────────────────────────────────────────────────── */
+    #results { display: none; }
+
+    .features-grid { display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+
+    .feat-box { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1);
+                padding: 14px 16px; text-align: center; }
+    .feat-box .feat-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em;
+                             color: #888; margin-bottom: 6px; }
+    .feat-box .feat-value { font-size: 1.6rem; font-weight: 700; color: #1a3a5c; line-height: 1.1; }
+    .feat-box .feat-unit  { font-size: 0.75rem; color: #666; margin-top: 2px; }
+    .feat-box .feat-desc  { font-size: 0.8rem; color: #444; margin-top: 6px; line-height: 1.3; }
+
+    .feat-box.temp .feat-value { color: #c0392b; }
+    .feat-box.income .feat-value { color: #27ae60; }
+
+    /* ── Charts ───────────────────────────────────────────────────── */
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+    .chart-card { background: #fff; border-radius: 8px;
+                  box-shadow: 0 1px 4px rgba(0,0,0,.12); padding: 16px 20px; }
+    .chart-card h3 { font-size: 0.9rem; font-weight: 600; color: #1a3a5c; margin-bottom: 12px; }
+    .chart-container { position: relative; height: 260px; }
+
+    /* ── Descriptions ─────────────────────────────────────────────── */
+    .desc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 700px) { .desc-row { grid-template-columns: 1fr; } }
+    .desc-card { background: #fff; border-radius: 8px;
+                 box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 14px 18px; }
+    .desc-card h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: .05em;
+                    color: #888; margin-bottom: 6px; }
+    .desc-card p  { font-size: 0.88rem; color: #333; line-height: 1.45; }
+    .desc-card .tax-badge { display: inline-block; background: #e8f4fd; color: #1a6fa8;
+      border-radius: 4px; padding: 2px 8px; font-size: 0.78rem; font-weight: 600;
+      margin-top: 6px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Conjoint Scenario Preview</h1>
+  <p>Enter the eight underlying parameters to preview the seven displayed features of a scenario.</p>
+</header>
+
+<div class="page">
+
+  <!-- ── Parameter form ── -->
+  <div class="card">
+    <h2>Underlying parameters</h2>
+    <div class="form-grid">
+
+      <!-- Income + couple -->
+      <div class="field">
+        <label>Household monthly income (EUR)</label>
+        <div class="field-income">
+          <input type="number" id="householdIncome" value="2500" min="0" step="100">
+          <label class="couple">
+            <input type="checkbox" id="isCouple"> couple
+          </label>
+        </div>
+      </div>
+
+      <!-- Decarbonization -->
+      <div class="field">
+        <label>Decarbonization pace</label>
+        <select id="decarbonization">
+          <option value="SD">Slow (SD) — IEA CPS</option>
+          <option value="ID">Intermediate (ID) — IEA STEPS</option>
+          <option value="FD" selected>Fast (FD) — IEA NZE</option>
+        </select>
+      </div>
+
+      <!-- Working hours -->
+      <div class="field">
+        <label>Working hours</label>
+        <select id="hoursPerWeek">
+          <option value="25">25 h/week (−37.5%)</option>
+          <option value="30">30 h/week (−25%)</option>
+          <option value="35" selected>35 h/week (−12.5%)</option>
+          <option value="40">40 h/week (baseline)</option>
+          <option value="45">45 h/week (+12.5%)</option>
+        </select>
+      </div>
+
+      <!-- National redistribution -->
+      <div class="field">
+        <label>National redistribution</label>
+        <select id="nationalRedistribution">
+          <option value="current">Current level</option>
+          <option value="SN" selected>Sustainable National (SN)</option>
+        </select>
+      </div>
+
+      <!-- Global redistribution -->
+      <div class="field">
+        <label>Global redistribution</label>
+        <select id="globalRedistribution">
+          <option value="current">No global tax (current)</option>
+          <option value="GIT" selected>Global income tax (GIT)</option>
+        </select>
+      </div>
+
+      <!-- Public services -->
+      <div class="field">
+        <label>Public services</label>
+        <select id="publicServices">
+          <option value="stable">Stable (current share of GNI)</option>
+          <option value="increased" selected>Increased (+3 pp of GNI)</option>
+        </select>
+      </div>
+
+      <!-- Beef and flights -->
+      <div class="field">
+        <label>Beef &amp; flights</label>
+        <select id="beefAndFlights">
+          <option value="none">No change</option>
+          <option value="beef">−60% beef</option>
+          <option value="flights">−50% flights</option>
+          <option value="both" selected>Both (−60% beef, −50% flights)</option>
+        </select>
+      </div>
+
+    </div><!-- /form-grid -->
+
+    <button id="computeBtn" disabled>Loading data…</button>
+    <div id="statusMsg">Loading CSV data…</div>
+  </div><!-- /card -->
+
+  <!-- ── Results ── -->
+  <div id="results">
+
+    <!-- Key numbers row -->
+    <div class="card">
+      <h2>Displayed features</h2>
+      <div class="features-grid">
+        <div class="feat-box temp">
+          <div class="feat-label">Temperature 2100</div>
+          <div class="feat-value" id="valTemp">—</div>
+          <div class="feat-unit">°C above pre-industrial</div>
+        </div>
+        <div class="feat-box income">
+          <div class="feat-label">Your income 2035</div>
+          <div class="feat-value" id="valOwnIncome">—</div>
+          <div class="feat-unit">EUR/year</div>
+          <div class="feat-desc" id="descOwnIncome"></div>
+        </div>
+        <div class="feat-box">
+          <div class="feat-label">Working hours 2035</div>
+          <div class="feat-value" id="valHours">—</div>
+          <div class="feat-unit">hours/week</div>
+        </div>
+        <div class="feat-box">
+          <div class="feat-label">Your percentile (IT 2025)</div>
+          <div class="feat-value" id="valPercentile">—</div>
+          <div class="feat-unit">gpercentile</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Italian income distribution 2035 — <span id="labelNational"></span></h3>
+        <div class="chart-container"><canvas id="chartNational"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Global income distribution 2100 — <span id="labelGlobal"></span></h3>
+        <div class="chart-container"><canvas id="chartGlobal"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Descriptions row -->
+    <div class="desc-row" style="margin-top:20px;">
+      <div class="desc-card">
+        <h4>Public services</h4>
+        <p id="descPS"></p>
+        <span class="tax-badge" id="badgePS" style="display:none"></span>
+      </div>
+      <div class="desc-card">
+        <h4>Beef &amp; flights</h4>
+        <p id="descBF"></p>
+        <span class="tax-badge" id="badgeBF" style="display:none; background:#fff3e0; color:#e65c00;"></span>
+      </div>
+    </div>
+
+  </div><!-- /#results -->
+
+</div><!-- /.page -->
+
+<script>
+"use strict";
+
+// ── Chart instances ──────────────────────────────────────────────────────────
+let chartNational = null, chartGlobal = null;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fmt(n) { return n.toLocaleString("en-US", { maximumFractionDigits: 0 }); }
+
+function buildBarDataNational(gpercentiles, values) {
+  // Downsample to 20 equal 5%-width brackets (like ineq_2100 bracket structure)
+  const brackets = [], avgs = [];
+  const step = 5;
+  for (let lo = 0; lo < 100; lo += step) {
+    const hi = lo + step;
+    const inBracket = gpercentiles.map((gp, i) =>
+      gp >= lo && (hi >= 100 ? true : gp < hi) ? values[i] : null).filter(v => v !== null);
+    const avg = inBracket.length ? inBracket.reduce((a, b) => a + b) / inBracket.length : 0;
+    brackets.push(`p${lo}–p${hi}`);
+    avgs.push(Math.round(avg));
+  }
+  return { brackets, avgs };
+}
+
+function renderBarChart(canvasId, labels, dataset1, label1, dataset2, label2, existingChart) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  if (existingChart) existingChart.destroy();
+  const datasets = [{
+    label: label1, data: dataset1,
+    backgroundColor: "rgba(26, 58, 92, 0.75)", borderColor: "rgba(26, 58, 92, 1)", borderWidth: 1
+  }];
+  if (dataset2) datasets.push({
+    label: label2, data: dataset2,
+    backgroundColor: "rgba(39, 174, 96, 0.65)", borderColor: "rgba(39, 174, 96, 1)", borderWidth: 1
+  });
+  return new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: !!dataset2, position: "top", labels: { font: { size: 11 } } },
+        tooltip: {
+          callbacks: { label: ctx => ` €${fmt(ctx.parsed.y)}/year` }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 9 }, maxRotation: 45 } },
+        y: { beginAtZero: true,
+             ticks: { callback: v => "€" + (v >= 1000 ? Math.round(v / 1000) + "k" : v) } }
+      }
+    }
+  });
+}
+
+// ── Compute and display ───────────────────────────────────────────────────────
+function computeAndDisplay() {
+  const params = {
+    householdIncomeMonthly: parseFloat(document.getElementById("householdIncome").value) || 2500,
+    isCouple:               document.getElementById("isCouple").checked,
+    decarbonization:        document.getElementById("decarbonization").value,
+    hoursPerWeek:           parseInt(document.getElementById("hoursPerWeek").value),
+    nationalRedistribution: document.getElementById("nationalRedistribution").value,
+    globalRedistribution:   document.getElementById("globalRedistribution").value,
+    publicServices:         document.getElementById("publicServices").value,
+    beefAndFlights:         document.getElementById("beefAndFlights").value
+  };
+
+  let features;
+  try {
+    features = ConjointModule.computeConjointFeatures(params);
+  } catch (e) {
+    document.getElementById("statusMsg").textContent = "Error: " + e.message;
+    return;
+  }
+
+  // ── Scalar features ────────────────────────────────────────────────────────
+  document.getElementById("valTemp").textContent       = features.temperature.value.toFixed(1);
+  document.getElementById("valOwnIncome").textContent  = "€" + fmt(features.ownIncome.value);
+  document.getElementById("valHours").textContent      = features.workingHours.value;
+  document.getElementById("valPercentile").textContent =
+    features.ownIncome.respondentPercentile + " %";
+  document.getElementById("descOwnIncome").textContent =
+    `Current: €${fmt(features.ownIncome.currentIncome)}/yr  ·  gperc ${features.ownIncome.respondentPercentile}%`;
+
+  // ── National incomes chart ─────────────────────────────────────────────────
+  const ni = features.nationalIncomes;
+  document.getElementById("labelNational").textContent = ni.scenarioName + " — IT 2035 vs IT25";
+  const national = buildBarDataNational(ni.gpercentiles, ni.values);
+  const it2035raw = ConjointModule._ineqIT2035 || [];
+  const it25Data = buildBarDataNational(
+    it2035raw.map(r => r.gpercentile),
+    it2035raw.map(r => r.IT25 || 0));
+  chartNational = renderBarChart("chartNational",
+    national.brackets, national.avgs, "Scenario " + ni.scenarioName,
+    it25Data.avgs.length ? it25Data.avgs : null, "IT 2025 (baseline)",
+    chartNational);
+
+  // ── Global incomes chart ───────────────────────────────────────────────────
+  const gi = features.globalIncomes;
+  document.getElementById("labelGlobal").textContent = gi.scenarioName;
+  // Build simple 21-bracket labels
+  const bracketLabels = gi.brackets.map(b => b.replace("p", "").replace("p", "–"));
+  chartGlobal = renderBarChart("chartGlobal",
+    bracketLabels, gi.itValues, "Italy 2100",
+    gi.worldValues, "World 2100",
+    chartGlobal);
+
+  // ── Descriptions ───────────────────────────────────────────────────────────
+  const ps = features.publicServicesFeature;
+  document.getElementById("descPS").textContent = ps.description;
+  const badgePS = document.getElementById("badgePS");
+  if (ps.taxRate > 0) {
+    badgePS.textContent = "−" + (ps.taxRate * 100).toFixed(1) + "% of cash income";
+    badgePS.style.display = "inline-block";
+  } else { badgePS.style.display = "none"; }
+
+  const bf = features.beefAndFlightsFeature;
+  document.getElementById("descBF").textContent = bf.description;
+  const badgeBF = document.getElementById("badgeBF");
+  if (bf.tempAdjustment !== 0) {
+    badgeBF.textContent = bf.tempAdjustment.toFixed(3) + "°C temperature effect";
+    badgeBF.style.display = "inline-block";
+  } else { badgeBF.style.display = "none"; }
+
+  document.getElementById("results").style.display = "block";
+  document.getElementById("statusMsg").textContent = "Computed.";
+}
+
+// ── Initialise ────────────────────────────────────────────────────────────────
+(async function init() {
+  try {
+    await ConjointModule.ensureDataLoaded("../distributions/");
+    document.getElementById("computeBtn").disabled = false;
+    document.getElementById("computeBtn").textContent = "Compute features";
+    document.getElementById("statusMsg").textContent = "Data loaded. Adjust parameters and click Compute.";
+  } catch (err) {
+    document.getElementById("statusMsg").textContent = "Failed to load data: " + err.message +
+      " — make sure to serve this page via a web server (e.g. XAMPP).";
+  }
+})();
+
+document.getElementById("computeBtn").addEventListener("click", computeAndDisplay);
+// Recompute on any input change
+document.querySelectorAll("select, input").forEach(el =>
+  el.addEventListener("change", () => {
+    if (!document.getElementById("computeBtn").disabled) computeAndDisplay();
+  }));
+</script>
+</body>
+</html>

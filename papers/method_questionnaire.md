@@ -97,7 +97,7 @@ Note that hours pc decrease only from 630 to 480 in SC (960 in PC/PI) due to inc
 
 The base scenario is defined using working hours and global redistribution:
      GIT     no global redistr
-25h: SC-30k       SI-30k
+25h: SC-15k       SI-15k
 30h: SC-45k       SI-45k
 35h: SC           SI
 40h: MC           MI  
@@ -232,4 +232,6 @@ Current ratio IT/World GDP = 2.45
 
 - Decarbonization: Slow costs nothing; Inter 2% of each cash income; Fast 4% (PB: already counted in GIT, TODO?)
 - Working hours: GDP is proportional to working hours.
+
+TODO: check the 2100 cash ratio
 
