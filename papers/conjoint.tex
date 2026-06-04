@@ -10,6 +10,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{multirow}
 \usepackage{tabularx}
 \usepackage{xcolor}
 \usepackage{hyperref}
@@ -31,7 +32,7 @@
 \begin{document}
 
 \title{Appendix: Methodology for the Conjoint Analysis Question}
-\author{Global Justice Report}
+\author{Adrien Fabre \and Viola Maone}
 \date{\today}
 \maketitle
 \tableofcontents
@@ -47,7 +48,7 @@ question included in the Global Justice questionnaire. The conjoint presents
 respondents with pairs of stylised societal scenarios and asks them to choose
 between them. Each scenario is characterised by eight underlying parameters
 (Section~\ref{sec:parameters}) and displayed through seven features
-(Section~\ref{sec:features}). The income distributions underlying the features
+(Sections~\ref{sec:temperature}--\ref{sec:barcharts}). The income distributions underlying the features
 are derived from \citet{Bothe2026} and \citet{Chancel2026}; temperature
 projections rely on the emission pathways from \citet{Chancel2026}. All monetary
 quantities are expressed in EUR PPP 2025 per adult per year unless otherwise
@@ -66,12 +67,12 @@ A scenario is characterised by four structural dimensions:
     \scenario{S} (= \scenario{S60k}), \scenario{M}, \scenario{P} (from
     shortest to longest; see Table~\ref{tab:hours}).
   \item[Scope.] The redistribution configuration:
-    \scenario{C} = Convergence (both national SN and global GIT);
+    \scenario{C} = Convergence (both national and global);
     \scenario{G} = Global only;
     \scenario{N} = National only;
     \scenario{I} = Inequality (neither).
   \item[Sectoral change.] \scenario{1} = no sectoral change (stable public
-    services, current food system); \scenario{2} = structural change (expanded
+    services, current food system); \\\scenario{2} = structural change (expanded
     public services, reduced beef and flights).
   \item[Decarbonization.] \scenario{SD} = slow; \scenario{ID} = intermediate;
     \scenario{FD} = fast.
@@ -89,7 +90,10 @@ decarbonization).
 \label{tab:hours}
 \begin{tabular}{lccc}
 \toprule
-Weekly hours & Hours label & With GIT (k\EUR) & Without GIT (k\EUR) \\
+\multirow{2}{*}{Weekly hours} & \multirow{2}{*}{Hours label}
+  & \multicolumn{2}{c}{2100 GDP pc (k\EUR)} \\
+\cmidrule(lr){3-4}
+ & & \shortstack{With global\\ redistribution} & \shortstack{Without global\\ redistribution} \\
 \midrule
 25 & \scenario{S15k} & 15   & 12.5 \\
 30 & \scenario{S45k} & 45   & 37.5 \\
@@ -116,23 +120,19 @@ respondent themselves and seven policy-relevant parameters:
 
   \item \textbf{Decarbonization}: Slow (\scenario{SD}), Intermediate
     (\scenario{ID}), Fast (\scenario{FD}), corresponding to IEA CPS, STEPS
-    and NZE pathways respectively. The income cost at 2035 is 0\,\% (SD),
-    2\,\% (ID) or 4\,\% (FD).
+    and NZE pathways respectively. The income cost at 2035 is 0\,\% (SD), 2\,\% (ID) or 4\,\% (FD). % TODO put the cost info elsewhere
 
   \item \textbf{Working hours}: target weekly hours per scenario class
     (25, 30, 35, 40, 45 hours).
 
-  \item \textbf{National redistribution}: current level, or Sustainable
-    National redistribution (\scenario{SN}) as modelled in \citet{Bothe2026}.
+  \item \textbf{National redistribution}: current level, or National redistribution (\scenario{N}).
 
-  \item \textbf{Global redistribution}: no global tax (current), or the
-    Global Income Tax (\scenario{GIT}) of \citet{Bothe2026}.
+  \item \textbf{Global redistribution}: current level, or Global redistribution (\scenario{N}).
 
   \item \textbf{Public services}: stable (20\,\% of GNI) or increased
     (+3 percentage points of GNI, financed by a flat-rate tax).
 
-  \item \textbf{Beef and flights}: no change; $-60\,\%$ beef; $-50\,\%$ air
-    travel; both.
+  \item \textbf{Beef and flights}: no change; $-60\,\%$ beef; $-50\,\%$ air travel; both changes.
 \end{enumerate}
 
 \noindent The full design yields $5 \times 2 \times 2 \times 3 \times 2
@@ -143,9 +143,9 @@ respondent themselves and seven policy-relevant parameters:
 \label{sec:data}
 % ==============================================================================
 
-\subsection{National secondary income from Bothe et al.}
+\subsection{National secondary income from \texorpdfstring{\citet{Bothe2026}}{Bothe et al.}}
 
-The Bothe et al.\ simulation provides, for each country $c$, gpercentile $p$
+The \citet{Bothe2026} simulation provides, for each country $c$, gpercentile $p$
 and year $t$:
 \begin{itemize}
   \item $\text{sdiinc}_{c,p,t}$: the income share of bracket $p$ in country $c$;
@@ -169,14 +169,25 @@ redistribution scopes are therefore defined as:
 \begin{align}
   \text{SC}_{c,p,t} &= \text{income}_{c,p,t}
     = \text{yp\_recomp} - \text{ypt} + \text{div}, \label{eq:SC} \\
-  \text{SN}_{c,p,t} &= \text{yp\_recomp}_{c,p,t}, \label{eq:SN} \\
+  \text{SN}_{c,p,t} &= (\text{SC}_{c,p,t} - \text{GR}_t)\,
+    \bigl(G^{SI_0}_{c}/G^{SC}_{c}\bigr), \label{eq:SN} \\
   \text{SI}_{c,p,t} &= \tfrac{1}{2}\, \text{PI}_{c,p,t}
     \quad (\text{in 2100; see Section~\ref{sec:2100}}), \label{eq:SI} \\
-  \text{SG}_{c,p,t} &= \text{SI}_{c,p,t} + \text{div}_t . \label{eq:SG}
+  \text{SG}_{c,p,t} &= \text{SI}_{c,p,t}\,\bigl(1 - \tau^G(\text{SI}_{c,p,t})\bigr). \label{eq:SG}
 \end{align}
+where $G^{SC}_{c},G^{SI_0}_{c}$ are the gp-weighted mean incomes of the SC and SI ($=\tfrac12$PI)
+distributions and $\text{GR}=\text{div}-\text{ypt}$ is the net global transfer (so
+$\text{SC}-\text{GR}=\text{yp\_recomp}$). The N scope rescales the nationally-redistributed income
+to the no-global GDP level $G^{SI_0}$. The G scope keeps the SI (no-redistribution) within-country
+shape and applies a \emph{global} tax schedule that is a function of N (national, pre-global) income,
+$\tau^G(\cdot)$: at world percentile $g$ the N income $\text{SN}^{World}_g$ faces the rate
+$(\text{SN}^{World}_g-\text{SC}^{World}_g)/\text{SN}^{World}_g$ (negative for poor incomes, positive
+for rich). This schedule is then \emph{evaluated at each unit's own I (SI) income}. Because $\tau^G$
+is read off the \emph{world} distribution, the identity $\text{SG}=\text{SI}\,(\text{SC}/\text{SN})$
+holds at the world level but not within a single country.
 
 \attentionbox{%
-  Bothe et al.\ provide a single SC simulation. The SC1 and SC2 variants
+  \citet{Bothe2026} provide a single SC simulation. The SC1 and SC2 variants
   (sectoral change off/on) and all decarbonization paces (SD/ID/FD) share the
   same income distribution. The differences between them are modelled
   \emph{explicitly} by us through (a) an income-cost multiplier for
@@ -192,7 +203,7 @@ earnings, but \emph{gross} of capital consumption. This corresponds to what a
 respondent would recognise as their disposable income plus employer social
 contributions, comparable across scenarios.
 
-Starting from Fisher-Gethin \& Chancel 2023 \citep{FisherGethin2023} data for
+Starting from \citet{FisherGethin2023} data for
 Italy:
 \begin{equation}
   \label{eq:cash2025}
@@ -229,7 +240,7 @@ values in ascending order, mirroring the procedure in the main distributional
 series. All values are expressed in EUR PPP 2025.
 
 \attentionbox{%
-  $\tau^\text{ind}$ (VAT) is subtracted because the Fisher-Gethin pretax income is
+  $\tau^\text{ind}$ (VAT) is subtracted because the \citet{FisherGethin2023} pretax income is
   at market prices (inclusive of indirect taxes). Subtracting VAT converts to
   factor-cost NNI, to which cash incomes sum. Omitting this step would
   overstate cash income.
@@ -245,7 +256,7 @@ series. All values are expressed in EUR PPP 2025.
 Let $\text{IT35}_p$ denote the gross cash income distribution for Italy at
 2035 under \scenario{SC1\_SD} (slow decarbonization, no structural change).
 It serves as the universal base from which all 2035 IT scenario distributions
-are derived. We compute it by rescaling the 2035 Bothe income distribution
+are derived. We compute it by rescaling the 2035 \citet{Bothe2026} income distribution
 to cash units using the 2025 individual cash-to-income ratio:
 \begin{equation}
   \label{eq:IT35}
@@ -291,8 +302,8 @@ slow, consistent with the income-side impact of accelerated investment in the
 energy transition.
 
 \attentionbox{%
-  The factor $\delta$ is applied \emph{on top of} the Bothe income distribution.
-  Bothe et al.\ report the same income distribution regardless of the decarbonization
+  The factor $\delta$ is applied \emph{on top of} the \citet{Bothe2026} income distribution.
+  \citet{Bothe2026} report the same income distribution regardless of the decarbonization
   pace (the SD, ID and FD variants differ only in emissions and temperature). The
   $\delta$ multiplier is therefore an explicit parametric cost not already embedded
   in the simulation.
@@ -307,7 +318,7 @@ is financed by a flat-rate tax at rate
   \label{eq:pstax}
   \tau_\text{PS} = \frac{(s_{2035} - s_{2025})\times \bar{g}_{2035}}{\bar{\text{cash}}_{2035}},
 \end{equation}
-where $s_t$ = share of educ+health+PS spending in GNE (from Chancel sheet
+where $s_t$ = share of educ+health+PS spending in GNE (from \citet{Chancel2026} sheet
 \texttt{G5s}), $\bar{g}_{2035}$ = per-adult GNE at 2035 (\texttt{G0p}), and
 $\bar{\text{cash}}_{2035}$ = average of IT35. For Italy: $\tau_\text{PS}
 \approx 4.9\,\%$.
@@ -325,31 +336,38 @@ $\delta_\text{FD} = 0.96$ and $\psi = 1 - \tau_\text{PS}$:
   \scenario{PI}    &= 1.4\,\text{IT25}_p \cdot \delta_\text{FD}   &&\text{(PI1\_FD)} \\
   \scenario{SC45k} &= (G_{2025}/G_{2035})\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi \\
   \scenario{SC15k} &= 0.9\,(G_{2025}/G_{2035})\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi \\
-  \scenario{SI}    &= (G_{2035}/G_{2025})\,\text{IT25}_p \cdot \delta_\text{FD} \cdot \psi \\
-  \scenario{SN}    &= (\text{IT35}_p - \text{cash\_GR35}_p) \cdot \delta_\text{FD} \cdot \psi \\
-  \scenario{SG}    &= \bigl((G_{2035}/G_{2025})\,\text{IT25}_p + \text{cash\_GR35}_p\bigr)
+  \scenario{SI}    &= (G^{PI}_{2035}/G_{2025})\,(h^{SC}_{2035}/h^{PI}_{2035})\,\text{IT25}_p
+                       \cdot \delta_\text{FD} \cdot \psi \\
+  \scenario{SN}    &= (\text{IT35}_p - \text{cash\_GR35}_p)\,(G^{SI_0}/\overline{\text{SC}})
+                       \cdot \delta_\text{FD} \cdot \psi \\
+  \scenario{SG}    &= (\overline{\text{SC}}/G^{SI_0})\,(\text{SI0}_p + \text{cash\_GR35}_p)
                        \cdot \delta_\text{FD} \cdot \psi \\
   \scenario{MC}    &= \Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi
 \end{align}
 
-\noindent where $G_{t}$ denotes Italy's per-capita GDP at year $t$ from Chancel
-sheet \texttt{A0}, and $\Phi$ is the MC income scale factor defined in
-Section~\ref{sec:MC}.
+\noindent where $G_{t}$ denotes Italy's per-capita GDP at year $t$ (\citealt{Chancel2026} \texttt{A0p};
+$G^{PI}_{2035}$ is the PI per-capita GDP, \texttt{A0pi}); $h^{SC}_{2035},h^{PI}_{2035}$ are
+per-capita economic labour hours under SC/PI (\citealt{Chancel2026} \texttt{E0h}/\texttt{E0k});
+$\text{SI0}_p=(G^{PI}_{2035}/G_{2025})(h^{SC}/h^{PI})\,\text{IT25}_p$ is the SI base, with
+$\overline{\text{SC}},G^{SI_0}$ the gp-weighted means of the SC and SI bases; and $\Phi$ is the
+MC income scale factor defined in Section~\ref{sec:MC}.
 
 \attentionbox{%
   \scenario{PI} uses IT25 (2025 cash income) as its base, not IT35, because the
   PI scenario does not undergo the SC productivity and redistribution transition
   between 2025 and 2035. It grows from the current distribution by a flat
   GDP-per-capita factor of 1.4. By contrast, \scenario{SC} and its variants
-  start from IT35, which already embeds the Bothe SC income structure at 2035.
+  start from IT35, which already embeds the \citet{Bothe2026} SC income structure at 2035.
 }
 
 \attentionbox{%
-  \scenario{SI} also uses IT25 as its base. The formula $(G_{2035}/G_{2025})
-  \times \text{IT25}_p$ scales current income proportionally to SC GDP growth,
-  while preserving the current within-country distributional shape (no within-country
-  redistribution). This contrasts with \scenario{SN}, which starts from IT35 and
-  thus reflects Bothe's SC within-country distribution but strips out the global GIT.
+  \scenario{SI} uses IT25 as its base, scaled to the no-global GDP level: the PI per-capita
+  GDP adjusted for SC's shorter working hours, $(G^{PI}_{2035}/G_{2025})(h^{SC}/h^{PI})$. It
+  preserves the current within-country shape (no redistribution). \scenario{SN} and \scenario{SG}
+  then sit at the same no-global level $G^{SI_0}$ (SN) and the converged level $\overline{\text{SC}}$
+  (SG): \scenario{SN} rescales the SC-redistributed income $(\text{IT35}-\text{GR35})$ to $G^{SI_0}$,
+  and \scenario{SG} rescales the global-transfer-augmented SI base $(\text{SI0}+\text{cash\_GR35})$
+  to $\overline{\text{SC}}$.
 }
 
 \subsection{MC scenario: moderate convergence}
@@ -365,7 +383,7 @@ by 2100). The 2035 income scale relative to IT35 is:
 where $\bar{g} = (125/\phi_{2025})^{1/75}$ is the constant annual growth rate
 in hourly productivity under SC (from 2025 level $\phi_{2025}$ to 125\,\EUR/h
 in 2100), $\phi_{2035} = \phi_{2035}/\phi_{2025}$ is the actual SC productivity
-growth 2025--2035 (from Chancel sheet \texttt{F0a}), and $\omega_{2035} =
+growth 2025--2035 (from \citet{Chancel2026} sheet \texttt{F0a}), and $\omega_{2035} =
 h_{2035}/h_{2025}$ is the SC per-capita-hours change 2025--2035 (sheet
 \texttt{E0h}).
 
@@ -419,13 +437,14 @@ achieves near-complete global convergence by 2100), which holds in the data.
 For Italy at 2100, in raw full-income units (before $r_\text{IT}$):
 \begin{align}
   \scenario{SC}_{IT,2100} &= \text{income}_{IT,p,2100}
-    \quad (\text{Bothe SC: GIT+dividend}) \\
-  \scenario{SN}_{IT,2100} &= \text{income}_{IT,p,2100} - \text{div}_{2100}
-    \quad (\approx \text{yp\_recomp}_{2100}) \\
+    \quad (\text{\citealt{Bothe2026} SC: GIT+dividend}) \\
+  \scenario{SN}_{IT,2100} &= (\text{income}_{IT,p,2100} - \text{div}_{2100})\,
+    (G^{SI_0}_{IT}/G^{SC}_{IT}) \quad (\text{(SC$-$GR)} \times G^{SI_0}/G^{SC}) \\
   \scenario{PI}_{IT,2100} &= \text{yp\_recomp}_{IT,p,2025} \times g^\text{PI}_{IT}
     \quad (g^\text{PI} = A0\text{pi}_{2100}/A0\text{pi}_{2025}) \\
   \scenario{SI}_{IT,2100} &= \tfrac{1}{2}\,\scenario{PI}_{IT,2100} \\
-  \scenario{SG}_{IT,2100} &= \tfrac{1}{2}\,\scenario{PI}_{IT,2100} + \text{div}_{2100}
+  \scenario{SG}_{IT,2100} &= \scenario{SI}_{IT,2100}\,\bigl(1 - \tau^G(\scenario{SI}_{IT,2100})\bigr)
+    \quad (\tau^G \text{ a function of N income, read at IT's SI income})
 \end{align}
 
 For hours variants and PC, apply the coefs from Table~\ref{tab:coefs2100}
@@ -461,7 +480,7 @@ Coef     & 0.25  & 0.75  & 1.00        & 630/480 & 2.00 \\
   \scenario{SCmat} and \scenario{SC} have identical income distributions at 2100.
   Structural change affects emissions and temperature (and therefore 2035 incomes
   via $\delta$) but not 2100 full incomes: by 2100, both modalities converge to
-  the same equilibrium income level in Bothe et al.'s simulation.
+  the same equilibrium income level in \citet{Bothe2026}'s simulation.
 }
 
 \subsection{World 2100 distributions}
@@ -472,10 +491,9 @@ income value, and binning into 100 equal-population global percentiles. Cells
 with non-positive or non-finite income are dropped. Gaps in the resulting
 100-grid are filled by linear interpolation.
 
-Populations used: $\text{Pop}^{SC}$ (Chancel sheet \texttt{Z0a},
-$\approx 9.41$\,B in 2100) for SC, SN, SC45k, SC15k, MC and PC; and
-$\text{Pop}^{PI}$ (\texttt{Z0b}, $\approx 10.18$\,B) for PI, SI and SG
-(whose income is derived from the PI trajectory).
+Populations used follow whether the scenario has global redistribution (GIT): $\text{Pop}^{SC}$
+(\citealt{Chancel2026} sheet \texttt{Z0a}, $\approx 9.41$\,B in 2100, Convergence) for SC, SG, SC45k, SC15k, MC
+and PC; and $\text{Pop}^{PI}$ (\texttt{Z0b}, $\approx 10.18$\,B, Inequality) for PI, SI and SN.
 
 \attentionbox{%
   PC inherits the SC world distribution scaled by 2.0, using SC population.
@@ -500,11 +518,11 @@ are rounded to the nearest integer EUR.
 \subsection{Base temperature}
 
 Temperature depends on GDP (which encodes working hours and global redistribution),
-decarbonization pace, and sectoral change. For scenarios present in Chancel's
+decarbonization pace, and sectoral change. For scenarios present in \citet{Chancel2026}'s
 \texttt{Emission\_Output} workbook, we use $T_\text{final}$ from
 \texttt{chancel\_temp2100\_completed.csv}. For scenarios not modelled by
-Chancel (SI, SN, SG, MC and their variants), we predict temperature using
-a GDP-based no-emissions regression estimated on the 24 Chancel-observed scenarios:
+\citet{Chancel2026} (SI, SN, SG, MC and their variants), we predict temperature using
+a GDP-based no-emissions regression estimated on the 24 scenarios observed by \citet{Chancel2026}:
 \begin{equation}
   \label{eq:noem}
   T = \beta_0 + \beta_1 G + \beta_2 \mathbf{1}_\text{ID} + \beta_3 \mathbf{1}_\text{SD}
@@ -548,7 +566,7 @@ The canonical modality is chosen as follows \citep[method\_questionnaire.md]{Cha
 
 \attentionbox{%
   Temperature is rounded to the nearest 0.1\,°C. In the no-emissions regression
-  the maximum absolute deviation from Chancel observed temperatures is 0.1\,°C
+  the maximum absolute deviation from the temperatures observed by \citet{Chancel2026} is 0.1\,°C
   (by construction: the model was selected to guarantee this on the training
   set). For extrapolated scenarios (SI/SN/SG/MC) the true error is unknown but
   bounded by the regression's generalization uncertainty.
@@ -574,11 +592,19 @@ The canonical modality is chosen as follows \citep[method\_questionnaire.md]{Cha
 redistribution scope, decarbonization and public-services choices (after
 applying $\delta$ and $\psi$ corrections to the exported base column).
 
-For hours levels not equal to 35h and redistribution scope other than
-GIT+national, the base column (GIT+national at the chosen hours level) is
-scaled by the ratio $\bar{y}_\text{scope} / \bar{y}_\text{SC}$, where both
-averages are the weighted mean of the corresponding 35h columns in
-\texttt{ineq\_IT\_2035.csv}.
+For hours levels not equal to 35h, a non-convergence scope column is built from
+the 35h base of \emph{that same scope}, so it keeps the scope's own
+within-country shape (national for N, inequality for G) rather than the converged
+SC shape. The 35h scope base is rescaled to the target hours class $x$ by
+\begin{align}
+  \scenario{N}_{x} &= \scenario{SN}\,\frac{\bar{y}^{I}_{x}}{\bar{\scenario{SN}}}, &
+  \scenario{G}_{x} &= (\scenario{SI}+\text{cash\_GR35})\,\frac{\bar{y}^{C}_{x}}{\bar{\scenario{SI}}},
+\end{align}
+where $\bar{y}^{I}_{x}$ ($\bar{y}^{C}_{x}$) is the gp-weighted mean of the
+inequality (convergence) distribution at hours class $x \in
+\{\text{S15k},\text{S45k},\text{M},\text{P}\}$, and the bars denote 35h-column
+weighted means in \texttt{ineq\_IT\_2035.csv}. (At $x = $ 35h the ratio is 1 and
+the scope base is returned unchanged.)
 
 \attentionbox{%
   The IT25 distribution may not be monotone over the full 127 gpercentile range
@@ -621,17 +647,23 @@ scopes by the same proportionality.
 % ==============================================================================
 
 \begin{enumerate}
-  \item \textbf{SN vs SI}: SN is based on IT35 (Bothe SC national secondary
-    income) minus GR35; SI is based on IT25 scaled by SC GDP growth. The two
-    concepts differ in that SN inherits SC's within-country redistribution
-    while SI preserves the 2025 distributional shape. This produces a wedge
-    between the two at intermediate percentiles.
+  \item \textbf{SN vs SI}: both sit at the no-global GDP level $G^{SI_0}$ (same
+    average) but differ in shape: SN starts from the nationally-redistributed
+    income (IT35$-$GR35, i.e.\ SC's compressed shape) and SI from the 2025
+    distribution (IT25). The wedge between them at intermediate percentiles is the
+    effect of national redistribution alone.
 
-  \item \textbf{SG at 2100}: By 2100, the GIT has phased out in Bothe's
-    simulation ($\text{ypt}\approx0$, $\text{div}\approx0$), so SG and SI
-    converge numerically. This is economically sensible: at 2100 all SC-family
-    scenarios produce near-identical outcomes regardless of the redistribution
-    path taken, because incomes have converged globally.
+  \item \textbf{SG vs SI}: SG applies a \emph{global} income-tax schedule
+    $\tau^G(\cdot)$ --- a function of N income, read off the world
+    $\scenario{SN}\!\to\!\scenario{SC}$ distributions and evaluated at each unit's I (SI) income ---
+    to the inequality base ($\scenario{SG}=\scenario{SI}\,(1-\tau^G(\scenario{SI}))$). It keeps the
+    no-national-redistribution shape of SI but reallocates income across countries as the global
+    transfer does worldwide: a given income faces the same rate everywhere, negative
+    (subsidy) at low incomes and positive (tax) at high ones. Because $\tau^G$ is global, the
+    identity $\scenario{SG}=\scenario{SI}\,(\scenario{SC}/\scenario{SN})$ holds at the world level
+    but \emph{not} within IT (IT's percentiles borrow the global income$\to$rate map, not IT's own).
+    Hours variants of the G scope scale the base SG by the same hours coef as the other scopes
+    (the income distribution, and hence the rate schedule, scales with the economy).
 
   \item \textbf{IT\_SC = World\_SC at 2100}: Under SC, countries converge to
     approximately the same per-capita income by 2100, so Italy's 2100 distribution
@@ -646,12 +678,12 @@ scopes by the same proportionality.
     contributors.
 
   \item \textbf{No PI2 scenarios}: The PI scenario does not model sectoral change
-    in Chancel's data ($\text{sectoral\_change} = 0$ for all PI variants,
+    in \citet{Chancel2026}'s data ($\text{sectoral\_change} = 0$ for all PI variants,
     regardless of the public-services choice). This is a limitation: PI+expanded
     PS is computed using structural change $= 0$, so the temperature does not
     reflect any emissions benefit from sectoral reallocation.
 
-  \item \textbf{MC temperature}: MC is not in Chancel's emission output
+  \item \textbf{MC temperature}: MC is not in \citet{Chancel2026}'s emission output
     workbook. Its temperature is predicted by the no-emissions regression, which
     may not generalise well to the MC GDP level (741\,T\EUR), which lies between
     SC (565\,T\EUR) and PC (1129\,T\EUR) but has a distinct productivity path.
@@ -672,7 +704,7 @@ scopes by the same proportionality.
     of the 10 scenarios). Income in EUR PPP 2025/adult/yr $\times$ $r_\text{IT}$.
 
   \item[\texttt{temp100.csv}]
-    54 rows: 30 Chancel scenarios + 24 new rows for SI/SN/SG/MC at all
+    54 rows: 30 \citet{Chancel2026} scenarios + 24 new rows for SI/SN/SG/MC at all
     decarb $\times$ food combinations. Columns: scenario, gdp (T\EUR),
     sectoral\_change, decarb, temp\_final (°C).
 
@@ -689,7 +721,7 @@ scopes by the same proportionality.
 % ==============================================================================
 
 All distributions are generated by \texttt{code\_simulator/questionnaire.R},
-which is self-contained (reads raw Bothe and Chancel data files plus
+which is self-contained (reads raw \citet{Bothe2026} and \citet{Chancel2026} data files plus
 \texttt{chancel\_temp2100\_completed.csv}) and produces the four output files
 above. The conjoint computation at display time is handled by
 \texttt{code\_simulator/js/conjoint.js}, which reads the CSV files via

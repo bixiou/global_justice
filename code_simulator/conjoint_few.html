@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scenario comparison — pick scenarios</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="js/scenarios.js"></script>
+  <link rel="stylesheet" href="css/compare.css">
+</head>
+<body>
+<header>
+  <h1>Scenario comparison — pick a scenario on each side</h1>
+  <p>Enter your household income once, then choose a scenario for the left and right; the seven displayed features update below.</p>
+</header>
+
+<div class="page">
+  <div id="statusMsg">Loading data…</div>
+
+  <!-- shared respondent income (used to locate the respondent in every scenario) -->
+  <div class="card shared-income">
+    <div class="field">
+      <label>Household monthly income (EUR)</label>
+      <div class="field-income">
+        <input type="number" id="sharedIncome" value="2500" min="0" step="100">
+        <label class="couple"><input type="checkbox" id="sharedCouple"> couple</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- top: one scenario selector per side -->
+  <div class="split" id="controls"></div>
+
+  <!-- bottom: one result panel per side -->
+  <div class="split" id="comparison"></div>
+</div>
+
+<script src="js/conjoint_few.js"></script>
+</body>
+</html>

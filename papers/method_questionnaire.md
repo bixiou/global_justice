@@ -50,7 +50,7 @@ Other scenarios in IT100, World100:
 Note that Bothe et al. give future distributions only for the SC scenario. This is how we proceed for other scenarios:
 - PI: we assume that inequality does not change and simply rescale every country's distribution by the growth in GDP in PI scenario according to sheet A0pi of Chancel's Appendix. There is no GIT nor dividend in this scenario.
 - For the other scenarios, we assume the same transfers as in SC in proportion of GDP, and simply rescale the country distributions by a given factor: PC=2, SC1=1, SC45k=0.75, SC30k=0.5, SC15k=0.25, MC=630/480. 
-To aggregate country distributions into the world one, we use higher population projections for PI and PC (UN medium, Chancel sheet Z0b) than for SC (Z0a).
+To aggregate country distributions into the world one, we use higher population projections for scenarios of scope I or N (UN medium, Chancel sheet Z0b) than for C or G ones (Z0a).
 
 Other scenarios in IT35: [this paragaph is deprecated, kept only for archiving]
 - PI: we rescale IT25 by 1.4, an approximation of growth given by Chancel sheet A0pi. This is the only scenario for which we use the current level of inequality (for the other we use SC's shape).
@@ -130,9 +130,9 @@ Distributions IT25, IT35, GR35, 2025 and 2100 GDP by country/region in PI (given
 When they exist, we use Bothe distributions. Otherwise, for 2100:
 Define GR = country dividend - GIT (in SC2). In 2100, GIT=0, and country dividend is (sheet E3bp of Bothe Macro).
 PI0 = current income ⋅ national growth PI
-SN0 = SC - GR
 SI0 = 0.5⋅PI0 (in 2100, another factor in 2035)
-SG0 = SI0 + GR
+SN0 = (SC - GR)* GDP_SI0/GDP_SC (where GDP_PI is taken at country level in 2100)
+SG0 = (GDP_SC/GDP_SI0)*SI0
 
 Then other distributions are defined as a coef times the reference S case, e.g.:
 SI-30k = .5⋅SI, SN-30k = .5⋅SN, SG-30k = .5⋅SG, SC-30k = .5⋅SC
@@ -148,14 +148,14 @@ SC15k0 =  .9*(GDP_IT25/GDP_IT35)*IT35
 
 PI0 = 1.4*IT25
 MI0 = avg_productivity_growth^10*IT25
-SI0 = (gdp_it_sc_2035/gdp_it_2025)*IT25
+SI0 = (gdp_it_PI_2035* (hours_pc_it_SC_2035/hours_pc_it_PI_2035)/gdp_it_2025)*IT25
 SIx0 = (avg_SCx/avg_SC45k)*IT25
 
-SN0 = IT35 - GR35 (where GR35 is the distribution of GR in 2035)
-SG0 = SI0 + GR35
+SN0 = (IT35 - GR35)* GDP_SI0/avg_SC 
+SG0 = (GDP_SC/GDP_SI0)*(SI0 + GR35)
 
-yNx0 = (avg_yCx/avg_SC)*yN = (avg_yCx/avg_SC) *(IT35 - GR35)
-yGx0 = (avg_yCx/avg_SC)*yG = (avg_yCx/avg_SC) *(SI0 + GR35) = (avg_yCx/avg_SC) * (IT35 * avg_SC/avg_SC45k + GR35)
+yNx0 = (avg_yIx/avg_SN0)*SN0
+yGx0 = (avg_yCx/avg_SI)*(yI + GR35), e.g. SG30k0 = (avg_SC30k0/avg_SI0) * (SI30k0 + GR35)
 where yx denotes any remaining class.
 
 Then a decarbonization factor is applied to 2035 incomes: 1 for SD, .98 for ID, .96 for FD.
@@ -234,4 +234,22 @@ Current ratio IT/World GDP = 2.45
 - Working hours: GDP is proportional to working hours.
 
 TODO: check the 2100 cash ratio
+TODO: check population for aggregation
+TODO: adjust temperature to GDP (instead of GDP pc)
+TODO! pb in 2035
+P: G = C, N = I
+M: G, N < I for p0; G = C for p100
+S: G < I for p0
+S45, S15: C = G; G, N < I for p0
 
+=> G should be paid by GR, not by everyone 
+TODO!? Adjust 2035 working hours to MC?
+==> for N < I, I modified l. 155, 157
+==> pb here, it should have I shape, not C shape yGx0 = (avg_yCx/avg_SI)*yI 
+
+TODO: check One note: the shapes now align, but the situator's level sits a bit above the questionnaire (avg 44 513 vs 35
+  915). That's because the questionnaire applies Italy's ratio (0.69) to every country, whereas the situator
+  uses each country's own ratio — and poor countries genuinely have a higher cash/full ratio (~0.84: less
+  imputed rent, retained earnings and VAT than rich countries). So the situator is arguably the more accurate of
+  the two here. If you'd rather it match the questionnaire exactly, I can switch it to the global ratio_IT
+  (0.69) instead — just say the word.

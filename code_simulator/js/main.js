@@ -17,7 +17,8 @@ const DIST_COLORS = {
 // ── state ─────────────────────────────────────────────────────────────────────
 
 let incomeCache  = null;  // country code → { gpercentile → { year → income } }
-let worldCache   = null;  // gpercentile → { year → income }
+let worldCache   = null;  // gpercentile → { year → FULL income } (pre cash-ratio)
+let ratioMap     = null;  // country code → cash/full ratio
 let chartEvol    = null;
 let chartDist    = null;
 
@@ -71,20 +72,21 @@ async function loadIncomeData() {
 }
 
 async function loadWorldData() {
-  if (worldCache) return;
-  const res  = await fetch(DATA_PATH + 'cash_income_world.csv');
-  const text = await res.text();
-  const rows = parseCSV(text);
+  if (worldCache && ratioMap) return;
+  const [wText, rText] = await Promise.all([
+    fetch(DATA_PATH + 'full_income_world.csv').then(r => r.text()),  // FULL income (pre cash-ratio)
+    fetch(DATA_PATH + 'cash_ratios.csv').then(r => r.text()),        // per-country cash/full ratio
+  ]);
 
   worldCache = {};
-  for (const row of rows) {
+  for (const row of parseCSV(wText)) {
     const pct = parseInt(row.gpercentile, 10);
     const byYear = {};
-    DIST_YEARS.forEach(y => {
-      byYear[y] = parseFloat(row[`income_${y}`]);
-    });
+    DIST_YEARS.forEach(y => { byYear[y] = parseFloat(row[`income_${y}`]); });
     worldCache[pct] = byYear;
   }
+  ratioMap = {};
+  for (const row of parseCSV(rText)) ratioMap[row.country] = parseFloat(row.ratio);
 }
 
 // ── percentile lookup ─────────────────────────────────────────────────────────
@@ -129,6 +131,8 @@ function renderEvolution(countryCode, percentile, currency, pppRate) {
   const byYear = incomeCache[countryCode][percentile];
   const labels = INCOME_YEARS.filter(y => y >= 2025);
   const data   = labels.map(y => +(byYear[y] * pppRate).toFixed(0));
+  const LABEL_YEARS = [2025, 2030, 2040, 2050, 2060, 2070, 2080, 2090, 2100];  // x-axis labels & gridlines
+  const GRID_YEARS  = LABEL_YEARS;
 
   destroyChart(chartEvol);
   const ctx = document.getElementById('chart-evolution').getContext('2d');
@@ -151,11 +155,7 @@ function renderEvolution(countryCode, percentile, currency, pppRate) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
-        title: {
-          display: true,
-          text: `Your income trajectory under the Sustainable Convergence scenario`,
-          font: { size: 14 },
-        },
+        title: { display: false },
         tooltip: {
           callbacks: {
             label: ctx => ` ${ctx.parsed.y.toLocaleString()} ${currency}/year`,
@@ -165,7 +165,15 @@ function renderEvolution(countryCode, percentile, currency, pppRate) {
       scales: {
         x: {
           title: { display: true, text: 'Year' },
-          ticks: { maxTicksLimit: 10 },
+          grid: { color: ctx => GRID_YEARS.includes(+labels[ctx.index]) ? 'rgba(0,0,0,0.08)' : 'transparent' },
+          ticks: {
+            autoSkip: false,
+            maxRotation: 0,
+            callback: function (value) {
+              const yr = +this.getLabelForValue(value);
+              return LABEL_YEARS.includes(yr) ? yr : '';
+            },
+          },
         },
         y: {
           title: { display: true, text: `Annual income (${currency})` },
@@ -180,12 +188,12 @@ function renderEvolution(countryCode, percentile, currency, pppRate) {
   });
 }
 
-// Find the user's global percentile at a given year based on their EUR PPP income
-function findWorldPercentile(incomeEurPPP, year) {
+// Find the user's global percentile in a given world distribution from their EUR PPP income
+function findWorldPercentile(worldDist, incomeEurPPP, year) {
   let best = 1, bestDiff = Infinity;
   for (let p = 1; p <= 100; p++) {
-    if (!worldCache[p]) continue;
-    const diff = Math.abs(worldCache[p][year] - incomeEurPPP);
+    if (!worldDist[p]) continue;
+    const diff = Math.abs(worldDist[p][year] - incomeEurPPP);
     if (diff < bestDiff) { bestDiff = diff; best = p; }
   }
   return best;
@@ -198,13 +206,20 @@ function findWorldPercentile(incomeEurPPP, year) {
 // on that year's world distribution curve — i.e., "if you maintain your
 // global rank, this is the income at that rank in year y."
 
-function renderDistribution(userIncomesByYearEur, currency, pppRate) {
+function renderDistribution(userIncomesByYearEur, currency, pppRate, ratioUser) {
   const percentiles = Array.from({ length: 100 }, (_, i) => i + 1);
-  const fixedGlobalPct = findWorldPercentile(userIncomesByYearEur[2025], 2025);
+  // World distribution in the user's cash terms: Bothe full income × their country's cash/full ratio.
+  const worldCash = {};
+  percentiles.forEach(p => {
+    worldCash[p] = {};
+    DIST_YEARS.forEach(y => { worldCash[p][y] = worldCache[p][y] * ratioUser; });
+  });
+  const fixedGlobalPct = findWorldPercentile(worldCash, userIncomesByYearEur[2025], 2025);
 
+  // x = p - 1: plot each percentile bin at its lower edge so the curve starts at percentile 0.
   const datasets = DIST_YEARS.map(yr => ({
     label: String(yr),
-    data: percentiles.map(p => +(worldCache[p][yr] * pppRate).toFixed(0)),
+    data: percentiles.map(p => ({ x: p - 1, y: +(worldCash[p][yr] * pppRate).toFixed(0) })),
     borderColor: DIST_COLORS[yr],
     backgroundColor: DIST_COLORS[yr],
     pointRadius: 0,
@@ -214,26 +229,22 @@ function renderDistribution(userIncomesByYearEur, currency, pppRate) {
   }));
 
   // User dot on each year's curve: placed at the FIXED 2025 global percentile
-  const dotDatasets = DIST_YEARS.map(yr => {
-    const yEur = worldCache[fixedGlobalPct][yr];
-    return {
-      label: `You (${yr})`,
-      data: percentiles.map(p => p === fixedGlobalPct ? +(yEur * pppRate).toFixed(0) : null),
-      borderColor: DIST_COLORS[yr],
-      backgroundColor: DIST_COLORS[yr],
-      pointRadius: percentiles.map(p => p === fixedGlobalPct ? 8 : 0),
-      pointStyle: 'circle',
-      showLine: false,
-      order: 0,
-    };
-  });
+  const dotDatasets = DIST_YEARS.map(yr => ({
+    label: `You (${yr})`,
+    data: [{ x: fixedGlobalPct - 1, y: +(worldCash[fixedGlobalPct][yr] * pppRate).toFixed(0) }],
+    borderColor: DIST_COLORS[yr],
+    backgroundColor: DIST_COLORS[yr],
+    pointRadius: 8,
+    pointStyle: 'circle',
+    showLine: false,
+    order: 0,
+  }));
 
   destroyChart(chartDist);
   const ctx = document.getElementById('chart-distribution').getContext('2d');
   chartDist = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: percentiles,
       datasets: [...datasets, ...dotDatasets],
     },
     options: {
@@ -264,12 +275,15 @@ function renderDistribution(userIncomesByYearEur, currency, pppRate) {
       },
       scales: {
         x: {
+          type: 'linear',
+          min: 0,
+          max: 100,
           title: { display: true, text: 'Humans, from poorest to richest (global percentile)' },
-          ticks: { maxTicksLimit: 10 },
+          ticks: { stepSize: 10 },
         },
         y: {
           title: { display: true, text: `Annual income (${currency})` },
-          max: Math.ceil(worldCache[99][2025] * pppRate / 1000) * 1000,
+          max: worldCash[98][2100] * pppRate,
           ticks: {
             callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M'
                          : v >= 1e3 ? (v/1e3).toFixed(0)+'k'
@@ -365,7 +379,7 @@ async function onCalculate() {
   document.getElementById('result-section').style.display = 'block';
 
   renderEvolution(countryCode, percentile, currency, pppRate);
-  renderDistribution(userIncomesByYearEur, currency, pppRate);
+  renderDistribution(userIncomesByYearEur, currency, pppRate, ratioMap[countryCode] || 0.7);
 }
 
 // ── init ──────────────────────────────────────────────────────────────────────

@@ -1,0 +1,57 @@
+/* Shared styles for the split-screen scenario comparison pages
+   (conjoint_any.html / conjoint_few.html). */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Helvetica Neue", Arial, sans-serif; background: #f5f5f5; color: #222; }
+
+header { background: #1a3a5c; color: #fff; padding: 14px 32px; }
+header h1 { font-size: 1.2rem; font-weight: 600; }
+header p  { font-size: 0.82rem; opacity: 0.85; margin-top: 3px; }
+
+.page { max-width: 1280px; margin: 20px auto; padding: 0 16px; }
+#statusMsg { font-size: 0.85rem; color: #666; min-height: 18px; margin-bottom: 12px; }
+
+/* two equal columns; a vertical divider down the middle */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.split > .side { padding: 0 18px; }
+.split > .side.left  { border-right: 2px solid #d7dde3; }
+@media (max-width: 760px) { .split { grid-template-columns: 1fr; } .split > .side.left { border-right: none; } }
+
+.card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1);
+        padding: 16px 18px; margin-bottom: 16px; }
+.shared-income { max-width: 360px; margin-left: auto; margin-right: auto; }
+
+.field label { display: block; font-size: 0.74rem; font-weight: 600; color: #555;
+               text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.field { margin-bottom: 12px; }
+.field select, .field input[type=number] {
+  width: 100%; padding: 7px 10px; border: 1px solid #ccc; border-radius: 5px;
+  font-size: 0.9rem; background: #fff; }
+.field-income { display: flex; gap: 8px; align-items: center; }
+.field-income input { flex: 1; }
+.field-income label.couple { font-size: 0.85rem; font-weight: 400; color: #444;
+  display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+
+.side-title { font-size: 1.05rem; font-weight: 700; color: #1a3a5c; margin: 2px 0 12px; }
+
+/* feature chips row (5 boxes: temperature, income, hours, public services, beef & flights) */
+.feat-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
+.chip { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+        padding: 9px 8px; text-align: center; }
+.chip-label { display: block; font-size: 0.64rem; text-transform: uppercase; letter-spacing: .03em; color: #888; }
+.chip-val { display: block; font-size: 1.05rem; font-weight: 700; color: #1a3a5c; line-height: 1.2; margin-top: 2px; }
+.chip-unit { display: block; font-size: 0.68rem; color: #777; }
+.chip.temp .chip-val   { color: #c0392b; }
+.chip.income .chip-val { color: #27ae60; }
+/* public-services / beef & flights phrase boxes (no label/unit, centred phrase) */
+.chip.phrase { display: flex; align-items: center; justify-content: center; }
+.chip.phrase .chip-val { font-size: 0.85rem; font-weight: 600; color: #1a3a5c; line-height: 1.25; margin: 0; }
+
+/* inequality figure: histogram + caption sidebar (reproduces inequality_figures.R) */
+.chart-card h4 { font-size: 0.85rem; font-weight: 600; color: #000; margin-bottom: 8px; }
+.ineq { display: grid; grid-template-columns: 3fr 1.4fr; gap: 8px; align-items: center; }
+.ineq-chart { position: relative; height: 190px; max-width: 80%; }
+.ineq-cap { display: flex; flex-direction: column; gap: 12px; font-size: 1rem; }
+.cap-row { display: flex; align-items: flex-start; gap: 8px; }
+.cap-sw { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 14px; margin-top: 2px; }
+.cap-txt b { display: block; }
+.cap-txt span { color: #000; }

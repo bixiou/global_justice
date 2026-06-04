@@ -4,10 +4,10 @@
  * Computes the seven displayed features of a conjoint scenario from the
  * eight underlying parameters. Loads three CSV files once and caches them.
  *
- * External CSV inputs (paths relative to the HTML page):
- *   ../distributions/ineq_IT_2035.csv      – 127-row IT income distributions (2035)
- *   ../distributions/ineq_2100.csv         – 21-bracket IT+World income distributions (2100)
- *   ../distributions/conjoint_constants.csv – key-value constant table
+ * External CSV inputs (paths relative to the HTML page, served from code_simulator/data/):
+ *   data/ineq_IT_2035.csv      – 127-row IT income distributions (2035)
+ *   data/ineq_2100.csv         – 21-bracket IT+World income distributions (2100)
+ *   data/conjoint_constants.csv – key-value constant table
  *
  * ─── Eight underlying parameters ────────────────────────────────────────────
  *   householdIncomeMonthly  – respondent household monthly cash income (EUR)
@@ -21,7 +21,8 @@
  *
  * ─── Seven displayed features (keys in the returned object) ─────────────────
  *   temperature             – { value }                   2100 temperature (°C)
- *   ownIncome               – { value, respondentPercentile, currentIncome }
+ *   ownIncome               – { value (EUR/month, doubled to household total if couple),
+ *                               respondentPercentile, currentIncomeMonthly, annualPerAdult }
  *   workingHours            – { value, targetHoursPerWeek }
  *   nationalIncomes         – { gpercentiles, values, respondentGpercentile,
  *                               respondentIncome, scenarioName }
@@ -66,11 +67,11 @@ function numerify(rows) {
  * Load the three CSV files once. Must be awaited before calling
  * computeConjointFeatures(). Safe to call multiple times.
  *
- * @param {string} [basePath] – URL prefix; defaults to "../distributions/"
+ * @param {string} [basePath] – URL prefix; defaults to "data/"
  */
 async function ensureDataLoaded(basePath) {
   if (_dataReady) return;
-  basePath = basePath || "../distributions/";
+  basePath = basePath || "data/";
   const [rows2035, rows2100, constRows] = await Promise.all([
     loadCsv(basePath + "ineq_IT_2035.csv"),
     loadCsv(basePath + "ineq_2100.csv"),
@@ -144,8 +145,19 @@ function interpolateAtPercentile(dist, targetGp) {
  * selected scenarios (mostly food=2, FD), so we re-scale for the user's chosen
  * decarbonization and public-services level.
  *
- * For hours ≠ 35h and redistribution scope ≠ GIT+national, the hours base column
- * is scaled by the ratio avg(scope_35h) / avg(SC_35h) from the constants table.
+ * Hours handling (method_questionnaire.md §"How parameters determine incomes"):
+ *   – 35h: the scope column (SC/SG/SN/SI) is used directly.
+ *   – 45h (P class): G = C and N = I, so the direct PC/PI columns already carry the
+ *     correct scope shape.
+ *   – 25/30/40h: each scope keeps its OWN 35h shape (national for N, inequality for
+ *     G/I — NOT the converged SC shape) and is rescaled to the hours level by the
+ *     convergence hours coef coefC = avg(C_hours)/avg(SC):
+ *       N_x = SN · (avg_yIx / avg_SN),  avg_yIx = avg_SI · coefC   (yNx0 in the method)
+ *       G_x = SG · coefC                                           (= (SI+GR35)·avg_Cx/avg_SI)
+ *       I_x = SI · coefC
+ *   The SN/SG columns already embed their 35h redefinition (see questionnaire.R):
+ *   SN = (SC − GR)·(GDP_SI0/GDP_SC) sits at the no-global level; SG = (GDP_SC/GDP_SI0)·(SI0+GR35)
+ *   keeps the inequality shape at the converged level.
  *
  * @returns {number[]} 127-element array
  */
@@ -165,26 +177,26 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
   const hasNat = nationalRedistribution === "SN";
 
   let colName;       // exported column to use as base
-  let redistScale = 1; // additional scale for redistribution scope mismatch
+  let redistScale = 1; // additional level scale applied to the scope base column
 
-  if (hoursPerWeek === 35) {
+  if (hoursPerWeek === 45) {
+    // P class: G = C and N = I — the direct PC/PI columns carry the right scope shape.
+    colName = hasGIT ? "PC" : "PI";
+  } else if (hoursPerWeek === 35) {
     if      (hasGIT && hasNat)   colName = "SC";
     else if (hasGIT && !hasNat)  colName = "SG";
     else if (!hasGIT && hasNat)  colName = "SN";
     else                         colName = "SI";
   } else {
-    // For other hours levels: the exported column is the GIT+national variant.
-    // For other scopes we scale by the ratio avg(scope_35h) / avg(SC_35h).
-    const hoursBaseCol = { 25: "SC15k", 30: "SC45k", 40: "MC", 45: hasGIT ? "PC" : "PI" };
-    colName = hoursBaseCol[hoursPerWeek];
-    if (!(hasGIT && hasNat) && hoursPerWeek !== 45) {
-      // Determine which 35h scope matches the user's redistribution parameters
-      let scopeCol;
-      if (hasGIT && !hasNat)     scopeCol = "SG";
-      else if (!hasGIT && hasNat) scopeCol = "SN";
-      else                        scopeCol = "SI";
-      redistScale = C["avg_IT2035_" + scopeCol] / C["avg_IT2035_SC"];
-    }
+    // 25/30/40h: keep each scope's own 35h shape and rescale its level by the
+    // convergence hours coef coefC = avg(C_hours) / avg(SC).
+    const cCol  = { 25: "SC15k", 30: "SC45k", 40: "MC" }[hoursPerWeek];
+    const coefC = C["avg_IT2035_" + cCol] / C["avg_IT2035_SC"];
+    if      (hasGIT && hasNat)  { colName = cCol;                              } // C: exact C hours column
+    else if (hasGIT && !hasNat) { colName = "SG"; redistScale = coefC;        } // G: SG keeps (SI+GR35) shape
+    else if (!hasGIT && hasNat) { colName = "SN";                               // N: avg matches I level, SN shape
+      redistScale = coefC * C["avg_IT2035_SI"] / C["avg_IT2035_SN"]; }
+    else                        { colName = "SI"; redistScale = coefC;        } // I: SI keeps its shape
   }
 
   const exportedPsFactor = food2Cols.has(colName) ? psExported : 1;
@@ -393,13 +405,17 @@ function computeConjointFeatures({
 }) {
   if (!_dataReady) throw new Error("Data not loaded — call ensureDataLoaded() first.");
 
-  const annualIncome = householdIncomeMonthly * 12 / (isCouple ? 2 : 1);
-  const respondentGp = findPercentileInIT25(annualIncome);
+  // Percentile and 2035 interpolation use per-adult income (half the household total for couples)
+  const annualIncomePerAdult = householdIncomeMonthly * 12 / (isCouple ? 2 : 1);
+  const respondentGp = findPercentileInIT25(annualIncomePerAdult);
 
   const dist2035 = getIT2035Distribution(
     hoursPerWeek, globalRedistribution, nationalRedistribution,
     decarbonization, publicServices);
-  const ownIncome = Math.round(interpolateAtPercentile(dist2035, respondentGp));
+  const ownIncomeAnnualPerAdult = interpolateAtPercentile(dist2035, respondentGp);
+  // Displayed 2035 income: monthly, doubled to the household total when a couple
+  const coupleFactor = isCouple ? 2 : 1;
+  const ownIncomeMonthly = Math.round(ownIncomeAnnualPerAdult / 12 * coupleFactor);
 
   const incomes2100 = get2100Distributions(
     hoursPerWeek, globalRedistribution, nationalRedistribution);
@@ -420,16 +436,17 @@ function computeConjointFeatures({
   return {
     temperature: { value: temp },
     ownIncome: {
-      value: ownIncome,
+      value: ownIncomeMonthly,                              // EUR/month, household total if couple
       respondentPercentile: Math.round(respondentGp * 10) / 10,
-      currentIncome: Math.round(annualIncome)
+      currentIncomeMonthly: Math.round(householdIncomeMonthly),
+      annualPerAdult: Math.round(ownIncomeAnnualPerAdult)
     },
     workingHours: { value: hours2035, targetHoursPerWeek: hoursPerWeek },
     nationalIncomes: {
       gpercentiles: _ineqIT2035.map(r => r.gpercentile),
       values:        dist2035.map(v => Math.round(v)),
       respondentGpercentile: Math.round(respondentGp * 10) / 10,
-      respondentIncome: ownIncome,
+      respondentIncome: Math.round(ownIncomeAnnualPerAdult),
       scenarioName: natScenarioName
     },
     globalIncomes: {
@@ -444,15 +461,17 @@ function computeConjointFeatures({
 }
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
-const ConjointModule = {
+const ScenariosModule = {
   ensureDataLoaded,
   computeConjointFeatures,
   // Internal state exposed for chart rendering
-  get _ineqIT2035() { return _ineqIT2035; }
+  get _ineqIT2035() { return _ineqIT2035; },
+  get _ineq2100()   { return _ineq2100; }
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = ConjointModule;
+  module.exports = ScenariosModule;
 } else {
-  window.ConjointModule = ConjointModule;
+  window.ScenariosModule = ScenariosModule;
+  window.ConjointModule  = ScenariosModule;   // backward-compat alias (conjoint.html)
 }
