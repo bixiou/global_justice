@@ -48,14 +48,15 @@ const HATCH_FROM_MONTHLY = 26000;  // clipped bars get a thin hatched cap in thi
 const _hatch = {};
 function hatchFor(color) {
   if (_hatch[color]) return _hatch[color];
-  const s = 10, cv = document.createElement("canvas"); cv.width = cv.height = s;
+  const s = 4, cv = document.createElement("canvas"); cv.width = cv.height = s;
   const x = cv.getContext("2d");
   x.fillStyle = color; x.fillRect(0, 0, s, s);
-  x.strokeStyle = "rgba(255,255,255,0.95)"; x.lineWidth = 1.5;
+  // Thin white stripes; small tile so the red gap equals one (thin) stripe width (lineWidth = s/(2√2)).
+  x.strokeStyle = "rgba(255,255,255,0.95)"; x.lineWidth = s / (2 * Math.SQRT2);
   x.beginPath();
-  x.moveTo(0, s); x.lineTo(s, 0);
-  x.moveTo(-1, 1); x.lineTo(1, -1);
-  x.moveTo(s - 1, s + 1); x.lineTo(s + 1, s - 1);
+  x.moveTo(0, s);     x.lineTo(s, 0);      // x+y = s
+  x.moveTo(-s, s);    x.lineTo(s, -s);     // x+y = 0  (top-left corner)
+  x.moveTo(0, 2 * s); x.lineTo(2 * s, 0);  // x+y = 2s (bottom-right corner)
   x.stroke();
   return (_hatch[color] = x.createPattern(cv, "repeat"));
 }

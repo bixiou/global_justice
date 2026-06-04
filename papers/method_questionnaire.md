@@ -238,9 +238,6 @@ TODO: check population for aggregation
 TODO: adjust temperature to GDP (instead of GDP pc)
 TODO! pb in 2035
 P: G = C, N = I
-M: G, N < I for p0; G = C for p100
-S: G < I for p0
-S45, S15: C = G; G, N < I for p0
 
 => G should be paid by GR, not by everyone 
 TODO!? Adjust 2035 working hours to MC?

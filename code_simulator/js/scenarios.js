@@ -180,8 +180,12 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
   let redistScale = 1; // additional level scale applied to the scope base column
 
   if (hoursPerWeek === 45) {
-    // P class: G = C and N = I — the direct PC/PI columns carry the right scope shape.
-    colName = hasGIT ? "PC" : "PI";
+    // P class: C and I use the exact PC/PI columns; N and G keep their OWN shape (method
+    // lines 157-158): PN = (avg_PI/avg_SN)·SN, PG = (avg_PC/avg_SC)·SG. They do NOT collapse to PI/PC.
+    if      (hasGIT && hasNat)   { colName = "PC";                                         } // C → PC
+    else if (!hasGIT && !hasNat) { colName = "PI";                                         } // I → PI
+    else if (hasGIT && !hasNat)  { colName = "SG"; redistScale = C["avg_IT2035_PC"] / C["avg_IT2035_SC"]; } // PG
+    else                         { colName = "SN"; redistScale = C["avg_IT2035_PI"] / C["avg_IT2035_SN"]; } // PN
   } else if (hoursPerWeek === 35) {
     if      (hasGIT && hasNat)   colName = "SC";
     else if (hasGIT && !hasNat)  colName = "SG";
@@ -232,15 +236,13 @@ function get2100Distributions(hoursPerWeek, globalRedistribution, nationalRedist
   else if (!hasGIT && hasNat)  scopeSuffix = "SN";
   else                         scopeSuffix = "SI";
 
-  // For 45h: override to PC (with GIT) or PI (no GIT); both are direct columns
-  if (hoursPerWeek === 45) scopeSuffix = hasGIT ? "PC" : "PI";
-
-  // Hours scaling coef: ratio avg(hours_column) / avg(SC) for the hours dimension
+  // Each scope is scaled by the SAME hours coef (method lines 137-139). At 45h the coef is
+  // World_PC/World_SC = 2, so C→PC and I→PI exactly, while N→2·SN and G→2·SG keep their own
+  // N/G shape (rather than collapsing to PI/PC).
   let hoursCoef = 1;
-  if (hoursPerWeek !== 35 && hoursPerWeek !== 45) {
-    const hoursColSuffix = { 25: "SC15k", 30: "SC45k", 40: "MC" }[hoursPerWeek];
+  if (hoursPerWeek !== 35) {
+    const hoursColSuffix = { 25: "SC15k", 30: "SC45k", 40: "MC", 45: "PC" }[hoursPerWeek];
     hoursCoef = C["avg_World2100_" + hoursColSuffix] / C["avg_World2100_SC"];
-    // The base scope column (35h) is used and scaled; if scope is SC the column IS SC, so coef is exact
   }
 
   // For scope-specific hours scaling (e.g. SG at 30h ≈ SG_35h × SC45k_coef)
@@ -430,7 +432,8 @@ function computeConjointFeatures({
     "GIT-SN":   "SC",  "GIT-current":   "SG",
     "current-SN":"SN", "current-current":"SI"
   }[(globalRedistribution + "-" + nationalRedistribution)] || "SC";
-  const hoursLabel = { 25:"SC15k",30:"SC45k",35:scenarioLabel35h,40:"MC",45:globalRedistribution==="GIT"?"PC":"PI" };
+  // P class (45h) labels mirror the 35h ones with S→P: SC→PC, SG→PG, SN→PN, SI→PI.
+  const hoursLabel = { 25:"SC15k",30:"SC45k",35:scenarioLabel35h,40:"MC",45:scenarioLabel35h.replace("S","P") };
   const natScenarioName = hoursLabel[hoursPerWeek] || scenarioLabel35h;
 
   return {
