@@ -479,8 +479,10 @@ scope_base <- c("GIT-SN" = "SC", "GIT-current" = "SG", "current-SN" = "SN", "cur
 hours_ccol <- c("25" = "SC15k", "30" = "SC45k", "35" = "SC", "40" = "MC", "45" = "PC")
 dist_2100 <- function(region, hoursPerWeek, globalRedistribution, nationalRedistribution) {
   base <- scope_base[paste0(globalRedistribution, "-", nationalRedistribution)]
+  # coef uses the ROUNDED avg World incomes, exactly as scenarios.js reads them from
+  # conjoint_constants.csv (so the table reproduces the JS bit-for-bit).
   coef <- if (hoursPerWeek == 35) 1 else
-    as.numeric(avg_world2100[hours_ccol[as.character(hoursPerWeek)]] / avg_world2100["SC"])
+    as.numeric(round(avg_world2100[hours_ccol[as.character(hoursPerWeek)]]) / round(avg_world2100["SC"]))
   ineq_2100[[paste0(region, "_", base)]] * coef
 }
 
@@ -492,15 +494,14 @@ scopes <- list(C = c(g = "GIT",     n = "SN"),      G = c(g = "GIT",     n = "cu
 scen_name <- function(cls, sc) if (cls %in% c("S45k", "S15k"))
   paste0("S", sc, sub("^S", "", cls)) else paste0(substr(cls, 1, 1), sc)
 
-ineq_2100_full <- ineq_2100   # keep all existing columns, then add the missing scope variants
+# Start from ineq_2100 (keeps the bracket column and SCmat), then (re)compute every class×scope
+# distribution with the scenarios.js formula so the table coincides exactly with what the JS shows.
+ineq_2100_full <- ineq_2100
 for (cls in names(hours_classes)) for (sc in names(scopes)) {
   nm <- scen_name(cls, sc)
-  for (region in c("IT", "World")) {
-    col <- paste0(region, "_", nm)
-    if (!col %in% names(ineq_2100_full))
-      ineq_2100_full[[col]] <- round(dist_2100(region, hours_classes[[cls]],
-                                               scopes[[sc]]["g"], scopes[[sc]]["n"]))
-  }
+  for (region in c("IT", "World"))
+    ineq_2100_full[[paste0(region, "_", nm)]] <- round(dist_2100(region, hours_classes[[cls]],
+                                                                 scopes[[sc]]["g"], scopes[[sc]]["n"]))
 }
 write.csv(ineq_2100_full, "../distributions/ineq_2100_full.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ineq_2100_full.csv  (%d rows × %d cols)", nrow(ineq_2100_full), ncol(ineq_2100_full)))
