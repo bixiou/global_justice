@@ -38,23 +38,34 @@ const fmtEur = n => "€" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d
 const charts = {};   // canvasId → Chart instance
 
 const YLIM_MONTHLY = 30000;        // monthly-income y-limit for the inequality bars
-const HATCH_FROM_MONTHLY = 26000;  // clipped bars get a thin hatched cap in this top band (26k..30k)
-// Thin white diagonal hatch over a bar's colour, used to cap bars clipped by the y-limit.
-const _hatch = {};
-function hatchFor(color) {
-  if (_hatch[color]) return _hatch[color];
-  const s = 4, cv = document.createElement("canvas"); cv.width = cv.height = s;
-  const x = cv.getContext("2d");
-  x.fillStyle = color; x.fillRect(0, 0, s, s);
-  // Thin white stripes; small tile so the red gap equals one (thin) stripe width (lineWidth = s/(2√2)).
-  x.strokeStyle = "rgba(255,255,255,0.95)"; x.lineWidth = s / (2 * Math.SQRT2);
-  x.beginPath();
-  x.moveTo(0, s);     x.lineTo(s, 0);      // x+y = s
-  x.moveTo(-s, s);    x.lineTo(s, -s);     // x+y = 0  (top-left corner)
-  x.moveTo(0, 2 * s); x.lineTo(2 * s, 0);  // x+y = 2s (bottom-right corner)
-  x.stroke();
-  return (_hatch[color] = x.createPattern(cv, "repeat"));
-}
+const HATCH_FROM_MONTHLY = 26000;  // clipped bars get a hatched cap in this top band (26k..30k)
+// Plugin: on each bar clipped by the y-limit (the cap = dataset index 1) draw two crisp white
+// diagonal stripes — the 2nd and 3rd rows from the cap top — to flag the truncation.
+const capHatchPlugin = {
+  id: "capHatch",
+  afterDatasetsDraw(chart) {
+    const meta = chart.getDatasetMeta(1);
+    if (!meta || !chart.data.datasets[1]) return;
+    const data = chart.data.datasets[1].data, ctx = chart.ctx;
+    ctx.save();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.4; ctx.lineCap = "butt";
+    meta.data.forEach((bar, i) => {
+      if (!(data[i] > 0)) return;                          // only clipped bars
+      const wd = bar.width, l = Math.round(bar.x - wd / 2), r = Math.round(bar.x + wd / 2);
+      const top = Math.round(bar.y), bot = Math.round(bar.base), bw = r - l;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(l, top, bw, bot - top); ctx.clip();
+      [4, 8].forEach(off => {                              // 2nd & 3rd stripe rows (px below cap top)
+        ctx.beginPath();
+        ctx.moveTo(l, top + off + bw / 2);                 // span exactly the bar width (no overshoot)
+        ctx.lineTo(r, top + off - bw / 2);                 // 45° "/"
+        ctx.stroke();
+      });
+      ctx.restore();
+    });
+    ctx.restore();
+  }
+};
 
 // ─── shared rendering ────────────────────────────────────────────────────────────
 
@@ -69,18 +80,22 @@ function renderInequality(canvasId, brackets, annualValues) {
     const v = Math.round(annualValues[i] / 12), col = GRP_COL[groupOf(b)];
     for (let s = 0; s < w; s++) { slotV.push(v); slotC.push(col); slotB.push(b); }
   });
+  // Top bracket (p99p100) monthly value, and whether the chart is clipped (→ a hatch is drawn).
+  const i99 = brackets.indexOf("p99p100");
+  const topMonthly = i99 >= 0 ? Math.round(annualValues[i99] / 12) : 0;
+  const hasHatch = topMonthly > YLIM_MONTHLY;
   // Clipped bars (value > ylim) keep a solid body up to HATCH_FROM and a thin hatched cap in the
   // top band (HATCH_FROM..ylim); other bars stay fully solid. Built as two stacked datasets.
   const solidV = slotV.map(v => v > YLIM_MONTHLY ? HATCH_FROM_MONTHLY : v);
   const capV   = slotV.map(v => v > YLIM_MONTHLY ? YLIM_MONTHLY - HATCH_FROM_MONTHLY : 0);
-  const capBG  = slotC.map(col => hatchFor(col));
   if (charts[canvasId]) charts[canvasId].destroy();
   charts[canvasId] = new Chart(document.getElementById(canvasId).getContext("2d"), {
     type: "bar",
     data: { labels: slotB, datasets: [
       { data: solidV, backgroundColor: slotC, borderWidth: 0, categoryPercentage: 1.0, barPercentage: 1.0, stack: "s" },
-      { data: capV,   backgroundColor: capBG, borderWidth: 0, categoryPercentage: 1.0, barPercentage: 1.0, stack: "s" }
+      { data: capV,   backgroundColor: slotC, borderWidth: 0, categoryPercentage: 1.0, barPercentage: 1.0, stack: "s" }
     ] },
+    plugins: [capHatchPlugin],
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false },
@@ -90,7 +105,9 @@ function renderInequality(canvasId, brackets, annualValues) {
       scales: {
         x: { stacked: true, display: false, grid: { display: false } },
         y: { stacked: true, min: 0, max: YLIM_MONTHLY,
-             ticks: { callback: v => "€" + (v >= 1000 ? Math.round(v/1000) + "k" : Math.round(v)),
+             ticks: { callback: v => (v >= YLIM_MONTHLY && hasHatch)
+                        ? "€" + Math.round(topMonthly / 10000) * 10 + "k"   // true top of the clipped bar
+                        : "€" + (v >= 1000 ? Math.round(v/1000) + "k" : Math.round(v)),
              font: { size: 8 } } }
       }
     }

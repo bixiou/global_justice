@@ -468,6 +468,43 @@ constants <- data.frame(
 write.csv(constants, "../distributions/conjoint_constants.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote conjoint_constants.csv  (%d rows)", nrow(constants)))
 
+##### 13. ineq_2100_full.csv: ineq_2100 plus every redistribution-scope variant #####
+# Scenario distribution given the underlying parameters, translated from scenarios.js
+# get2100Distributions(): the 2100 bracket distribution of a scenario is its base redistribution-scope
+# column (SC/SG/SN/SI for C/G/N/I) scaled by the hours coef = avg World income of the class's
+# C-scenario / avg(SC). Couple, decarbonization, public services and beef/flights do NOT affect the
+# 2100 distribution — only the hours class and the redistribution scope do (couple assumed FALSE).
+message("Building ineq_2100_full...")
+scope_base <- c("GIT-SN" = "SC", "GIT-current" = "SG", "current-SN" = "SN", "current-current" = "SI")
+hours_ccol <- c("25" = "SC15k", "30" = "SC45k", "35" = "SC", "40" = "MC", "45" = "PC")
+dist_2100 <- function(region, hoursPerWeek, globalRedistribution, nationalRedistribution) {
+  base <- scope_base[paste0(globalRedistribution, "-", nationalRedistribution)]
+  coef <- if (hoursPerWeek == 35) 1 else
+    as.numeric(avg_world2100[hours_ccol[as.character(hoursPerWeek)]] / avg_world2100["SC"])
+  ineq_2100[[paste0(region, "_", base)]] * coef
+}
+
+# All 5 hours classes × 4 scopes (C/G/N/I). Scenario name embeds the scope into the class label
+# (S45k → SC45k/SG45k/…, P → PC/PG/…, M → MC/MG/…, S → SC/SG/…), as in method_questionnaire.md.
+hours_classes <- list(P = 45, M = 40, S = 35, S45k = 30, S15k = 25)
+scopes <- list(C = c(g = "GIT",     n = "SN"),      G = c(g = "GIT",     n = "current"),
+               N = c(g = "current", n = "SN"),      I = c(g = "current", n = "current"))
+scen_name <- function(cls, sc) if (cls %in% c("S45k", "S15k"))
+  paste0("S", sc, sub("^S", "", cls)) else paste0(substr(cls, 1, 1), sc)
+
+ineq_2100_full <- ineq_2100   # keep all existing columns, then add the missing scope variants
+for (cls in names(hours_classes)) for (sc in names(scopes)) {
+  nm <- scen_name(cls, sc)
+  for (region in c("IT", "World")) {
+    col <- paste0(region, "_", nm)
+    if (!col %in% names(ineq_2100_full))
+      ineq_2100_full[[col]] <- round(dist_2100(region, hours_classes[[cls]],
+                                               scopes[[sc]]["g"], scopes[[sc]]["n"]))
+  }
+}
+write.csv(ineq_2100_full, "../distributions/ineq_2100_full.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ineq_2100_full.csv  (%d rows × %d cols)", nrow(ineq_2100_full), ncol(ineq_2100_full)))
+
 # Web-served copies for the conjoint JS (scenarios.js fetches these from code_simulator/data/).
 dir.create("data", showWarnings = FALSE)
 for (f in c("ineq_IT_2035.csv", "ineq_2100.csv", "conjoint_constants.csv"))
