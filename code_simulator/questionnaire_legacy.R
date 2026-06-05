@@ -285,6 +285,7 @@ for (y in c(2025, 2100)) for (k in c("IT","World"))
 # percentile) to the SC 2035 IT cash-income distribution.
 G5s <- read_chancel_ts("G5s")
 G0p <- read_chancel_ts("G0p")
+Gms <- read_chancel_ts("Gms") # share of material sectors in GNE (SC scenario)
 
 ctry_cols <- intersect(colnames(G5s), colnames(G0p))
 extra_share_sc_2035 <- setNames(as.numeric(G5s["2035", ctry_cols]) -
@@ -922,3 +923,31 @@ cat("\nRegression: structural-change fossil+industry reduction ~ 2100 GDP per ca
 print(round(summary(fe_fit)$coefficients, 4))
 cat(sprintf("R2 = %.3f, adj-R2 = %.3f, n = %d\n",
             summary(fe_fit)$r.squared, summary(fe_fit)$adj.r.squared, nrow(fe_diff)))
+
+##### 18. Figures: GNE per capita 2025-2100, non-(educ/health/PS) & material, by country #####
+# SC-scenario per-capita GNE (G0p) split into:
+#   non_eh = G0p × (1 − G5s)   GNE pc excluding education, health, public services
+#   mater  = G0p × Gms         GNE pc in material sectors only
+# (G5s = share of educ/health/public services in GNE; Gms = share of material sectors.)
+gne_pc_countries <- list(FR = "France", US = "United States", CN = "China", SA = "Saudi Arabia")
+yr_gne <- 2025:2100
+for (iso in names(gne_pc_countries)) {
+  label <- gne_pc_countries[[iso]]
+  g0p_c <- as.numeric(G0p[as.character(yr_gne), iso])
+  non_eh_c <- g0p_c * (1 - as.numeric(G5s[as.character(yr_gne), iso]))
+  mater_c <- g0p_c * as.numeric(Gms[as.character(yr_gne), iso])
+  fname <- sprintf("../figures/gne_pc_%s_2025_2100.png", iso)
+  png(fname, width = 900, height = 520)
+  op <- par(mar = c(4.5, 5, 3, 1))
+  plot(yr_gne, non_eh_c, type = "l", lwd = 2.4, col = "firebrick",
+       xlab = "Year", ylab = "GNE per capita (EUR PPP 2025 / capita / year)",
+       main = sprintf("%s GNE per capita, 2025-2100 (SC scenario)", label),
+       ylim = c(0, 1.1 * max(non_eh_c, mater_c)))
+  lines(yr_gne, mater_c, lwd = 2.4, col = "steelblue")
+  legend("topleft", lty = 1, lwd = 2.4, col = c("firebrick", "steelblue"),
+         legend = c("non-(educ/health/public services) GNE pc  [G0p × (1 − G5s)]",
+                    "material GNE pc  [G0p × Gms]"),
+         bty = "n")
+  par(op); dev.off()
+  message("Wrote ", fname)
+}

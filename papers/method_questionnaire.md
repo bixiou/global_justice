@@ -129,24 +129,29 @@ Distributions IT25, IT35, GR35, 2025 and 2100 GDP by country/region in PI (given
 #### Computations
 When they exist, we use Bothe distributions. Otherwise, for 2100:
 Define GR = country dividend - GIT (in SC2). In 2100, GIT=0, and country dividend is (sheet E3bp of Bothe Macro).
-PI0 = current income ⋅ national growth PI
+WI0 = PI0 = current income ⋅ national growth PI
 SI0 = 0.5⋅PI0 (in 2100, another factor in 2035)
 SN0 = (SC - GR)* GDP_SI0/GDP_SC (where GDP_PI is taken at country level in 2100)
 SG0 = (GDP_SC/GDP_SI0)*SI0
 
 Then other distributions are defined as a coef times the reference S case, e.g.:
 SI-30k = .5⋅SI, SN-30k = .5⋅SN, SG-30k = .5⋅SG, SC-30k = .5⋅SC
-2100 coefs are as follows: S30k: .5, S45k: .75, M: 630/480 (keeping hours pc constant), P: 2
+2100 coefs are as follows: S30k: .5, S45k: .75, M: 630/480 (keeping hours pc constant), P: 2, W: 2
 From them, we easily recover the 2100 GDP of each scenario.
 
 To compute 2035 distributions:
 PC0 = 1.15*IT35
+PI0 = 1.4*IT25
+WC0 = (45/40) * avg_productivity_growth^10 * IT35/ (change_hours_pc*productivity_growth_2035)
 MC0 = avg_productivity_growth^10 * IT35/ (change_hours_pc*productivity_growth_2035)
 SC45k0 =     (GDP_IT25/GDP_IT35)*IT35
 SC30k0 = .95*(GDP_IT25/GDP_IT35)*IT35
 SC15k0 =  .9*(GDP_IT25/GDP_IT35)*IT35
+MC45k0 =     (GDP_IT25/GDP_IT35)*MC0
+MC30k0 = .95*(GDP_IT25/GDP_IT35)*MC0
+MC15k0 =  .9*(GDP_IT25/GDP_IT35)*MC0
 
-PI0 = 1.4*IT25
+WI0 = (45/40) * avg_productivity_growth^10 * IT25
 MI0 = avg_productivity_growth^10*IT25
 SI0 = (gdp_it_PI_2035* (hours_pc_it_SC_2035/hours_pc_it_PI_2035)/gdp_it_2025)*IT25
 SIx0 = (avg_SCx/avg_SC45k)*IT25
@@ -243,6 +248,10 @@ P: G = C, N = I
 TODO!? Adjust 2035 working hours to MC?
 ==> for N < I, I modified l. 155, 157
 ==> pb here, it should have I shape, not C shape yGx0 = (avg_yCx/avg_SI)*yI 
+
+before:
+PC0 = 1.15*IT35
+PI0 = 1.4*IT25
 
 TODO: check One note: the shapes now align, but the situator's level sits a bit above the questionnaire (avg 44 513 vs 35
   915). That's because the questionnaire applies Italy's ratio (0.69) to every country, whereas the situator

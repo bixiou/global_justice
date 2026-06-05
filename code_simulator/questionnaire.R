@@ -244,6 +244,8 @@ prod_growth_2035_it  <- prod_it_2035 / prod_it_2025            # actual SC produ
 change_hours_pc_it   <- hours_pc_it_2035 / hours_pc_it_2025   # < 1 (hours fall in SC by 2035)
 # MC income scale relative to IT35: corrects for SC's front-loaded productivity and hours change
 mc_income_scale_it <- avg_prod_growth_it^10 / (change_hours_pc_it * prod_growth_2035_it)
+# WC income scale: MC × (45/40) — same constant-growth path as MC but at 45h productivity level
+w_income_scale_it <- (45 / 40) * mc_income_scale_it
 
 ##### 9. ineq_IT_2035: 127 gpercentiles × 14 cols #####
 # Scenario key: {type}_{food}_{decarb} e.g. SC2_FD.
@@ -255,6 +257,7 @@ message("Building ineq_IT_2035...")
 fd        <- DECARB_FACTOR["FD"]           # 0.96
 
 sc45k_scale_2035 <- gdp_it_2025 / gdp_it_sc_2035        # ≈ 0.87: SC45k relative to IT35
+sc30k_scale_2035 <- 0.95 * sc45k_scale_2035              # 30k target extra penalty (interpolated)
 sc15k_scale_2035 <- 0.9 * sc45k_scale_2035               # 25h scenario extra penalty
 # SI 2035 (method line 151): IT25 rescaled to the no-global GDP level = PI per-capita GDP
 # adjusted for SC working hours: gdp_PI_2035 × (hours_pc_SC / hours_pc_PI) / gdp_2025.
@@ -276,7 +279,10 @@ ineq_IT_2035 <- data.frame(
   SI          = si0_2035 * fd * (1 - it_extra_tax_rate),                                          # SI2_FD: 35h, no redistribution
   SN          = (it35 - cash_gr35) * (avg_si0_2035 / avg_it35) * fd * (1 - it_extra_tax_rate),     # SN2_FD: national only, (IT35−GR35)×GDP_SI0/avg_SC
   SG          = (si0_2035 + cash_gr35) * (avg_it35 / avg_si0_2035) * fd * (1 - it_extra_tax_rate),  # SG2_FD: global only, (GDP_SC/GDP_SI0)×(SI0+GR35)
-  MC          = it35 * mc_income_scale_it * fd * (1 - it_extra_tax_rate))               # MC2_FD: 40h + GIT constant hours
+  MC          = it35 * mc_income_scale_it * fd * (1 - it_extra_tax_rate),               # MC2_FD: 40h + GIT constant hours
+  MCmat       = it35 * mc_income_scale_it * fd,                                          # MC1_FD: 40h + GIT, no PS tax
+  WC          = it35 * w_income_scale_it  * fd * (1 - it_extra_tax_rate),                # WC2_FD: 45h + GIT constant-growth
+  MC_SD       = it35 * mc_income_scale_it * DECARB_FACTOR["SD"] * (1 - it_extra_tax_rate)) # MC2_SD: slow decarb
 
 income_cols_2035 <- setdiff(names(ineq_IT_2035), "gpercentile")
 # cash_GR35 is a net-transfer distribution (positive for poor, negative for rich) — not monotone.
@@ -285,8 +291,7 @@ cols_to_sort <- setdiff(income_cols_2035, "cash_GR35")
 for (col in cols_to_sort)
   ineq_IT_2035[[col]] <- enforce_monotone_below_99(ineq_IT_2035[[col]], gp_IT)
 ineq_IT_2035[, income_cols_2035] <- lapply(ineq_IT_2035[, income_cols_2035], round, digits = 0)
-write.csv(ineq_IT_2035, "../distributions/ineq_IT_2035.csv", row.names = FALSE, quote = FALSE)
-message(sprintf("Wrote ineq_IT_2035.csv  (%d rows × %d cols)", nrow(ineq_IT_2035), ncol(ineq_IT_2035)))
+# ineq_IT_2035.csv (filtered export) is written after §14 when scope variants are available.
 
 ##### 10. ineq_2100: 21 brackets × 21 cols #####
 # All 2100 base distributions computed in full-income units; ratio_IT applied as final step.
@@ -378,11 +383,13 @@ ineq_2100 <- data.frame(bracket = bracket_names,
   World_MC    = bracket_avg_World(world_SC    * ratio_IT * (630/480)),
   World_SI    = bracket_avg_World(world_SI    * ratio_IT),
   World_SN    = bracket_avg_World(world_SN    * ratio_IT),
-  World_SG    = bracket_avg_World(world_SG    * ratio_IT))
+  World_SG    = bracket_avg_World(world_SG    * ratio_IT),
+  # W class: same coef as P (2.0) at 2100; differs from P only in 2035 income path
+  IT_WC       = bracket_avg_IT(sc_it_2100    * ratio_IT * 2.0),
+  World_WC    = bracket_avg_World(world_SC   * ratio_IT * 2.0))
 
 ineq_2100[, -1] <- lapply(ineq_2100[, -1], round, digits = 0)
-write.csv(ineq_2100, "../distributions/ineq_2100.csv", row.names = FALSE, quote = FALSE)
-message(sprintf("Wrote ineq_2100.csv  (%d rows × %d cols)", nrow(ineq_2100), ncol(ineq_2100)))
+# ineq_2100.csv (filtered export) is written after §13 when scope variants are available.
 
 ##### 11. temp100: chancel_temp2100_completed + new rows for SI/SN/SG/MC #####
 # GDP-based no-emissions regression predicts temperature for scenario types not in Chancel data.
@@ -503,12 +510,132 @@ for (cls in names(hours_classes)) for (sc in names(scopes)) {
     ineq_2100_full[[paste0(region, "_", nm)]] <- round(dist_2100(region, hours_classes[[cls]],
                                                                  scopes[[sc]]["g"], scopes[[sc]]["n"]))
 }
+# MC hours sub-variants and food variants.
+# At 2100 food/structural-change does not affect income → MCbeef/MCflights/MCmat = MC.
+# MC45k/MC30k/MC15k use Sxxk/SC factors: same ratio applied to each MC scope column.
+coef_45k_vs_sc <- round(avg_world2100["SC45k"]) / round(avg_world2100["SC"])
+coef_15k_vs_sc <- round(avg_world2100["SC15k"]) / round(avg_world2100["SC"])
+for (sc in names(scopes)) {
+  nm_mc <- scen_name("M", sc)  # MC / MG / MN / MI
+  sl <- substr(nm_mc, 2, 2)    # scope letter: C / G / N / I
+  for (region in c("IT", "World")) {
+    base <- ineq_2100_full[[paste0(region, "_", nm_mc)]]
+    ineq_2100_full[[paste0(region, "_M", sl, "45k")]] <- round(base * coef_45k_vs_sc)
+    ineq_2100_full[[paste0(region, "_M", sl, "30k")]] <- round(base * 0.5)
+    ineq_2100_full[[paste0(region, "_M", sl, "15k")]] <- round(base * coef_15k_vs_sc)
+  }
+}
+for (nm in c("MCbeef", "MCflights", "MCmat")) {
+  for (region in c("IT", "World"))
+    ineq_2100_full[[paste0(region, "_", nm)]] <- ineq_2100_full[[paste0(region, "_MC")]]
+}
+# W class at 2100: same as P (coef = 2) — W and P differ only in their 2035 income path
+for (sc in names(scopes)) {
+  nm_p <- scen_name("P", sc)  # PC / PG / PN / PI
+  nm_w <- sub("^P", "W", nm_p)   # WC / WG / WN / WI
+  for (region in c("IT", "World"))
+    ineq_2100_full[[paste0(region, "_", nm_w)]] <- ineq_2100_full[[paste0(region, "_", nm_p)]]
+}
 write.csv(ineq_2100_full, "../distributions/ineq_2100_full.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ineq_2100_full.csv  (%d rows × %d cols)", nrow(ineq_2100_full), ncol(ineq_2100_full)))
 
-# Web-served copies for the conjoint JS (scenarios.js fetches these from code_simulator/data/).
+# Filtered ineq_2100.csv: selected scenarios only (MC_SD and MCflight = MC at 2100).
+EXPORT_2100 <- c("MC","SC","MCmat","MC45k","WC","WI","MI","MN","MG","MCbeef","MCflight","MC_SD")
+ineq_2100_export <- data.frame(bracket = ineq_2100_full$bracket)
+for (scen in EXPORT_2100) {
+  src <- if (scen == "MCflight") "MCflights" else scen
+  mc_col <- if (scen %in% c("MC_SD","MCflight")) "MC" else src  # both equal MC at 2100
+  ineq_2100_export[[paste0("IT_",    scen)]] <- ineq_2100_full[[paste0("IT_",    mc_col)]]
+  ineq_2100_export[[paste0("World_", scen)]] <- ineq_2100_full[[paste0("World_", mc_col)]]
+}
+# Override with actual distinct columns where they differ from MC
+for (scen in c("SC","MC45k","WC","WI","MI","MN","MG","MCbeef","MCmat")) {
+  ineq_2100_export[[paste0("IT_",    scen)]] <- ineq_2100_full[[paste0("IT_",    scen)]]
+  ineq_2100_export[[paste0("World_", scen)]] <- ineq_2100_full[[paste0("World_", scen)]]
+}
+write.csv(ineq_2100_export, "../distributions/ineq_2100.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ineq_2100.csv  (%d rows × %d cols)", nrow(ineq_2100_export), ncol(ineq_2100_export)))
+
+##### 14. ineq_IT_2035_full.csv: ineq_IT_2035 plus every redistribution-scope variant #####
+# Scenario distribution given the underlying parameters, translated from scenarios.js
+# getIT2035Distribution(): each scenario column is the appropriate base column rescaled by the hours
+# coef and the decarbonization/public-services (food) factors, using the ROUNDED constants exactly as
+# scenarios.js reads them. Scope variants are taken at the same food/decarb level as the class's
+# exported C column: food=1 / PS stable for the P class (like PC/PI), food=2 / PS increased otherwise.
+message("Building ineq_IT_2035_full...")
+avg_it35r   <- round(avg_it2035)                 # rounded avg incomes (as in conjoint_constants.csv)
+ps_exported <- 1 - round(it_extra_tax_rate, 6)   # PS factor baked into food=2 columns
+food2_cols  <- c("SC", "SC45k", "SC15k", "SI", "SN", "SG", "MC", "WC", "MC_SD")
+dist_2035 <- function(hoursPerWeek, globalRedistribution, nationalRedistribution, decarbonization, publicServices) {
+  hasGIT <- globalRedistribution == "GIT"; hasNat <- nationalRedistribution == "SN"; redistScale <- 1
+  if (hoursPerWeek == 45) {
+    if (hasGIT && hasNat)        { colName <- "PC" }
+    else if (!hasGIT && !hasNat) { colName <- "PI" }
+    else if (hasGIT && !hasNat)  { colName <- "SG"; redistScale <- avg_it35r["PC"] / avg_it35r["SC"] }
+    else                         { colName <- "SN"; redistScale <- avg_it35r["PI"] / avg_it35r["SN"] }
+  } else if (hoursPerWeek == 35) {
+    colName <- if (hasGIT && hasNat) "SC" else if (hasGIT && !hasNat) "SG" else if (!hasGIT && hasNat) "SN" else "SI"
+  } else {
+    cCol  <- unname(c("25" = "SC15k", "30" = "SC45k", "40" = "MC")[as.character(hoursPerWeek)])
+    coefC <- avg_it35r[cCol] / avg_it35r["SC"]
+    if (hasGIT && hasNat)        { colName <- cCol }
+    else if (hasGIT && !hasNat)  { colName <- "SG"; redistScale <- coefC }
+    else if (!hasGIT && hasNat)  { colName <- "SN"; redistScale <- coefC * avg_it35r["SI"] / avg_it35r["SN"] }
+    else                         { colName <- "SI"; redistScale <- coefC }
+  }
+  exportedPsFactor <- if (colName %in% food2_cols) ps_exported else 1
+  decarbRatio <- as.numeric(DECARB_FACTOR[decarbonization] / DECARB_FACTOR["FD"])
+  psUser <- if (publicServices == "increased") ps_exported else 1
+  ineq_IT_2035[[colName]] * decarbRatio * (psUser / exportedPsFactor) * as.numeric(redistScale)
+}
+
+ineq_IT_2035_full <- ineq_IT_2035[, c("gpercentile", "IT25", "cash_GR35", "IT35", "SCmat", "MCmat")]
+for (cls in names(hours_classes)) for (sc in names(scopes)) {
+  ps <- if (cls == "P") "stable" else "increased"   # match the class's exported food level
+  ineq_IT_2035_full[[scen_name(cls, sc)]] <-
+    round(dist_2035(hours_classes[[cls]], scopes[[sc]]["g"], scopes[[sc]]["n"], "FD", ps))
+}
+# MCbeef/MCflights: food=2 income at 2035 = MC (C scope); MCmat already in initial columns.
+ineq_IT_2035_full[["MCbeef"]]    <- ineq_IT_2035_full[["MC"]]
+ineq_IT_2035_full[["MCflights"]] <- ineq_IT_2035_full[["MC"]]
+# W class: WC from base column; WG/WN/WI = M{scope} × (45/40) (same constant-growth, higher hours)
+ineq_IT_2035_full[["WC"]] <- round(ineq_IT_2035[["WC"]])
+for (sl in c("G", "N", "I"))
+  ineq_IT_2035_full[[paste0("W", sl)]] <- round(ineq_IT_2035_full[[paste0("M", sl)]] * (45 / 40))
+# MC hours sub-variants: M{scope}{xxk} = M{scope} × scale (same Sxxk/SC factor as SC variants)
+for (suffix in c("45k", "30k", "15k")) {
+  sc_scale <- c("45k" = sc45k_scale_2035, "30k" = sc30k_scale_2035, "15k" = sc15k_scale_2035)[suffix]
+  for (sl in c("C", "G", "N", "I"))
+    ineq_IT_2035_full[[paste0("M", sl, suffix)]] <- round(ineq_IT_2035_full[[paste0("M", sl)]] * sc_scale)
+}
+ineq_IT_2035_full[["MC_SD"]] <- round(ineq_IT_2035[["MC_SD"]])  # standalone: slow decarb MC
+write.csv(ineq_IT_2035_full, "../distributions/ineq_IT_2035_full.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ineq_IT_2035_full.csv  (%d rows × %d cols)", nrow(ineq_IT_2035_full), ncol(ineq_IT_2035_full)))
+
+# Filtered ineq_IT_2035.csv: selected scenarios + IT25 + GR35.
+it2035_export <- data.frame(
+  gpercentile = ineq_IT_2035$gpercentile,
+  IT25        = ineq_IT_2035$IT25,
+  cash_GR35   = ineq_IT_2035$cash_GR35,
+  MC          = ineq_IT_2035$MC,
+  SC          = ineq_IT_2035$SC,
+  MCmat       = ineq_IT_2035$MCmat,
+  MC45k       = ineq_IT_2035_full$MC45k,
+  WC          = ineq_IT_2035$WC,
+  WI          = ineq_IT_2035_full$WI,
+  MI          = ineq_IT_2035_full$MI,
+  MN          = ineq_IT_2035_full$MN,
+  MG          = ineq_IT_2035_full$MG,
+  MCbeef      = ineq_IT_2035$MC,
+  MCflight    = ineq_IT_2035$MC,
+  MC_SD       = ineq_IT_2035$MC_SD)
+write.csv(it2035_export, "../distributions/ineq_IT_2035.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ineq_IT_2035.csv  (%d rows × %d cols)", nrow(it2035_export), ncol(it2035_export)))
+
+# Web-served copies for the conjoint JS (scenarios.js fetches ineq_IT_2035.csv, ineq_2100_full.csv and
+# conjoint_constants.csv from code_simulator/data/). The _full files are copied too for convenience.
 dir.create("data", showWarnings = FALSE)
-for (f in c("ineq_IT_2035.csv", "ineq_2100.csv", "conjoint_constants.csv"))
+for (f in c("ineq_IT_2035.csv", "ineq_IT_2035_full.csv", "ineq_2100.csv", "ineq_2100_full.csv", "conjoint_constants.csv"))
   file.copy(file.path("../distributions", f), file.path("data", f), overwrite = TRUE)
 message("Copied conjoint CSVs to data/ for the web pages.")
 message("Done.")

@@ -73,8 +73,8 @@ async function ensureDataLoaded(basePath) {
   if (_dataReady) return;
   basePath = basePath || "data/";
   const [rows2035, rows2100, constRows] = await Promise.all([
-    loadCsv(basePath + "ineq_IT_2035.csv"),
-    loadCsv(basePath + "ineq_2100.csv"),
+    loadCsv(basePath + "ineq_IT_2035_full.csv"), // ineq_IT_2035 + all scope/sub-target variants
+    loadCsv(basePath + "ineq_2100_full.csv"),   // ineq_2100 + all scope/sub-target variants
     loadCsv(basePath + "conjoint_constants.csv"),
   ]);
   _ineqIT2035 = numerify(rows2035);
@@ -162,15 +162,30 @@ function interpolateAtPercentile(dist, targetGp) {
  * @returns {number[]} 127-element array
  */
 function getIT2035Distribution(hoursPerWeek, globalRedistribution,
-                                nationalRedistribution, decarbonization, publicServices) {
+                                nationalRedistribution, decarbonization, publicServices,
+                                col2035Override) {
   const C = _C;
   const decarbUser       = C["decarb_" + decarbonization];  // user decarb income factor
   const decarbExported   = C["decarb_FD"];                  // factor baked into exported cols
   const psExported       = 1 - C["extra_tax_rate_IT"];      // PS factor baked into food=2 cols
   const psUser           = publicServices === "increased" ? psExported : 1;
 
+  if (col2035Override) {
+    // Direct column lookup from ineq_IT_2035_full (pre-computed at FD, food=2 or food=1)
+    const food2Cols = new Set(["SC","SC45k","SC15k","SI","SN","SG","MC",
+                                "MC45k","MC30k","MC15k","WC","MC_SD"]);
+    const exportedPsFactor = food2Cols.has(col2035Override) ? psExported : 1;
+    const decarbRatio = decarbUser / decarbExported;
+    const psRatio     = psUser / exportedPsFactor;
+    return _ineqIT2035.map(row => {
+      const v = row[col2035Override];
+      return (v == null || isNaN(v)) ? 0 : v * decarbRatio * psRatio;
+    });
+  }
+
   // Columns exported at food=2 (carry PS tax):
-  const food2Cols  = new Set(["SC","SC45k","SC15k","SI","SN","SG","MC"]);
+  const food2Cols  = new Set(["SC","SC45k","SC15k","SI","SN","SG","MC",
+                               "MC45k","MC30k","MC15k","WC","MC_SD"]);
   // Columns exported at food=1 (no PS tax): IT25, cash_GR35, IT35, SCmat, PC, PI
 
   const hasGIT = globalRedistribution === "GIT";
@@ -224,7 +239,14 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
  *
  * @returns {{ brackets, itValues, worldValues, scenarioName }}
  */
-function get2100Distributions(hoursPerWeek, globalRedistribution, nationalRedistribution) {
+function get2100Distributions(hoursPerWeek, globalRedistribution, nationalRedistribution,
+                              col2100Override) {
+  if (col2100Override) {
+    const brackets    = _ineq2100.map(r => r.bracket);
+    const itValues    = _ineq2100.map(r => r["IT_"    + col2100Override] || 0);
+    const worldValues = _ineq2100.map(r => r["World_" + col2100Override] || 0);
+    return { brackets, itValues, worldValues, scenarioName: col2100Override };
+  }
   const C = _C;
   const hasGIT = globalRedistribution === "GIT";
   const hasNat = nationalRedistribution === "SN";
@@ -298,7 +320,8 @@ function predictBaseTemp(gdpTotal, decarbonization, sectoralChange) {
  * ±0.0004875·(67.25 + 2.06·GDPpc) for public services difference.
  */
 function computeTemperature(hoursPerWeek, globalRedistribution,
-                             publicServices, decarbonization, beefAndFlights) {
+                             publicServices, decarbonization, beefAndFlights,
+                             gdpPc2100Override) {
   const C = _C;
   const hasGIT       = globalRedistribution === "GIT";
   const food         = publicServices === "increased" ? 2 : 1;
@@ -309,7 +332,7 @@ function computeTemperature(hoursPerWeek, globalRedistribution,
   const gdpPcKey = hasGIT
     ? "gdp_pc_GIT_"   + hoursPerWeek + "h"
     : "gdp_pc_noGIT_" + hoursPerWeek + "h";
-  const gdpPc  = C[gdpPcKey];
+  const gdpPc  = gdpPc2100Override != null ? gdpPc2100Override : C[gdpPcKey];
   const popB   = (hoursPerWeek === 45 && !hasGIT) ? C["pop_pi_2100_B"] : C["pop_sc_2100_B"];
   const gdpTotal = gdpPc * popB;
   const sectoralChange = (food === 2 && !isPItype) ? 1 : 0;
@@ -403,7 +426,10 @@ function computeConjointFeatures({
   nationalRedistribution,
   globalRedistribution,
   publicServices,
-  beefAndFlights
+  beefAndFlights,
+  col2035Override,    // optional: direct column name in ineq_IT_2035_full (e.g. "MC45k")
+  col2100Override,    // optional: scope stem in ineq_2100_full (e.g. "MC45k" → IT_MC45k)
+  gdpPc2100Override   // optional: GDP per capita (k€/adult) override for temperature
 }) {
   if (!_dataReady) throw new Error("Data not loaded — call ensureDataLoaded() first.");
 
@@ -413,17 +439,18 @@ function computeConjointFeatures({
 
   const dist2035 = getIT2035Distribution(
     hoursPerWeek, globalRedistribution, nationalRedistribution,
-    decarbonization, publicServices);
+    decarbonization, publicServices, col2035Override);
   const ownIncomeAnnualPerAdult = interpolateAtPercentile(dist2035, respondentGp);
   // Displayed 2035 income: monthly, doubled to the household total when a couple
   const coupleFactor = isCouple ? 2 : 1;
   const ownIncomeMonthly = Math.round(ownIncomeAnnualPerAdult / 12 * coupleFactor);
 
   const incomes2100 = get2100Distributions(
-    hoursPerWeek, globalRedistribution, nationalRedistribution);
+    hoursPerWeek, globalRedistribution, nationalRedistribution, col2100Override);
 
   const temp = computeTemperature(
-    hoursPerWeek, globalRedistribution, publicServices, decarbonization, beefAndFlights);
+    hoursPerWeek, globalRedistribution, publicServices, decarbonization, beefAndFlights,
+    gdpPc2100Override);
 
   const hours2035 = getWorkingHours2035(hoursPerWeek);
 

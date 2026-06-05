@@ -22,7 +22,31 @@ const SCENARIO_PARAMS = {
   PI:    { label: "PI — Persistent Inequality",         hoursPerWeek: 45, nationalRedistribution: "current", globalRedistribution: "current", publicServices: "stable",    beefAndFlights: "none" },
   SI:    { label: "SI — no redistribution",             hoursPerWeek: 35, nationalRedistribution: "current", globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
   SN:    { label: "SN — national redistribution only",  hoursPerWeek: 35, nationalRedistribution: "SN",      globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
-  SG:    { label: "SG — global redistribution only",    hoursPerWeek: 35, nationalRedistribution: "current", globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "both" }
+  SG:    { label: "SG — global redistribution only",    hoursPerWeek: 35, nationalRedistribution: "current", globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "both" },
+  PG:    { label: "PG — Productivist, global only",      hoursPerWeek: 45, nationalRedistribution: "current", globalRedistribution: "GIT",     publicServices: "stable",    beefAndFlights: "none" },
+  PN:    { label: "PN — Productivist, national only",    hoursPerWeek: 45, nationalRedistribution: "SN",      globalRedistribution: "current", publicServices: "stable",    beefAndFlights: "none" },
+  MG:    { label: "MG — Moderate (40h), global only",    hoursPerWeek: 40, nationalRedistribution: "current", globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "both" },
+  MN:    { label: "MN — Moderate (40h), national only",  hoursPerWeek: 40, nationalRedistribution: "SN",      globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
+  MI:    { label: "MI — Moderate (40h), no redistr.",    hoursPerWeek: 40, nationalRedistribution: "current", globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
+  SG45k: { label: "SG-45k (30h, global only)",           hoursPerWeek: 30, nationalRedistribution: "current", globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "both" },
+  SN45k: { label: "SN-45k (30h, national only)",         hoursPerWeek: 30, nationalRedistribution: "SN",      globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
+  SI45k: { label: "SI-45k (30h, no redistribution)",     hoursPerWeek: 30, nationalRedistribution: "current", globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
+  SG15k: { label: "SG-15k (25h, global only)",           hoursPerWeek: 25, nationalRedistribution: "current", globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "both" },
+  SN15k: { label: "SN-15k (25h, national only)",         hoursPerWeek: 25, nationalRedistribution: "SN",      globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
+  SI15k: { label: "SI-15k (25h, no redistribution)",     hoursPerWeek: 25, nationalRedistribution: "current", globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
+  // ── MC food/structural-change variants ──────────────────────────────────────
+  MCmat:    { label: "MCmat — MC, no sectoral change",          hoursPerWeek: 40, nationalRedistribution: "SN",      globalRedistribution: "GIT",     publicServices: "stable",    beefAndFlights: "none",    col2035Override: "MCmat",  col2100Override: "MC" },
+  MCbeef:   { label: "MCbeef — MC, beef reduction only (−60%)", hoursPerWeek: 40, nationalRedistribution: "SN",      globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "beef",    col2035Override: "MC",     col2100Override: "MC" },
+  MCflights:{ label: "MCflights — MC, flights only (−50%)",     hoursPerWeek: 40, nationalRedistribution: "SN",      globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "flights", col2035Override: "MC",     col2100Override: "MC" },
+  // ── MC GDP-target sub-variants (income col from pre-computed full CSV; gdpPc2100Override sets temperature) ──
+  MC45k: { label: "MC-45k (40h, 45k target)",  hoursPerWeek: 40, nationalRedistribution: "SN", globalRedistribution: "GIT", publicServices: "increased", beefAndFlights: "both", col2035Override: "MC45k", col2100Override: "MC45k", gdpPc2100Override: 45 },
+  MC30k: { label: "MC-30k (40h, 30k target)",  hoursPerWeek: 40, nationalRedistribution: "SN", globalRedistribution: "GIT", publicServices: "increased", beefAndFlights: "both", col2035Override: "MC30k", col2100Override: "MC30k", gdpPc2100Override: 30 },
+  MC15k: { label: "MC-15k (40h, 15k target)",  hoursPerWeek: 40, nationalRedistribution: "SN", globalRedistribution: "GIT", publicServices: "increased", beefAndFlights: "both", col2035Override: "MC15k", col2100Override: "MC15k", gdpPc2100Override: 15 },
+  // ── W class: 45h, constant-growth productivity (MC×45/40); at 2100 = P ────────
+  WC: { label: "WC — W Convergence (45h GDP, constant-growth)",    hoursPerWeek: 45, nationalRedistribution: "SN",      globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "both",    col2035Override: "WC" },
+  WG: { label: "WG — W, global redistribution only",               hoursPerWeek: 45, nationalRedistribution: "current", globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "both",    col2035Override: "WG" },
+  WN: { label: "WN — W, national redistribution only",             hoursPerWeek: 45, nationalRedistribution: "SN",      globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both",    col2035Override: "WN" },
+  WI: { label: "WI — W, no redistribution",                        hoursPerWeek: 45, nationalRedistribution: "current", globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both",    col2035Override: "WI" }
 };
 
 // ─── inequality-figure styling (mirrors inequality_figures.R) ────────────────────
@@ -202,7 +226,10 @@ function getParams(side) {
     nationalRedistribution: p.nationalRedistribution,
     globalRedistribution:   p.globalRedistribution,
     publicServices:  p.publicServices,
-    beefAndFlights:  p.beefAndFlights
+    beefAndFlights:  p.beefAndFlights,
+    col2035Override:   p.col2035Override   || null,
+    col2100Override:   p.col2100Override   || null,
+    gdpPc2100Override: p.gdpPc2100Override != null ? p.gdpPc2100Override : null
   };
 }
 

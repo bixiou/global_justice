@@ -65,7 +65,7 @@ A scenario is characterised by four structural dimensions:
 \begin{description}
   \item[Hours (or class).] The average weekly working hours converge to a
     2100 target corresponding to one of: \scenario{S15k}, \scenario{S45k},
-    \scenario{S} (= \scenario{S60k}), \scenario{M}, \scenario{P} (from
+    \scenario{S} (= \scenario{S60k}), \scenario{M}, \scenario{W}, \scenario{P} (from
     shortest to longest; see Table~\ref{tab:hours}).
   \item[Scope.] The redistribution configuration:
     \scenario{C} = Convergence (both national and global);
@@ -100,6 +100,7 @@ decarbonization).
 30 & \scenario{S45k} & 45   & 37.5 \\
 35 & \scenario{S}    & 60   & 50   \\
 40 & \scenario{M}    & 79   & 66   \\
+45 & \scenario{W}    & 120  & 100  \\
 45 & \scenario{P}    & 120  & 100  \\
 \bottomrule
 \end{tabular}
@@ -343,8 +344,20 @@ $\delta_\text{FD} = 0.96$ and $\psi = 1 - \tau_\text{PS}$:
                        \cdot \delta_\text{FD} \cdot \psi \\
   \scenario{SG}    &= (\overline{\text{SC}}/G^{SI_0})\,(\text{SI0}_p + \text{cash\_GR35}_p)
                        \cdot \delta_\text{FD} \cdot \psi \\
-  \scenario{MC}    &= \Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi
+  \scenario{MC}    &= \Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi \\
+  \scenario{WC}    &= \tfrac{45}{40}\,\Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi
+                       &&\text{(WC2\_FD: 45h GDP, constant-growth; at 2100 = PC)} \\
+  \scenario{MCmat} &= \Phi\,\text{IT35}_p \cdot \delta_\text{FD}
+                       &&\text{(MC1\_FD: no PS tax)} \\
+  \scenario{MCbeef}&= \scenario{MC}
+                       &&\text{(MC2\_FD, beef focus; income = MC)} \\
+  \scenario{MCflights}&= \scenario{MC}
+                       &&\text{(MC2\_FD, flights focus; income = MC)} \\
+  \scenario{MC45k} &= (G_{2025}/G_{2035})\,\Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi \\
+  \scenario{MC30k} &= 0.95\,(G_{2025}/G_{2035})\,\Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi \\
+  \scenario{MC15k} &= 0.9\,(G_{2025}/G_{2035})\,\Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi
 \end{align}
+% MC: explain it's keeping hours pc constant in 2035 and 2100. In 1200, that's 63/48 SC, i.e. a midpoint between SC (1kh per worker, 80% employment) and now (1.672kh, ~60%), consistent with either 1.313kh (28h/week w. 5 weeks of holidays) and SC-like increase in employment, or no increase in employment and no decrease in hours per worker. In SC, employment increases by 1.27 over 2025-2100.
 
 \noindent where $G_{t}$ denotes Italy's per-capita GDP at year $t$ (\citealt{Chancel2026} \texttt{A0p};
 $G^{PI}_{2035}$ is the PI per-capita GDP, \texttt{A0pi}); $h^{SC}_{2035},h^{PI}_{2035}$ are
@@ -458,14 +471,16 @@ to the \scenario{SC} distribution:
 
 \begin{table}[ht]
 \centering
-\caption{2100 income coefs relative to SC. Applied to both IT and World distributions.}
+\caption{2100 income coefs relative to SC. Applied to both IT and World distributions.
+  MC food variants (MCmat, MCbeef, MCflights) equal MC at 2100 (food does not affect 2100 income).
+  W and P share the same 2100 coef (2.0); they differ only in their 2035 income formula.}
 \label{tab:coefs2100}
-\begin{tabular}{lccccc}
+\begin{tabular}{lccccccccc}
 \toprule
-Scenario & SC15k & SC45k & SC (=SCmat) & MC & PC \\
-Hours    & 25h   & 30h   & 35h         & 40h & 45h \\
+Scenario & SC15k & SC45k & SC (=SCmat) & MC15k & MC30k & MC45k & MC (MCbeef/flights/mat) & WC & PC \\
+Hours    & 25h   & 30h   & 35h & \multicolumn{4}{c}{40h (constant)} & \multicolumn{2}{c}{45h} \\
 \midrule
-Coef     & 0.25  & 0.75  & 1.00        & 630/480 & 2.00 \\
+Coef     & 0.25  & 0.75  & 1.00 & $0.25\times\frac{630}{480}$ & $0.50\times\frac{630}{480}$ & $0.75\times\frac{630}{480}$ & $\frac{630}{480}$ & 2.00 & 2.00 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -697,12 +712,23 @@ scopes by the same proportionality.
 
 \begin{description}
   \item[\texttt{ineq\_IT\_2035.csv}]
-    127 rows (gpercentile) $\times$ 14 columns (IT25, cash\_GR35, IT35, SCmat,
-    SC, PC, PI, SC45k, SC15k, SI, SN, SG, MC). Income in EUR PPP 2025/adult/yr.
+    127 rows (gpercentile) $\times$ 17 columns (IT25, cash\_GR35, IT35, SCmat,
+    SC, PC, PI, SC45k, SC15k, SI, SN, SG, MC, MCmat, WC). Income in EUR PPP 2025/adult/yr.
+
+  \item[\texttt{ineq\_IT\_2035\_full.csv}]
+    127 rows $\times$ additional columns: all 6 hours classes $\times$ 4 scopes + standalone
+    columns SCmat, MCmat, MCbeef, MCflights + MC sub-target variants
+    M\{C/G/N/I\}\{45k/30k/15k\}. MCbeef and MCflights equal MC (income is identical at 2035).
+    W\{C/G/N/I\} uses the constant-growth formula $(\frac{45}{40}\Phi)$; WG/WN/WI $=$ M\{G/N/I\} $\times 1.125$.
 
   \item[\texttt{ineq\_2100.csv}]
-    21 rows (brackets) $\times$ 21 columns (bracket label + IT and World for each
-    of the 10 scenarios). Income in EUR PPP 2025/adult/yr $\times$ $r_\text{IT}$.
+    21 rows (brackets) $\times$ 23 columns (bracket label + IT and World for each
+    of the 11 scenarios, plus IT\_WC, World\_WC). Income in EUR PPP 2025/adult/yr $\times$ $r_\text{IT}$.
+
+  \item[\texttt{ineq\_2100\_full.csv}]
+    21 rows $\times$ additional columns: all 6 hours classes $\times$ 4 scopes + SCmat +
+    MC sub-target variants M\{C/G/N/I\}\{45k/30k/15k\} + MCbeef, MCflights, MCmat (= MC at 2100) +
+    W\{C/G/N/I\} (= P\{C/G/N/I\} at 2100).
 
   \item[\texttt{temp100.csv}]
     54 rows: 30 \citet{Chancel2026} scenarios + 24 new rows for SI/SN/SG/MC at all
