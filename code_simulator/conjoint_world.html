@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global income simulator — scenario comparison</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="css/compare.css">
+  <style>
+    .shared-top { max-width: 520px; margin-left: auto; margin-right: auto; }
+    .field-income { display: flex; gap: 8px; align-items: center; }
+    .currency-badge {
+      background: #1a3a5c; color: #fff; border-radius: 4px; padding: 4px 9px;
+      font-size: 0.82rem; font-weight: 700; letter-spacing: .05em; white-space: nowrap;
+    }
+    .chart-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1);
+                  padding: 16px 18px; margin-bottom: 16px; }
+    .chart-card h4 { font-size: 0.82rem; font-weight: 600; color: #333; margin-bottom: 8px; }
+    .evol-wrap { position: relative; height: 170px; }
+    /* inline field: label left, narrow select right */
+    .inline-field { display: flex; align-items: center; justify-content: space-between;
+                    gap: 8px; margin-bottom: 8px; }
+    .inline-field label { font-size: 0.74rem; font-weight: 600; color: #555;
+                          text-transform: uppercase; letter-spacing: .04em;
+                          white-space: nowrap; flex-shrink: 0; margin-bottom: 0; }
+    .inline-field select { width: 160px; flex-shrink: 0; }
+    /* larger feature chips (temperature / income / hours / public services / beef & flights) */
+    .feat-row .chip-label { font-size: 0.74rem; }
+    .feat-row .chip-val { font-size: 1.35rem; }
+    .feat-row .chip-unit { font-size: 0.8rem; }
+    .feat-row .chip.phrase .chip-val { font-size: 1.02rem; }
+  </style>
+</head>
+<body>
+<header style="text-align: center;">
+  <h1>Explore scenarios for the future</h1>
+  <p>Choose your country and income, then set each panel's parameters to compare future scenarios.</p>
+</header>
+
+<div class="page">
+  <div id="statusMsg">Loading data…</div>
+
+  <!-- shared top: country, income, couple -->
+  <div class="card shared-top">
+    <div class="field">
+      <label>Country</label>
+      <select id="sharedCountry"></select>
+    </div>
+    <div class="field">
+      <label>Household monthly income</label>
+      <div class="field-income">
+        <input type="number" id="sharedIncome" value="2500" min="0" step="100">
+        <span class="currency-badge" id="currBadge">EUR</span>
+        <label class="couple"><input type="checkbox" id="sharedCouple"> couple</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="split" id="controls"></div>
+  <div class="split" id="comparison"></div>
+
+  <footer style="max-width: 760px; margin: 32px auto 16px; font-size: 0.78rem; line-height: 1.5; color: #555; text-align: center;">
+    <p>Credit: <a href="https://www.parisschoolofeconomics.eu/en/fabre-adrien/" target="_blank" rel="noopener">Adrien Fabre</a>. Fully reproducible on <a href="https://github.com/bixiou/global_justice" target="_blank" rel="noopener">github.com/bixiou/global_justice</a>.</p>
+    <p>Data is based on the Global Justice Report: Chancel, Lucas, Cornelia Mohren, Rowaida Moshrif, Moritz Odesrky, Thomas Piketty, and Anmol Somanchi. 2026. &ldquo;Global Justice Report.&rdquo; World Inequality Lab. <a href="https://globaljusticeproject.wid.world/www-site/uploads/2026/06/GlobalJusticeReport_WebsiteVersion.pdf" target="_blank" rel="noopener">PDF</a>.</p>
+  </footer>
+</div>
+
+<script src="js/countries.js"></script>
+<script src="js/conjoint_world.js"></script>
+<script>
+"use strict";
+
+const SIDES = [
+  { id: "L", cls: "left",  name: "Left"  },
+  { id: "R", cls: "right", name: "Right" }
+];
+
+const REDIST_MAP = {
+  both:     { nationalRedistribution: "SN",      globalRedistribution: "GIT"     },
+  global:   { nationalRedistribution: "current", globalRedistribution: "GIT"     },
+  national: { nationalRedistribution: "SN",      globalRedistribution: "current" },
+  none:     { nationalRedistribution: "current", globalRedistribution: "current" }
+};
+
+// ── colour palette (same as conjoint_any) ─────────────────────────────────────
+const GRP_COL = { bottom:"#2166AC", median:"#4DAC26", top:"#D6604D", other:"#D9D9D9" };
+const GRP_OF  = { p0p5:"bottom", p5p10:"bottom", p45p50:"median", p50p55:"median",
+                  p90p95:"top", p95p99:"top", p99p100:"top" };
+function groupOf(b) { return GRP_OF[b] || "other"; }
+
+const charts = {};
+
+// ── formatters ────────────────────────────────────────────────────────────────
+function fmtNum(v) {
+  const n = Math.round(v);
+  return n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e5 ? Math.round(n/1000)+"k" : String(n);
+}
+function fmtMoney(v, currency) { return fmtNum(v) + " " + (currency || "EUR"); }
+
+// ── 2-significant-figure helpers ─────────────────────────────────────────────
+function toSigFigs(n, d) {
+  if (!n || n <= 0) return n;
+  const mag = Math.pow(10, Math.floor(Math.log10(n)) - d + 1);
+  return Math.round(n / mag) * mag;
+}
+function sigFigStep(n) {
+  if (!n || n <= 0) return 100;
+  return Math.pow(10, Math.floor(Math.log10(n)) - 1);
+}
+
+// ── gpercentile weight ────────────────────────────────────────────────────────
+function gpWidth(p) {
+  if (p < 99)    return 1;
+  if (p < 99.9)  return 0.1;
+  if (p < 99.99) return 0.01;
+  return 0.001;
+}
+
+// Collapse 127-gpercentile arrays into 21-bracket weighted averages
+const BRACKETS21 = [
+  "p0p5","p5p10","p10p15","p15p20","p20p25","p25p30","p30p35","p35p40","p40p45","p45p50",
+  "p50p55","p55p60","p60p65","p65p70","p70p75","p75p80","p80p85","p85p90","p90p95","p95p99","p99p100"
+];
+function collapse21(gps, vals) {
+  return BRACKETS21.map(b => {
+    const m = b.match(/p([\d.]+)p([\d.]+)/);
+    const lo = +m[1], hi = +m[2];
+    let sw = 0, sv = 0;
+    gps.forEach((p, i) => {
+      if (p >= lo && (hi >= 100 ? true : p < hi)) {
+        const w = gpWidth(p); sw += w; sv += w * vals[i];
+      }
+    });
+    return sw > 0 ? sv / sw : 0;
+  });
+}
+
+// ── cap-hatch plugin (same as conjoint_any) ───────────────────────────────────
+const capHatchPlugin = {
+  id: "capHatch",
+  afterDatasetsDraw(chart) {
+    const meta = chart.getDatasetMeta(1);
+    if (!meta || !chart.data.datasets[1]) return;
+    const data = chart.data.datasets[1].data, ctx = chart.ctx;
+    ctx.save();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.4; ctx.lineCap = "butt";
+    meta.data.forEach((bar, i) => {
+      if (!(data[i] > 0)) return;
+      const wd = bar.width, l = Math.round(bar.x - wd/2), r = Math.round(bar.x + wd/2);
+      const top = Math.round(bar.y), bw = r - l;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(l, top, bw, bar.base - top); ctx.clip();
+      [4, 8].forEach(off => {
+        ctx.beginPath();
+        ctx.moveTo(l, top + off + bw/2);
+        ctx.lineTo(r, top + off - bw/2);
+        ctx.stroke();
+      });
+      ctx.restore();
+    });
+    ctx.restore();
+  }
+};
+
+// ── inequality histogram ──────────────────────────────────────────────────────
+// annualEUR: annual EUR PPP values per bracket; ppp: local-currency-per-EUR
+function renderIneq(canvasId, brackets, annualEUR, ppp) {
+  const ylim = Math.round(30000 * ppp);
+  const hfrom = Math.round(26000 * ppp);
+  const currency = currentCurrency;
+  const slotV = [], slotC = [], slotB = [];
+  brackets.forEach((b, i) => {
+    const m = b.match(/p([\d.]+)p([\d.]+)/);
+    const w = Math.max(1, Math.round(+m[2] - +m[1]));
+    const v = Math.round(annualEUR[i] * ppp / 12);
+    const col = GRP_COL[groupOf(b)];
+    for (let s = 0; s < w; s++) { slotV.push(v); slotC.push(col); slotB.push(b); }
+  });
+  const i99 = brackets.indexOf("p99p100");
+  const top99 = i99 >= 0 ? Math.round(annualEUR[i99] * ppp / 12) : 0;
+  const hasHatch = top99 > ylim;
+  const solidV = slotV.map(v => v > ylim ? hfrom : v);
+  const capV   = slotV.map(v => v > ylim ? ylim - hfrom : 0);
+  if (charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart(document.getElementById(canvasId).getContext("2d"), {
+    type: "bar",
+    data: { labels: slotB, datasets: [
+      { data: solidV, backgroundColor: slotC, borderWidth: 0, categoryPercentage: 1, barPercentage: 1, stack: "s" },
+      { data: capV,   backgroundColor: slotC, borderWidth: 0, categoryPercentage: 1, barPercentage: 1, stack: "s" }
+    ] },
+    plugins: [capHatchPlugin],
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { filter: i => i.datasetIndex === 0,
+                   callbacks: { title: items => slotB[items[0].dataIndex],
+                                label: c => " " + fmtMoney(slotV[c.dataIndex], currency) + "/month" } }
+      },
+      scales: {
+        x: { stacked: true, display: false, grid: { display: false } },
+        y: { stacked: true, min: 0, max: ylim,
+             ticks: { callback: v => (v >= ylim && hasHatch)
+               ? fmtNum(top99) : fmtNum(v), font: { size: 8 } } }
+      }
+    }
+  });
+}
+
+// ── caption sidebar ───────────────────────────────────────────────────────────
+function renderCaption(capId, brackets, annualEUR, ppp, currency, bottomLab, topLab) {
+  const meanOf = g => {
+    const xs = brackets.map((b, i) => groupOf(b) === g ? annualEUR[i] * ppp / 12 : null).filter(v => v != null);
+    return xs.length ? xs.reduce((a, b) => a+b, 0)/xs.length : 0;
+  };
+  document.getElementById(capId).innerHTML = [
+    ["bottom", bottomLab], ["median", "Typical income"], ["top", topLab]
+  ].map(([g, lab]) => `
+    <div class="cap-row">
+      <div class="cap-sw" style="background:${GRP_COL[g]}"></div>
+      <div class="cap-txt">
+        <b style="color:${GRP_COL[g]}">${lab}</b>
+        <span><span style="color:${GRP_COL[g]};font-weight:700">${fmtMoney(meanOf(g), currency)}</span>/month</span>
+      </div>
+    </div>`).join("");
+}
+
+// ── evolution line chart — matches situator exactly ───────────────────────────
+const EVOL_LABEL_YEARS = [2025, 2030, 2040, 2050, 2060, 2070, 2080, 2090, 2100];
+
+function renderEvolution(side, evolution, ppp, currency) {
+  const { years, annualEUR } = evolution;
+  const data = annualEUR.map(v => Math.round(v * ppp));   // annual local currency
+  const cid = "cEvol-" + side;
+  if (charts[cid]) charts[cid].destroy();
+  charts[cid] = new Chart(document.getElementById(cid).getContext("2d"), {
+    type: "line",
+    data: { labels: years, datasets: [{
+      label: "Income (" + currency + "/year)",
+      data,
+      borderColor: "#2980b9",
+      backgroundColor: "rgba(41,128,185,0.08)",
+      pointRadius: 0,
+      borderWidth: 2,
+      tension: 0.3
+    }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        title:  { display: false },
+        tooltip: { callbacks: {
+          label: c => " " + c.parsed.y.toLocaleString() + " " + currency + "/year"
+        }}
+      },
+      scales: {
+        x: {
+          title: { display: true, text: "Year" },
+          grid: { color: ctx => EVOL_LABEL_YEARS.includes(+years[ctx.index]) ? "rgba(0,0,0,0.08)" : "transparent" },
+          ticks: {
+            autoSkip: false,
+            maxRotation: 0,
+            callback: function(value) {
+              const yr = +this.getLabelForValue(value);
+              return EVOL_LABEL_YEARS.includes(yr) ? yr : "";
+            }
+          }
+        },
+        y: {
+          title: { display: true, text: "Annual income (" + currency + ")" },
+          ticks: { callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+"M" : v >= 1e3 ? (v/1e3).toFixed(0)+"k" : v }
+        }
+      }
+    }
+  });
+}
+
+// ── country state ─────────────────────────────────────────────────────────────
+let currentCountry = null, currentCurrency = "EUR", currentPpp = 1;
+
+function setCurrentCountry(code) {
+  const c = (typeof COUNTRY_MAP !== "undefined" && COUNTRY_MAP[code])
+    || { name: code, currency: "EUR", pppRate: 1 };
+  currentCountry = c;
+  currentCurrency = c.currency || "EUR";
+  currentPpp = c.pppRate || 1;
+  document.getElementById("currBadge").textContent = currentCurrency;
+}
+
+// IANA timezone → country/region code (covers the modelled countries + residual regions).
+const TZ_COUNTRY = {
+  // Western Europe
+  "Europe/Berlin":"DE","Europe/Busingen":"DE","Europe/Copenhagen":"DK","Europe/Madrid":"ES",
+  "Europe/Paris":"FR","Europe/London":"GB","Europe/Rome":"IT","Europe/Amsterdam":"NL",
+  "Europe/Oslo":"NO","Europe/Stockholm":"SE",
+  "Europe/Vienna":"OC","Europe/Brussels":"OC","Europe/Zurich":"OC","Europe/Lisbon":"OC",
+  "Europe/Dublin":"OC","Europe/Helsinki":"OC","Europe/Athens":"OC","Europe/Luxembourg":"OC",
+  "Atlantic/Reykjavik":"OC","Europe/Andorra":"OC","Europe/Monaco":"OC","Europe/Malta":"OC",
+  // Eastern Europe
+  "Europe/Warsaw":"QM","Europe/Prague":"QM","Europe/Budapest":"QM","Europe/Bucharest":"QM",
+  "Europe/Sofia":"QM","Europe/Zagreb":"QM","Europe/Belgrade":"QM","Europe/Bratislava":"QM",
+  "Europe/Ljubljana":"QM","Europe/Vilnius":"QM","Europe/Riga":"QM","Europe/Tallinn":"QM",
+  "Europe/Chisinau":"QM","Europe/Sarajevo":"QM","Europe/Skopje":"QM","Europe/Tirane":"QM",
+  "Europe/Podgorica":"QM","Asia/Nicosia":"QM","Europe/Nicosia":"QM",
+  // Russia & Central Asia
+  "Europe/Moscow":"RU","Europe/Kaliningrad":"RU","Europe/Samara":"RU","Asia/Yekaterinburg":"RU",
+  "Asia/Novosibirsk":"RU","Asia/Krasnoyarsk":"RU","Asia/Irkutsk":"RU","Asia/Yakutsk":"RU",
+  "Asia/Vladivostok":"RU","Asia/Magadan":"RU","Asia/Kamchatka":"RU","Europe/Kyiv":"OA",
+  "Europe/Kiev":"OA","Asia/Almaty":"OA","Asia/Tashkent":"OA","Asia/Baku":"OA","Asia/Yerevan":"OA",
+  "Asia/Tbilisi":"OA","Asia/Bishkek":"OA","Europe/Minsk":"OA",
+  // North America & Oceania (NAOC residual = OH)
+  "America/New_York":"US","America/Detroit":"US","America/Chicago":"US","America/Denver":"US",
+  "America/Phoenix":"US","America/Los_Angeles":"US","America/Anchorage":"US","Pacific/Honolulu":"US",
+  "America/Toronto":"CA","America/Montreal":"CA","America/Vancouver":"CA","America/Edmonton":"CA",
+  "America/Winnipeg":"CA","America/Halifax":"CA","America/St_Johns":"CA","America/Regina":"CA",
+  "Australia/Sydney":"AU","Australia/Melbourne":"AU","Australia/Brisbane":"AU","Australia/Perth":"AU",
+  "Australia/Adelaide":"AU","Australia/Hobart":"AU","Australia/Darwin":"AU","Pacific/Auckland":"NZ",
+  "Pacific/Fiji":"OH","Pacific/Port_Moresby":"OH","Pacific/Guadalcanal":"OH",
+  // Latin America (residual = OD)
+  "America/Argentina/Buenos_Aires":"AR","America/Argentina/Cordoba":"AR","America/Sao_Paulo":"BR",
+  "America/Bahia":"BR","America/Fortaleza":"BR","America/Manaus":"BR","America/Recife":"BR",
+  "America/Santiago":"CL","America/Bogota":"CO","America/Mexico_City":"MX","America/Monterrey":"MX",
+  "America/Tijuana":"MX","America/Cancun":"MX","America/Lima":"OD","America/Caracas":"OD",
+  "America/La_Paz":"OD","America/Guayaquil":"OD","America/Asuncion":"OD","America/Montevideo":"OD",
+  "America/Guatemala":"OD","America/Havana":"OD","America/Santo_Domingo":"OD","America/Panama":"OD",
+  // Middle East & North Africa (residual = OE)
+  "Asia/Dubai":"AE","Africa/Algiers":"DZ","Africa/Cairo":"EG","Asia/Tehran":"IR",
+  "Africa/Casablanca":"MA","Asia/Riyadh":"SA","Europe/Istanbul":"TR","Asia/Istanbul":"TR",
+  "Asia/Jerusalem":"OE","Asia/Tel_Aviv":"OE","Asia/Baghdad":"OE","Asia/Amman":"OE","Asia/Beirut":"OE",
+  "Asia/Kuwait":"OE","Asia/Qatar":"OE","Asia/Bahrain":"OE","Asia/Muscat":"OE","Asia/Damascus":"OE",
+  "Africa/Tunis":"OE","Africa/Tripoli":"OE",
+  // Sub-Saharan Africa (residual = OJ)
+  "Africa/Kinshasa":"CD","Africa/Lubumbashi":"CD","Africa/Abidjan":"CI","Africa/Addis_Ababa":"ET",
+  "Africa/Nairobi":"KE","Africa/Bamako":"ML","Africa/Niamey":"NE","Africa/Lagos":"NG",
+  "Africa/Kigali":"RW","Africa/Khartoum":"SD","Africa/Johannesburg":"ZA","Africa/Accra":"OJ",
+  "Africa/Dakar":"OJ","Africa/Dar_es_Salaam":"OJ","Africa/Kampala":"OJ","Africa/Luanda":"OJ",
+  "Africa/Maputo":"OJ","Africa/Harare":"OJ","Africa/Lusaka":"OJ","Africa/Douala":"OJ",
+  // East Asia (residual = OB)
+  "Asia/Shanghai":"CN","Asia/Urumqi":"CN","Asia/Hong_Kong":"OB","Asia/Macau":"OB","Asia/Tokyo":"JP",
+  "Asia/Seoul":"KR","Asia/Pyongyang":"OB","Asia/Taipei":"TW","Asia/Ulaanbaatar":"OB",
+  // South & South-East Asia (residual = OI)
+  "Asia/Dhaka":"BD","Asia/Kolkata":"IN","Asia/Calcutta":"IN","Asia/Jakarta":"ID","Asia/Makassar":"ID",
+  "Asia/Jayapura":"ID","Asia/Yangon":"MM","Asia/Rangoon":"MM","Asia/Karachi":"PK","Asia/Manila":"PH",
+  "Asia/Bangkok":"TH","Asia/Ho_Chi_Minh":"VN","Asia/Saigon":"VN","Asia/Kuala_Lumpur":"OI",
+  "Asia/Singapore":"OI","Asia/Colombo":"OI","Asia/Kathmandu":"OI","Asia/Phnom_Penh":"OI",
+  "Asia/Vientiane":"OI","Asia/Kabul":"OI"
+};
+
+function detectLocaleCountry() {
+  // 1. Timezone — the most reliable geographic signal
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz && TZ_COUNTRY[tz]) return TZ_COUNTRY[tz];
+  } catch (e) { /* Intl unavailable — fall through to language */ }
+  // 2. Language locale: explicit region code, then language → country
+  const lang = (navigator.language || "").split("-");
+  const region = lang.length > 1 ? lang[1].toUpperCase() : null;
+  const langMap = { fr:"FR", de:"DE", it:"IT", es:"ES", nl:"NL", pt:"BR", ru:"RU",
+                    zh:"CN", ja:"JP", ko:"KR", ar:"EG", hi:"IN", id:"ID", vi:"VN",
+                    th:"TH", tr:"TR", pl:"PL", sv:"SE", da:"DK", fi:"FI", nb:"NO",
+                    uk:"UA", ro:"RO", hu:"HU", cs:"CZ" };
+  return region || langMap[lang[0].toLowerCase()] || null;
+}
+
+// Flag emojis have no glyphs on Windows, so plot the flag as an image instead.
+// Residual aggregate regions (OC, QM, …) and offline use fall back to no flag
+// via the onerror handler, leaving just the country name.
+function flagImg(code) {
+  if (!code || code.length !== 2) return "";
+  const c = code.toLowerCase();
+  return '<img src="https://flagcdn.com/24x18/' + c + '.png"' +
+    ' srcset="https://flagcdn.com/48x36/' + c + '.png 2x" width="24" height="18"' +
+    ' alt="" style="vertical-align:-3px;margin-right:6px;border:0.5px solid #ccc"' +
+    ' onerror="this.remove()">';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, ch =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[ch]));
+}
+
+// ── input panel HTML ──────────────────────────────────────────────────────────
+function inputPanelHTML(side) {
+  const name = SIDES.find(s => s.id === side).name;
+  return `
+  <div class="card">
+    <div class="side-title">${name} scenario</div>
+    <div class="field inline-field"><label>Decarbonization pace</label>
+      <select id="decarb-${side}">
+        <option value="SD">Slow</option>
+        <option value="ID">Intermediate</option>
+        <option value="FD" selected>Fast</option>
+      </select></div>
+    <div class="field inline-field"><label>Working hours</label>
+      <select id="hours-${side}">
+        <option value="25">25 h/week</option><option value="30">30 h/week</option>
+        <option value="35" selected>35 h/week</option>
+        <option value="40">40 h/week</option><option value="45">45 h/week</option>
+      </select></div>
+    <div class="field inline-field"><label>Redistribution</label>
+      <select id="redist-${side}">
+        <option value="both" selected>Both</option>
+        <option value="global">Global only</option>
+        <option value="national">National only</option>
+        <option value="none">None</option>
+      </select></div>
+    <div class="field inline-field"><label>Public services</label>
+      <select id="ps-sel-${side}">
+        <option value="stable">Stable</option>
+        <option value="increased" selected>Increased</option>
+      </select></div>
+    <div class="field inline-field"><label>Beef &amp; flights</label>
+      <select id="bf-sel-${side}">
+        <option value="none">No change</option>
+        <option value="beef">&minus;60% beef</option>
+        <option value="flights">&minus;50% flights</option>
+        <option value="both" selected>Both</option>
+      </select></div>
+  </div>`;
+}
+
+// ── result panel HTML ─────────────────────────────────────────────────────────
+function resultPanelHTML(side) {
+  return `
+  <div class="feat-row">
+    <div class="chip temp">
+      <span class="chip-label">Temperature 2100</span>
+      <span class="chip-val" id="temp-${side}">&#8212;</span>
+    </div>
+    <div class="chip income">
+      <span class="chip-label">Your income in 2035</span>
+      <span class="chip-val" id="inc-${side}">&#8212;</span>
+      <span class="chip-unit" id="inc-unit-${side}">EUR/month</span>
+    </div>
+    <div class="chip">
+      <span class="chip-label">Working hours 2035</span>
+      <span class="chip-val" id="hrs-${side}">&#8212;</span>
+      <span class="chip-unit">h/week</span>
+    </div>
+    <div class="chip phrase"><span class="chip-val" id="ps-${side}">&#8212;</span></div>
+    <div class="chip phrase"><span class="chip-val" id="bf-${side}">&#8212;</span></div>
+  </div>
+
+  <div class="chart-card">
+    <h4 id="tit-ctry-${side}">Country in 2100</h4>
+    <div class="ineq">
+      <div class="ineq-chart"><canvas id="cCtry-${side}"></canvas></div>
+      <div class="ineq-cap" id="capCtry-${side}"></div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h4>&#127758; Monthly incomes worldwide in 2100</h4>
+    <div class="ineq">
+      <div class="ineq-chart"><canvas id="cW-${side}"></canvas></div>
+      <div class="ineq-cap" id="capW-${side}"></div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h4 id="tit-evol-${side}">Income trajectory (monthly)</h4>
+    <div class="evol-wrap"><canvas id="cEvol-${side}"></canvas></div>
+  </div>`;
+}
+
+const BF_TXT = {
+  none: "Same behavior", beef: "Less beef",
+  flights: "Less flights", both: "Less beef<br>Less flights"
+};
+
+// ── read params for one side ──────────────────────────────────────────────────
+function getParams(side) {
+  const redist = document.getElementById("redist-" + side).value;
+  return {
+    countryCode:            document.getElementById("sharedCountry").value,
+    pppRate:                currentPpp,
+    householdIncomeMonthly: parseFloat(document.getElementById("sharedIncome").value) || 2500,
+    isCouple:               document.getElementById("sharedCouple").checked,
+    decarbonization:        document.getElementById("decarb-" + side).value,
+    hoursPerWeek:           parseInt(document.getElementById("hours-" + side).value),
+    ...REDIST_MAP[redist],
+    publicServices:  document.getElementById("ps-sel-" + side).value,
+    beefAndFlights:  document.getElementById("bf-sel-" + side).value
+  };
+}
+
+// ── update one panel ──────────────────────────────────────────────────────────
+function updateSide(side) {
+  const params = getParams(side);
+  let f;
+  try { f = WorldConjointModule.computeConjointFeatures(params); }
+  catch (e) {
+    document.getElementById("statusMsg").textContent = "Error: " + e.message;
+    return;
+  }
+
+  const ppp = currentPpp, currency = currentCurrency;
+  const ctryName = currentCountry ? currentCountry.name : params.countryCode;
+
+  // Chips
+  document.getElementById("temp-"     + side).textContent = "+" + f.temperature.value.toFixed(1) + "°C";
+  document.getElementById("inc-"      + side).textContent = fmtNum(f.ownIncome.monthlyLocal);
+  document.getElementById("inc-unit-" + side).textContent = currency + "/month";
+  document.getElementById("hrs-"      + side).textContent = f.workingHours.value;
+  document.getElementById("ps-"       + side).textContent =
+    params.publicServices === "increased" ? "More public services" : "Stable public services";
+  document.getElementById("bf-"       + side).innerHTML = BF_TXT[params.beefAndFlights] || "—";
+
+  // Country 2100
+  const g = f.global2100;
+  document.getElementById("tit-ctry-" + side).innerHTML =
+    flagImg(params.countryCode) + "Monthly incomes in " + escapeHtml(ctryName) + " in 2100";
+  renderIneq("cCtry-" + side, g.brackets, g.countryAnnualEUR, ppp);
+  renderCaption("capCtry-" + side, g.brackets, g.countryAnnualEUR, ppp, currency,
+    "10% poorest", "10% richest");
+
+  // World 2100
+  renderIneq("cW-" + side, g.brackets, g.worldAnnualEUR, ppp);
+  renderCaption("capW-" + side, g.brackets, g.worldAnnualEUR, ppp, currency,
+    "10% poorest humans", "10% richest humans");
+
+  // Evolution (SC baseline trajectory, annual local currency)
+  document.getElementById("tit-evol-" + side).textContent =
+    "Your income in " + ctryName + " (" + currency + "/year)";
+  renderEvolution(side, f.evolution, ppp, currency);
+}
+
+function updateBothSides() { SIDES.forEach(s => updateSide(s.id)); }
+
+// ── init ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  const sel = document.getElementById("sharedCountry");
+
+  // Build panels first so canvases exist when data arrives
+  const controls   = document.getElementById("controls");
+  const comparison = document.getElementById("comparison");
+  SIDES.forEach(s => {
+    const ci = document.createElement("div");
+    ci.className = "side " + s.cls;
+    ci.innerHTML = inputPanelHTML(s.id);
+    controls.appendChild(ci);
+    const cr = document.createElement("div");
+    cr.className = "side " + s.cls;
+    cr.innerHTML = resultPanelHTML(s.id);
+    comparison.appendChild(cr);
+  });
+
+  // Load data
+  try {
+    await WorldConjointModule.ensureDataLoaded("data/");
+  } catch (err) {
+    document.getElementById("statusMsg").textContent =
+      "Failed to load data: " + err.message +
+      " — run conjoint_world.R first, then serve via a web server.";
+    return;
+  }
+
+  // Populate dropdown: filtered to available data, sorted alphabetically
+  const available = WorldConjointModule.availableCountries;
+  if (typeof COUNTRIES !== "undefined") {
+    const sorted = COUNTRIES.filter(c => c.code !== "World" && (!available || available.has(c.code)))
+                             .sort((a, b) => a.name.localeCompare(b.name));
+    sorted.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.code;
+      opt.textContent = c.name + " (" + c.currency + ")";
+      sel.appendChild(opt);
+    });
+  }
+
+  // Detect locale country, fall back to IT
+  const localeCode = detectLocaleCountry();
+  const defaultCode = (localeCode && available && available.has(localeCode)) ? localeCode
+    : (available && available.has("IT")) ? "IT"
+    : (sel.options[0] || {}).value || "IT";
+  sel.value = defaultCode;
+  setCurrentCountry(defaultCode);
+
+  // Set default income to country mean (monthly, local currency, 2 sig figs)
+  const meanEUR = WorldConjointModule.getCountryMeanIncome(defaultCode);
+  if (meanEUR) {
+    const meanMonthly = meanEUR * currentPpp / 12;
+    const incInput = document.getElementById("sharedIncome");
+    incInput.value = toSigFigs(meanMonthly, 2);
+    incInput.step  = sigFigStep(meanMonthly);
+  }
+
+  document.getElementById("statusMsg").textContent =
+    "Adjust the parameters on either side to compare.";
+  updateBothSides();
+
+  // Update default income when country changes
+  sel.addEventListener("change", () => {
+    setCurrentCountry(sel.value);
+    const mEUR = WorldConjointModule.getCountryMeanIncome(sel.value);
+    if (mEUR) {
+      const mMonthly = mEUR * currentPpp / 12;
+      const incInput = document.getElementById("sharedIncome");
+      incInput.value = toSigFigs(mMonthly, 2);
+      incInput.step  = sigFigStep(mMonthly);
+    }
+    updateBothSides();
+  });
+
+  // Scenario control listeners
+  controls.querySelectorAll("select").forEach(el => {
+    el.addEventListener("change", () => {
+      const parts = el.id.split("-");
+      updateSide(parts[parts.length - 1]);
+    });
+  });
+
+  // Remaining shared listeners
+  ["sharedIncome", "sharedCouple"].forEach(id =>
+    document.getElementById(id).addEventListener("change", updateBothSides));
+})();
+</script>
+</body>
+</html>

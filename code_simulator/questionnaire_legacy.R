@@ -951,3 +951,164 @@ for (iso in names(gne_pc_countries)) {
   par(op); dev.off()
   message("Wrote ", fname)
 }
+
+##### 19. Helper functions and constants for France (absent from legacy §1) #####
+# Convert Bothe p1 lower-bound to 1-127 bracket index (inverse of gperc_to_lb)
+p1_to_gperc_index <- function(x) ifelse(x < 99, round(x) + 1,
+  ifelse(x < 99.9, 100 + round((x - 99) * 10),
+  ifelse(x < 99.99, 109 + round((x - 99.9) * 100),
+  118 + round((x - 99.99) * 1000))))
+
+# Match Bothe simul rows to FG gperc order via bracket-index
+match_by_gperc_index <- function(simul_rows, value_col, fg_gperc_vec) {
+  simul_rows$gperc_idx <- p1_to_gperc_index(simul_rows$p1)
+  simul_rows[[value_col]][match(fg_gperc_vec, simul_rows$gperc_idx)]
+}
+
+# Sort values at gpercentile < 99 ascending; enforces monotonicity for bottom 99%
+enforce_monotone_below_99 <- function(v, gp) {
+  idx <- gp < 99 & !is.na(v); v[idx] <- sort(v[idx]); v
+}
+
+DECARB_FACTOR <- c(SD = 1.00, ID = 0.98, FD = 0.96)
+
+# Load Chancel sheets not yet read in this file
+a0 <- read_chancel_ts("A0")      # total GDP (EUR PPP 2025 per adult)
+a0p <- read_chancel_ts("A0p")    # per-capita GDP SC scenario
+f0a <- read_chancel_ts("F0a")    # hourly labour productivity (EUR/hour)
+e0h <- read_chancel_ts("E0h")    # per-capita economic hours, SC
+e0k <- read_chancel_ts("E0k")    # per-capita economic hours, PI
+
+##### 20. cash_income_2025 for France from Fisher-Gethin 2023 + Bothe NNI 2025 #####
+message("Building FR cash_income_2025 from Fisher-Gethin...")
+mprico_fr <- mprico_share["FR"]
+if (!length(mprico_fr) || is.na(mprico_fr[1])) mprico_fr <- mprico_default
+re_rate_fr <- RETENTION_RATE * mprico_fr[1]
+
+fg_fr <- fg[fg$iso == "FR", ]
+for (v in c("a_pre","a_pre_cap","tax_dir_pit","tax_dir_wea","tax_cit",
+            "tax_soc","tax_ind","gov_soc","weight"))
+  fg_fr[[v]] <- ifelse(is.na(fg_fr[[v]]), 0, fg_fr[[v]])
+fg_fr <- fg_fr[order(fg_fr$gperc), ]
+gp_FR <- gperc_to_lb(fg_fr$gperc)
+
+# Wealth shares for France at 2025
+wealth_fr_2025 <- simul[simul$year == 2025 & simul$country == "FR", c("p1","shweal","diff")]
+wealth_fr_2025$shweal <- ifelse(is.na(wealth_fr_2025$shweal), 0, wealth_fr_2025$shweal)
+wealth_fr_2025$gperc_idx <- p1_to_gperc_index(wealth_fr_2025$p1)
+sw_fr <- wealth_fr_2025$shweal[match(fg_fr$gperc, wealth_fr_2025$gperc_idx)]
+sw_fr[is.na(sw_fr)] <- 0
+dif_fr <- wealth_fr_2025$diff[match(fg_fr$gperc, wealth_fr_2025$gperc_idx)]
+dif_fr[is.na(dif_fr)] <- 0.01
+H_fr <- housing_gradient(gp_FR)  # housing_gradient = France data (Garbinti et al. 2021)
+den_h_fr <- sum(sw_fr * H_fr * dif_fr, na.rm = TRUE)
+housing_norm_fr <- if (den_h_fr > 0) sw_fr * H_fr / den_h_fr else rep(0, nrow(fg_fr))
+
+ypt_fr_2025 <- match_by_gperc_index(
+  simul[simul$year == 2025 & simul$country == "FR", c("p1","ypt")], "ypt", fg_fr$gperc)
+ypt_fr_2025[is.na(ypt_fr_2025)] <- 0
+
+mu_n_fr <- sum(fg_fr$a_pre * fg_fr$weight) / sum(fg_fr$weight)
+mu_c_fr <- sum(fg_fr$a_pre_cap * fg_fr$weight) / sum(fg_fr$weight)
+cap_share_fr <- if (mu_c_fr > 0) fg_fr$a_pre_cap / mu_c_fr else rep(0, nrow(fg_fr))
+
+fr_cash_income_2025 <- enforce_monotone_below_99(
+  (fg_fr$a_pre / mu_n_fr
+   - (fg_fr$tax_dir_pit + fg_fr$tax_dir_wea + fg_fr$tax_cit) / mu_n_fr
+   - fg_fr$tax_soc / mu_n_fr - fg_fr$tax_ind / mu_n_fr + fg_fr$gov_soc / mu_n_fr) * nni_2025["FR"]
+  - re_rate_fr * cap_share_fr * nni_2025["FR"]
+  - RENTAL_YIELD * housing_norm_fr * nni_2025["FR"]
+  + cap_share_fr * cfc_per_cap["FR"]
+  - ypt_fr_2025, gp_FR)
+
+##### 21. ratio_FR (scalar) and per-percentile cash_ratio for France 2025 #####
+income_fr_2025 <- match_by_gperc_index(
+  simul[simul$year == 2025 & simul$country == "FR", c("p1","income")], "income", fg_fr$gperc)
+cash_ratio_fr <- ifelse(is.finite(income_fr_2025) & income_fr_2025 > 0,
+                        fr_cash_income_2025 / income_fr_2025, NA_real_)
+avg_cash_fr_2025 <- sum(fr_cash_income_2025 * gp_width(gp_FR))
+avg_income_fr_2025 <- sum(income_fr_2025 * gp_width(gp_FR), na.rm = TRUE)
+ratio_FR <- avg_cash_fr_2025 / avg_income_fr_2025
+message(sprintf("ratio_FR = %.4f  (avg cash %.0f / avg full income %.0f, FR 2025)",
+                ratio_FR, avg_cash_fr_2025, avg_income_fr_2025))
+
+##### 22. FR35 (SC1_SD base) and cash_GR35_fr #####
+income_fr_2035 <- match_by_gperc_index(
+  simul[simul$year == 2035 & simul$country == "FR", c("p1","income")], "income", fg_fr$gperc)
+fr35 <- enforce_monotone_below_99(income_fr_2035 * cash_ratio_fr, gp_FR)
+
+ypt_fr_2035 <- match_by_gperc_index(
+  simul[simul$year == 2035 & simul$country == "FR", c("p1","ypt")], "ypt", fg_fr$gperc)
+ypt_fr_2035[is.na(ypt_fr_2035)] <- 0
+cash_gr35_fr <- (dividend["2035"] - ypt_fr_2035) * cash_ratio_fr
+
+##### 23. Extra public-services tax rate for France 2035 #####
+extra_ps_spending_share_fr <- as.numeric(G5s["2035","FR"]) - as.numeric(G5s["2025","FR"])
+extra_ps_eur_per_adult_fr <- extra_ps_spending_share_fr * as.numeric(G0p["2035","FR"])
+avg_fr35 <- sum(fr35 * gp_width(gp_FR), na.rm = TRUE)
+fr_extra_tax_rate <- extra_ps_eur_per_adult_fr / avg_fr35
+message(sprintf("FR extra PS tax rate 2035: %.4f  (%.0f EUR / avg FR35 = %.0f EUR)",
+                fr_extra_tax_rate, extra_ps_eur_per_adult_fr, avg_fr35))
+
+##### 24. Chancel GDP for France + MC-scenario productivity parameters #####
+gdp_fr_2025 <- as.numeric(a0["2025","FR"])
+gdp_fr_sc_2035 <- as.numeric(a0["2035","FR"])
+gdp_pc_fr_2025 <- as.numeric(a0p["2025","FR"])
+gdp_pc_fr_pi_2035 <- as.numeric(a0pi["2035","FR"])
+
+prod_fr_2025 <- as.numeric(f0a["2025","FR"])
+prod_fr_2035 <- as.numeric(f0a["2035","FR"])
+hours_pc_fr_2025 <- as.numeric(e0h["2025","FR"])
+hours_pc_fr_2035 <- as.numeric(e0h["2035","FR"])
+hours_pc_fr_pi_2035 <- as.numeric(e0k["2035","FR"])
+avg_prod_growth_fr <- (125 / prod_fr_2025)^(1 / 75)
+prod_growth_2035_fr <- prod_fr_2035 / prod_fr_2025
+change_hours_pc_fr <- hours_pc_fr_2035 / hours_pc_fr_2025
+mc_income_scale_fr <- avg_prod_growth_fr^10 / (change_hours_pc_fr * prod_growth_2035_fr)
+w_income_scale_fr <- (45 / 40) * mc_income_scale_fr
+
+sc45k_scale_2035_fr <- gdp_fr_2025 / gdp_fr_sc_2035
+sc30k_scale_2035_fr <- 0.95 * sc45k_scale_2035_fr
+sc15k_scale_2035_fr <- 0.9 * sc45k_scale_2035_fr
+si_scale_2035_fr <- gdp_pc_fr_pi_2035 * (hours_pc_fr_2035 / hours_pc_fr_pi_2035) / gdp_pc_fr_2025
+si0_2035_fr <- fr_cash_income_2025 * si_scale_2035_fr
+avg_si0_2035_fr <- sum(si0_2035_fr * gp_width(gp_FR), na.rm = TRUE)
+
+##### 25. ineq_FR_2035: 127 gpercentiles × scenario cols + SC_2100 + MC_2100 #####
+message("Building ineq_FR_2035...")
+fd_fr <- DECARB_FACTOR["FD"]
+
+ineq_FR_2035 <- data.frame(
+  gpercentile = gp_FR,
+  FR25 = fr_cash_income_2025,
+  cash_GR35 = cash_gr35_fr,
+  FR35 = fr35,
+  SCmat = fr35 * fd_fr,
+  SC = fr35 * fd_fr * (1 - fr_extra_tax_rate),
+  PC = fr35 * 1.15 * fd_fr,
+  PI = fr_cash_income_2025 * 1.4 * fd_fr,
+  SC45k = fr35 * sc45k_scale_2035_fr * fd_fr * (1 - fr_extra_tax_rate),
+  SC15k = fr35 * sc15k_scale_2035_fr * fd_fr * (1 - fr_extra_tax_rate),
+  SI = si0_2035_fr * fd_fr * (1 - fr_extra_tax_rate),
+  SN = (fr35 - cash_gr35_fr) * (avg_si0_2035_fr / avg_fr35) * fd_fr * (1 - fr_extra_tax_rate),
+  SG = (si0_2035_fr + cash_gr35_fr) * (avg_fr35 / avg_si0_2035_fr) * fd_fr * (1 - fr_extra_tax_rate),
+  MC = fr35 * mc_income_scale_fr * fd_fr * (1 - fr_extra_tax_rate),
+  MCmat = fr35 * mc_income_scale_fr * fd_fr,
+  WC = fr35 * w_income_scale_fr * fd_fr * (1 - fr_extra_tax_rate),
+  MC_SD = fr35 * mc_income_scale_fr * DECARB_FACTOR["SD"] * (1 - fr_extra_tax_rate))
+
+income_cols_fr_2035 <- setdiff(names(ineq_FR_2035), "gpercentile")
+cols_to_sort_fr <- setdiff(income_cols_fr_2035, "cash_GR35")
+for (col in cols_to_sort_fr)
+  ineq_FR_2035[[col]] <- enforce_monotone_below_99(ineq_FR_2035[[col]], gp_FR)
+
+# SC and MC distributions at 2100 (gpercentile-level, cash income units via per-percentile ratio)
+income_fr_2100 <- match_by_gperc_index(
+  simul[simul$year == 2100 & simul$country == "FR", c("p1","income")], "income", fg_fr$gperc)
+ineq_FR_2035$SC_2100 <- enforce_monotone_below_99(income_fr_2100 * cash_ratio_fr, gp_FR)
+ineq_FR_2035$MC_2100 <- enforce_monotone_below_99(income_fr_2100 * cash_ratio_fr * (609 / 480), gp_FR)
+
+all_cols_fr <- setdiff(names(ineq_FR_2035), "gpercentile")
+ineq_FR_2035[, all_cols_fr] <- lapply(ineq_FR_2035[, all_cols_fr], round, digits = 0)
+write.csv(ineq_FR_2035, "../distributions/ineq_FR_2035.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ineq_FR_2035.csv  (%d rows × %d cols)", nrow(ineq_FR_2035), ncol(ineq_FR_2035)))
