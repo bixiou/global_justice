@@ -397,6 +397,8 @@ bracket_avg_c <- function(vals, p1_vec) {
   }, numeric(1))
 }
 
+cash_dist_2025 <- read.csv("../distributions/cash_income_2025.csv")
+
 rows2100 <- list()
 for (ctry in all_countries) {
   sub <- inc_wide[inc_wide$country == ctry, ]
@@ -413,12 +415,18 @@ for (ctry in all_countries) {
   si_vals <- sub$si_2100
   sg_vals <- sub$sg_2100
 
+  cash_c <- cash_dist_2025[cash_dist_2025$country == ctry, ]
+  cash_vals_c <- if (nrow(cash_c) > 0)
+    cash_c$cash_income_2025[match(round(p1v, 5), round(cash_c$gpercentile, 5))]
+  else rep(NA_real_, length(p1v))
+
   rows2100[[ctry]] <- data.frame(
     bracket = bracket_names, country = ctry,
     SC = round(bracket_avg_c(sc_vals, p1v) * ratio_c),
     SG = round(bracket_avg_c(sg_vals, p1v) * ratio_c),
     SN = round(bracket_avg_c(sn_vals, p1v) * ratio_c),
-    SI = round(bracket_avg_c(si_vals, p1v) * ratio_c))
+    SI = round(bracket_avg_c(si_vals, p1v) * ratio_c),
+    cash2025 = round(bracket_avg_c(cash_vals_c, p1v)))
 }
 
 ineq_2100_countries <- do.call(rbind, rows2100)

@@ -536,6 +536,10 @@ for (sc in names(scopes)) {
   for (region in c("IT", "World"))
     ineq_2100_full[[paste0(region, "_", nm_w)]] <- ineq_2100_full[[paste0(region, "_", nm_p)]]
 }
+# 2025 world cash income distribution (bracket anchor for §13 visualisation)
+cash_w25 <- read.csv("../distributions/cash_income_world.csv")
+cash_w25 <- cash_w25[order(cash_w25$gpercentile), "income_2025"]
+ineq_2100_full[["World_cash2025"]] <- round(bracket_avg_World(cash_w25))
 write.csv(ineq_2100_full, "../distributions/ineq_2100_full.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ineq_2100_full.csv  (%d rows × %d cols)", nrow(ineq_2100_full), ncol(ineq_2100_full)))
 
