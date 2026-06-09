@@ -1,9 +1,20 @@
 # code_simulator/questionnaire.R
-# Exports for the conjoint analysis questionnaire:
-#   ../distributions/ineq_IT_2035.csv      127 rows × 14 cols
-#   ../distributions/ineq_2100.csv          21 rows × 21 cols
-#   ../data/temp100.csv                     34+ rows × 5 cols
-#   ../distributions/conjoint_constants.csv key-value constants for conjoint.js
+# Builds every data file behind the Global Justice conjoint question. Each respondent compares
+# pairs of societal scenarios; a scenario is one income distribution (2035 cash income for "own
+# income", 2100 income for the bar charts) plus a 2100 temperature. This script produces those
+# distributions, the temperatures, and a few scalar constants the browser needs.
+#
+# Outputs (written to ../distributions, ../data, ./data and ./IT_survey/data):
+#   ineq_IT_2035.csv  / _full   127 gpercentiles × 2035 cash-income scenario columns
+#   ineq2_IT_2035.csv / _full   same, but B scenarios use Italy's actual F0a growth (for task _any2)
+#   ineq_2100.csv     / _full   21 brackets × 2100 income scenario columns (IT and World)
+#   temp100.csv                 2100 temperature per scenario
+#   conjoint_constants.csv      key-value scalars read by the survey JavaScript
+#
+# The three IT-survey conjoint tasks all consume these files: _few (fixed named pairs) and _any
+# (free random parameters) read ineq_IT_2035.csv; _any2 is identical to _any but reads
+# ineq2_IT_2035.csv. The browser code (IT_survey/scenarios.js) only ever interpolates and rescales
+# these precomputed distributions — all the economics lives here.
 #
 # Reads raw data only (Bothe .dta/.xlsx, Chancel .xlsx, FG .dta, WID .csv) plus
 # chancel_temp2100_completed.csv (pre-computed from Chancel emission output).
@@ -25,6 +36,9 @@ RETENTION_RATE <- 0.50   # fraction of capital income retained (not paid out)
 RENTAL_YIELD <- 0.035    # imputed rent rate on net housing wealth (PSZ/GGLP/BCG average)
 
 ##### 1. Helper functions #####
+
+# Replace NA with 0 (most monetary fields treat missing as absent => zero)
+na0 <- function(x) ifelse(is.na(x), 0, x)
 
 # Population-share width of each gpercentile lower-bound bracket
 gp_width <- function(g) ifelse(g < 99, 0.01,
@@ -97,8 +111,7 @@ match_by_gperc_index <- function(simul_rows, value_col, fg_gperc_vec) {
 ##### 2. Bothe simul: income and yp_recomp by (country, gpercentile, year) #####
 message("Reading Bothe simul...")
 simul <- as.data.frame(read_dta(SIMUL))
-for (v in c("sdiinc", "nni", "diff", "ypt", "pop"))
-  simul[[v]] <- ifelse(is.na(simul[[v]]), 0, simul[[v]])
+for (v in c("sdiinc", "nni", "diff", "ypt", "pop")) simul[[v]] <- na0(simul[[v]])
 # yp_recomp = national secondary income per adult (after national redistribution, before global GIT)
 simul$yp_recomp <- with(simul, ifelse(diff > 0, sdiinc * nni / diff, NA_real_))
 
@@ -148,16 +161,19 @@ fg <- as.data.frame(read_dta(FG))
 fg_it <- fg[fg$year == 2023 & fg$iso == "IT", ]
 for (v in c("a_pre","a_pre_cap","tax_dir_pit","tax_dir_wea","tax_cit",
             "tax_soc","tax_ind","gov_soc","weight"))
-  fg_it[[v]] <- ifelse(is.na(fg_it[[v]]), 0, fg_it[[v]])
+  fg_it[[v]] <- na0(fg_it[[v]])
 fg_it <- fg_it[order(fg_it$gperc), ]          # sort by bracket index 1-127
 gp_IT <- gperc_to_lb(fg_it$gperc)             # 127 lower-bound percentiles for Italy
 
+# Any Italy simul column for a given year, aligned to the FG gperc ordering
+it_simul <- function(year, col) match_by_gperc_index(
+  simul[simul$year == year & simul$country == "IT", c("p1", col)], col, fg_it$gperc)
+
 # Wealth shares for Italy at 2025 (needed for housing imputed rent normalization)
 wealth_it_2025 <- simul[simul$year == 2025 & simul$country == "IT", c("p1","shweal","diff")]
-wealth_it_2025$shweal <- ifelse(is.na(wealth_it_2025$shweal), 0, wealth_it_2025$shweal)
+wealth_it_2025$shweal <- na0(wealth_it_2025$shweal)
 wealth_it_2025$gperc_idx <- p1_to_gperc_index(wealth_it_2025$p1)
-sw_it  <- wealth_it_2025$shweal[match(fg_it$gperc, wealth_it_2025$gperc_idx)]
-sw_it[is.na(sw_it)] <- 0
+sw_it  <- na0(wealth_it_2025$shweal[match(fg_it$gperc, wealth_it_2025$gperc_idx)])
 dif_it <- wealth_it_2025$diff[match(fg_it$gperc, wealth_it_2025$gperc_idx)]
 dif_it[is.na(dif_it)] <- 0.01
 H_it <- housing_wealth_share(gp_IT)
@@ -165,9 +181,7 @@ den_h <- sum(sw_it * H_it * dif_it, na.rm = TRUE)
 housing_norm_it <- if (den_h > 0) sw_it * H_it / den_h else rep(0, nrow(fg_it))
 
 # GIT already paid in 2025 (subtract to get cash income net of global tax)
-ypt_it_2025 <- match_by_gperc_index(
-  simul[simul$year == 2025 & simul$country == "IT", c("p1","ypt")], "ypt", fg_it$gperc)
-ypt_it_2025[is.na(ypt_it_2025)] <- 0
+ypt_it_2025 <- na0(it_simul(2025, "ypt"))
 
 mu_n <- sum(fg_it$a_pre * fg_it$weight) / sum(fg_it$weight)
 mu_c <- sum(fg_it$a_pre_cap * fg_it$weight) / sum(fg_it$weight)
@@ -184,8 +198,7 @@ it_cash_income_2025 <- enforce_monotone_below_99(
   - ypt_it_2025, gp_IT)
 
 ##### 5. ratio_IT (scalar) and per-percentile cash_ratio for Italy 2025 #####
-income_it_2025 <- match_by_gperc_index(
-  simul[simul$year == 2025 & simul$country == "IT", c("p1","income")], "income", fg_it$gperc)
+income_it_2025 <- it_simul(2025, "income")
 cash_ratio_it <- ifelse(is.finite(income_it_2025) & income_it_2025 > 0,
                         it_cash_income_2025 / income_it_2025, NA_real_)
 avg_cash_it_2025   <- sum(it_cash_income_2025 * gp_width(gp_IT))
@@ -198,15 +211,12 @@ message(sprintf("ratio_IT = %.4f  (avg cash %.0f / avg full income %.0f, IT 2025
 ##### 6. IT35 (SC1_SD base = gross cash income 2035) and cash_GR35 #####
 # IT35: Bothe SC income at 2035, rescaled to cash units via per-percentile cash_ratio.
 # This equals gross cash income under SC1_SD (slow decarb, no structural change, no extra PS tax).
-income_it_2035 <- match_by_gperc_index(
-  simul[simul$year == 2035 & simul$country == "IT", c("p1","income")], "income", fg_it$gperc)
+income_it_2035 <- it_simul(2035, "income")
 it35 <- enforce_monotone_below_99(income_it_2035 * cash_ratio_it, gp_IT)
 
 # cash_GR35[p] = (global dividend 2035 - GIT tax paid by percentile p) × cash_ratio[p]
 # Positive for low incomes (net receivers), negative for high incomes (net contributors).
-ypt_it_2035 <- match_by_gperc_index(
-  simul[simul$year == 2035 & simul$country == "IT", c("p1","ypt")], "ypt", fg_it$gperc)
-ypt_it_2035[is.na(ypt_it_2035)] <- 0
+ypt_it_2035 <- na0(it_simul(2035, "ypt"))
 cash_gr35 <- (dividend_by_year["2035"] - ypt_it_2035) * cash_ratio_it
 
 ##### 7. Extra public-services tax rate for Italy 2035 (G5s, G0p) #####
@@ -230,41 +240,24 @@ a0p <- read_chancel_ts("A0p")
 gdp_pc_it_2025    <- as.numeric(a0p["2025","IT"])   # GDP_IT25 (SC per capita, 2025)
 gdp_pc_it_pi_2035 <- as.numeric(a0pi["2035","IT"])  # GDP_PI0  (PI per capita, 2035)
 
-# B90k (formerly MC, moderate convergence, 40h constant): same long-run productivity path as SC
-# (converging to 125 EUR/h by 2100), but with per-worker hours fixed at their 2025 level.
+# B90k (formerly MC, moderate convergence): same long-run productivity path as SC, but with
+# per-worker hours fixed at their 2025 level (40h). It is the baseline of the B family.
 f0a <- read_chancel_ts("F0a")   # hourly labour productivity (EUR/hour) by country and year
 e0h <- read_chancel_ts("E0h")   # per-capita economic labour hours, SC scenario
 e0k <- read_chancel_ts("E0k")   # per-capita economic labour hours, PC/PI scenarios
 e0a <- read_chancel_ts("E0a")   # per-worker economic labour hours, SC scenario
-prod_it_2025        <- as.numeric(f0a["2025","IT"])
-prod_it_2035        <- as.numeric(f0a["2035","IT"])
-hours_pc_it_2025    <- as.numeric(e0h["2025","IT"])
 hours_pc_it_2035    <- as.numeric(e0h["2035","IT"])
 hours_pc_it_pi_2035 <- as.numeric(e0k["2035","IT"])  # PI per-capita hours, 2035
-hours_pw_it_2025    <- as.numeric(e0a["2025","IT"])
-hours_pw_it_2035    <- as.numeric(e0a["2035","IT"])
-avg_prod_growth_it <- (125 / prod_it_2025)^(1 / 75)           # avg 2025-2100 growth to 125 EUR/h (former practice, unused)
-prod_growth_2035_it  <- prod_it_2035 / prod_it_2025            # actual SC productivity growth 2025-2035
-# change_hours_pc_it   <- hours_pc_it_2035 / hours_pc_it_2025   # < 1 (hours fall in SC by 2035)
-change_hours_pw_it   <- hours_pw_it_2035 / hours_pw_it_2025   # per-worker hours change 2025-2035 (E0a)
-# B scenarios grow at a flat 1.5% yearly 2025-2035 (B_GROWTH_RATE), replacing the former practice of
-# using the average 2025-2100 productivity growth rate avg_prod_growth_it^10 (which front-loads SC growth).
-b_growth_10y <- function(rate) (1 + rate)^10               # 10-year cumulative B-scenario growth at `rate`
-# B90k is THE baseline (40h, constant per-worker hours): all other B-class 2035 incomes are B90k × (hours/40),
-# where 2035 worked hours are 28/32/36/40/44 for classes 29/30/35/40/45.
-# B90k income scale relative to IT35: corrects for SC's front-loaded productivity and per-worker hours change.
-# Former practice: b90k_scale_it <- avg_prod_growth_it^10 / (change_hours_pw_it * prod_growth_2035_it)
-b90k_scale_it <- b_growth_10y(B_GROWTH_RATE) / (change_hours_pw_it * prod_growth_2035_it)
-# B (35h class) income scale: B90k × the actual SC per-worker hours change 2025-2035 (E0a), i.e.
-# b_scale = (1+g)^10 / prod_growth_2035 — the 35h class is the real SC trajectory, so it uses the
-# modelled per-worker hours rather than a flat ratio. Matches conjoint_world.R's b_scale_c.
-# Former practice: b_scale_it <- avg_prod_growth_it^10 / prod_growth_2035_it
-# Existing practice (commented out): flat 36/40 (36 worked hours in 2035 vs B90k's 40)
-# b_scale_it <- (36 / 40) * b90k_scale_it
-b_scale_it <- change_hours_pw_it * b90k_scale_it
-# B120k (45h class) income scale: B90k × (44/40) — 44 worked hours in 2035
-# Former practice: b120k_scale_it <- (45 / 40) * b90k_scale_it
-b120k_scale_it <- (44 / 40) * b90k_scale_it
+prod_growth_2035_it <- as.numeric(f0a["2035","IT"]) / as.numeric(f0a["2025","IT"])  # actual SC productivity growth 2025-2035
+change_hours_pw_it  <- as.numeric(e0a["2035","IT"]) / as.numeric(e0a["2025","IT"])  # SC per-worker hours change 2025-2035
+b_growth_10y <- function(rate) (1 + rate)^10   # 10-year cumulative B-scenario growth at flat `rate`
+
+# All B-class 2035 incomes are B90k × (worked hours / 40); 2035 worked hours are 28/32/36/40/44 for
+# classes 29/30/35/40/45. B scenarios grow at a flat 1.5%/yr 2025-2035 (B_GROWTH_RATE); the B90k scale
+# vs IT35 then corrects for SC's front-loaded productivity and its per-worker hours change.
+b90k_scale_it  <- b_growth_10y(B_GROWTH_RATE) / (change_hours_pw_it * prod_growth_2035_it)
+b_scale_it     <- change_hours_pw_it * b90k_scale_it   # B (35h): real SC trajectory, uses actual E0a hours change
+b120k_scale_it <- (44 / 40) * b90k_scale_it            # B120k (45h class): 44 worked hours in 2035
 
 ##### 9. ineq_IT_2035: 127 gpercentiles × 14 cols #####
 # Scenario key: {type}_{sectoral_change}_{decarb} e.g. SC2_FD.
@@ -273,10 +266,10 @@ b120k_scale_it <- (44 / 40) * b90k_scale_it
 # Exported columns = selected scenarios: all _2_FD (sectoral_change=2, fast decarb) except IT35 (SC1_SD)
 # and SCmat (SC1_FD) which have sectoral_change=1.
 message("Building ineq_IT_2035...")
-fd        <- DECARB_FACTOR["FD"]           # 0.96
+fd        <- DECARB_FACTOR["FD"]            # fast-decarb income factor (0.97)
+ps_factor <- 1 - it_extra_tax_rate         # public-services flat tax (psi = 1 - tau_PS)
 
 sc45k_scale_2035 <- gdp_it_2025 / gdp_it_sc_2035        # ≈ 0.87: SC45k relative to IT35
-sc30k_scale_2035 <- 0.95 * sc45k_scale_2035              # 30k target extra penalty (interpolated)
 sc15k_scale_2035 <- 0.9 * sc45k_scale_2035               # 25h scenario extra penalty
 # SI 2035 (method line 151): IT25 rescaled to the no-global GDP level = PI per-capita GDP
 # adjusted for SC working hours: gdp_PI_2035 × (hours_pc_SC / hours_pc_PI) / gdp_2025.
@@ -290,21 +283,21 @@ ineq_IT_2035 <- data.frame(
   cash_GR35   = cash_gr35,                                                # GR net transfer at 2035 (cash units)
   IT35        = it35,                                                     # SC1_SD: base, no decarb cost, no PS tax
   SCmat       = it35 * fd,                                                # SC1_FD: FD decarb, no PS tax
-  SC          = it35 * fd * (1 - it_extra_tax_rate),                                    # SC2_FD: FD decarb + PS tax
+  SC          = it35 * fd * ps_factor,                                    # SC2_FD: FD decarb + PS tax
   PC          = it35 * 1.15 * fd,                                         # PC1_FD: 45h, 15% richer than SC
   PI          = it_cash_income_2025 * 1.4 * fd,                           # PI1_FD: 45h no GIT, 40% growth
-  SC45k       = it35 * sc45k_scale_2035 * fd * (1 - it_extra_tax_rate),                 # SC45k2_FD: 30h + GIT
-  SC15k       = it35 * sc15k_scale_2035 * fd * (1 - it_extra_tax_rate),                 # SC15k2_FD: 25h + GIT
-  SI          = si0_2035 * fd * (1 - it_extra_tax_rate),                                          # SI2_FD: 35h, no redistribution
-  SN          = (it35 - cash_gr35) * (avg_si0_2035 / avg_it35) * fd * (1 - it_extra_tax_rate),     # SN2_FD: national only, (IT35−GR35)×GDP_SI0/avg_SC
-  SG          = (si0_2035 + cash_gr35) * (avg_it35 / avg_si0_2035) * fd * (1 - it_extra_tax_rate),  # SG2_FD: global only, (GDP_SC/GDP_SI0)×(SI0+GR35)
-  B90kC       = it35 * b90k_scale_it * fd * (1 - it_extra_tax_rate),               # B90kC2_FD: 40h + GIT constant hours (formerly MC)
+  SC45k       = it35 * sc45k_scale_2035 * fd * ps_factor,                 # SC45k2_FD: 30h + GIT
+  SC15k       = it35 * sc15k_scale_2035 * fd * ps_factor,                 # SC15k2_FD: 25h + GIT
+  SI          = si0_2035 * fd * ps_factor,                                          # SI2_FD: 35h, no redistribution
+  SN          = (it35 - cash_gr35) * (avg_si0_2035 / avg_it35) * fd * ps_factor,     # SN2_FD: national only, (IT35−GR35)×GDP_SI0/avg_SC
+  SG          = (si0_2035 + cash_gr35) * (avg_it35 / avg_si0_2035) * fd * ps_factor,  # SG2_FD: global only, (GDP_SC/GDP_SI0)×(SI0+GR35)
+  B90kC       = it35 * b90k_scale_it * fd * ps_factor,               # B90kC2_FD: 40h + GIT constant hours (formerly MC)
   B90kMat     = it35 * b90k_scale_it * fd,                                          # B90kC1_FD: 40h + GIT, no PS tax (formerly MCmat)
   Bmat        = it35 * b_scale_it * fd,                                              # B1_FD: 35h + GIT, no PS tax (B without PS)
-  B120kC      = it35 * b120k_scale_it  * fd * (1 - it_extra_tax_rate),                # B120kC2_FD: 45h + GIT constant-growth (formerly WC)
-  B           = it35 * b_scale_it      * fd * (1 - it_extra_tax_rate),               # B2_FD: 35h + GIT, constant-growth (formerly M60k)
-  B45kC       = it35 * b90k_scale_it * (32 / 40) * fd * (1 - it_extra_tax_rate),    # B45kC2_FD: 30h class, 32 worked hours in 2035 (B90k × 32/40; formerly MC45k/SC45k analog)
-  B90kC_SD    = it35 * b90k_scale_it * DECARB_FACTOR["SD"] * (1 - it_extra_tax_rate)) # B90kC2_SD: slow decarb (formerly MC_SD)
+  B120kC      = it35 * b120k_scale_it  * fd * ps_factor,                # B120kC2_FD: 45h + GIT constant-growth (formerly WC)
+  B           = it35 * b_scale_it      * fd * ps_factor,               # B2_FD: 35h + GIT, constant-growth (formerly M60k)
+  B45kC       = it35 * b90k_scale_it * (32 / 40) * fd * ps_factor,    # B45kC2_FD: 30h class, 32 worked hours in 2035 (B90k × 32/40; formerly MC45k/SC45k analog)
+  B90kC_SD    = it35 * b90k_scale_it * DECARB_FACTOR["SD"] * ps_factor) # B90kC2_SD: slow decarb (formerly MC_SD)
 
 income_cols_2035 <- setdiff(names(ineq_IT_2035), "gpercentile")
 # cash_GR35 is a net-transfer distribution (positive for poor, negative for rich) — not monotone.
@@ -329,11 +322,9 @@ message("Building ineq_2100...")
 dividend_2100 <- dividend_by_year["2100"]
 
 # IT 2100: aligned to FG gperc ordering via bracket-index matching
-income_it_2100 <- match_by_gperc_index(
-  simul[simul$year == 2100 & simul$country == "IT", c("p1","income")], "income", fg_it$gperc)
+income_it_2100 <- it_simul(2100, "income")
 # PI base uses yp_recomp_2025 (pre-GIT national income): PI scenario has no global redistribution
-yp_recomp_it_2025 <- match_by_gperc_index(
-  simul[simul$year == 2025 & simul$country == "IT", c("p1","yp_recomp")], "yp_recomp", fg_it$gperc)
+yp_recomp_it_2025 <- it_simul(2025, "yp_recomp")
 pi_it_2100_base <- yp_recomp_it_2025 * growth_pi_by_country["IT"]
 
 # GDP_SC = avg(SC), GDP_SI0 = avg(SI0 = ½PI): gp_width-weighted means ("GDP" of each scenario).
