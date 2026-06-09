@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confronto tra scenari</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="../js/scenarios.js"></script>
+  <link rel="stylesheet" href="../css/compare.css">
+</head>
+<body>
+<header>
+  <h1>Quale società preferisci?</h1>
+  <p>Scegli lo scenario che preferisci tra i due proposti.</p>
+</header>
+
+<div class="page">
+  <div id="statusMsg">Caricamento dei dati…</div>
+  <!-- variant_any2: same as conjoint_any but uses the 2%-growth B-scenario dataset -->
+  <div class="split" id="comparison"></div>
+</div>
+
+<script src="conjoint_any2.js"></script>
+</body>
+</html>

@@ -97,6 +97,7 @@ for (v in c("a_pre","a_pre_cap","tax_dir_pit","tax_dir_wea","tax_cit","tax_soc",
 G5s  <- read_chancel_ts("G5s");  G0p  <- read_chancel_ts("G0p")
 a0   <- read_chancel_ts("A0");   a0p  <- read_chancel_ts("A0p");  a0pi <- read_chancel_ts("A0pi")
 e0h  <- read_chancel_ts("E0h");  e0k  <- read_chancel_ts("E0k");  f0a  <- read_chancel_ts("F0a")
+e0a  <- read_chancel_ts("E0a")   # per-worker economic labour hours, SC scenario
 z0a  <- read_chancel_ts("Z0a");  z0b  <- read_chancel_ts("Z0b");  a0pi_ts <- read_chancel_ts("A0pi")
 growth_pi <- setNames(as.numeric(a0pi_ts["2100",]) / as.numeric(a0pi_ts["2025",]), colnames(a0pi_ts))
 
@@ -181,10 +182,16 @@ fg_country_data <- function(ctry) {
 }
 
 ##### 4. Scenario constants used in ineq_2035_full construction #####
-FOOD2_COLS <- c("SC","SC45k","SC15k","SI","SN","SG","MC","MC45k","MC30k","MC15k","WC","MC_SD")
-scen_name <- function(cls, sc) if (cls %in% c("S45k","S15k"))
-  paste0("S", sc, sub("^S", "", cls)) else paste0(substr(cls, 1, 1), sc)
-hours_classes <- list(P = 45, M = 40, S = 35, S45k = 30, S15k = 25)
+# FOOD2_COLS <- c("SC","SC45k","SC15k","SI","SN","SG","MC","MC45k","MC30k","MC15k","WC","MC_SD")
+FOOD2_COLS <- c("SC","SC45k","SC15k","SI","SN","SG","B90kC","B45kC","B30kC","B15kC","B120kC","B90kC_SD",
+                "B","BG","BN","BI")
+scen_name <- function(cls, sc) {
+  if (cls %in% c("S45k","S15k")) paste0("S", sc, sub("^S", "", cls))
+  else if (cls == "B90k") paste0("B90k", sc)
+  else paste0(substr(cls, 1, 1), sc)
+}
+# hours_classes <- list(P = 45, M = 40, S = 35, S45k = 30, S15k = 25)
+hours_classes <- list(P = 45, B90k = 40, S = 35, S45k = 30, S15k = 29)
 scopes <- list(C = c(g = "GIT", n = "SN"), G = c(g = "GIT", n = "current"),
                N = c(g = "current", n = "SN"), I = c(g = "current", n = "current"))
 
@@ -220,22 +227,29 @@ for (ctry in all_countries) {
   dps_c <- as.numeric(G5s["2035", ctry]) - as.numeric(G5s["2025", ctry])
   extra_tax_c <- dps_c * as.numeric(G0p["2035", ctry]) / avg_c35
 
-  # MC / WC scale (country-specific hours from E0h)
-  hours_c_25  <- as.numeric(e0h["2025", ctry])
-  hours_c_35  <- as.numeric(e0h["2035", ctry])
+  # B90k / B120k scale (country-specific per-worker hours from E0a)
+  # hours_c_25  <- as.numeric(e0h["2025", ctry])
+  # hours_c_35  <- as.numeric(e0h["2035", ctry])
+  hours_pw_c_25 <- as.numeric(e0a["2025", ctry])
+  hours_pw_c_35 <- as.numeric(e0a["2035", ctry])
   prod_c_25   <- as.numeric(f0a["2025", ctry])
   prod_c_35   <- as.numeric(f0a["2035", ctry])
   avg_pg_c    <- (125 / prod_c_25)^(1 / 75)
-  mc_scale_c  <- avg_pg_c^10 / ((hours_c_35 / hours_c_25) * (prod_c_35 / prod_c_25))
-  wc_scale_c  <- (45 / 40) * mc_scale_c
+  # mc_scale_c  <- avg_pg_c^10 / ((hours_c_35 / hours_c_25) * (prod_c_35 / prod_c_25))
+  b90k_scale_c <- avg_pg_c^10 / ((hours_pw_c_35 / hours_pw_c_25) * (prod_c_35 / prod_c_25))
+  # m60k_scale_c <- avg_pg_c^10 / (prod_c_35 / prod_c_25)
+  b_scale_c <- avg_pg_c^10 / (prod_c_35 / prod_c_25)
+  # wc_scale_c  <- (45 / 40) * mc_scale_c
+  b120k_scale_c <- (45 / 40) * b90k_scale_c
 
   # SC45k/SC15k GDP-based scales
   sc45k_sc <- as.numeric(a0["2025", ctry]) / as.numeric(a0["2035", ctry])
   sc30k_sc <- 0.95 * sc45k_sc; sc15k_sc <- 0.9 * sc45k_sc
 
-  # SI scale (PI per-capita GDP at 2035, adjusted for hours)
+  # SI scale (PI per-capita GDP at 2035, adjusted for per-worker hours)
   gdppc_sc25   <- as.numeric(a0p["2025", ctry])
   gdppc_pi35   <- as.numeric(a0pi["2035", ctry])
+  hours_c_35   <- as.numeric(e0h["2035", ctry])  # per-capita hours used for SI scale
   hours_pi35_c <- as.numeric(e0k["2035", ctry])
   si_scale_c   <- gdppc_pi35 * (hours_c_35 / hours_pi35_c) / gdppc_sc25
   si0_c        <- cash25 * si_scale_c
@@ -250,7 +264,8 @@ for (ctry in all_countries) {
     cash_GR35   = cash_gr35_c,
     income35    = c35,
     SCmat       = c35 * fd,
-    MCmat       = c35 * mc_scale_c * fd,
+    B90kMat     = c35 * b90k_scale_c * fd,
+    Bmat        = c35 * b_scale_c * fd,
     PC          = c35 * 1.15 * fd,
     PI          = cash25 * 1.4 * fd,
     SC45k       = c35 * sc45k_sc * fd * ps,
@@ -259,9 +274,11 @@ for (ctry in all_countries) {
     SC          = c35 * fd * ps,
     SN          = (c35 - cash_gr35_c) * (avg_si0_c / avg_c35) * fd * ps,
     SG          = (si0_c + cash_gr35_c) * (avg_c35 / avg_si0_c) * fd * ps,
-    MC          = c35 * mc_scale_c * fd * ps,
-    WC          = c35 * wc_scale_c * fd * ps,
-    MC_SD       = c35 * mc_scale_c * DECARB_FACTOR["SD"] * ps)
+    B90kC       = c35 * b90k_scale_c * fd * ps,
+    B120kC      = c35 * b120k_scale_c * fd * ps,
+    B           = c35 * b_scale_c * fd * ps,
+    B45kC       = c35 * b90k_scale_c * (30 / 40) * fd * ps,
+    B90kC_SD    = c35 * b90k_scale_c * DECARB_FACTOR["SD"] * ps)
 
   for (col in setdiff(names(base), c("gpercentile","cash_GR35")))
     base[[col]] <- enforce_monotone_below_99(base[[col]], gp_C)
@@ -285,7 +302,8 @@ for (ctry in all_countries) {
       colN <- if (hasGIT && hasNat) "SC" else if (hasGIT && !hasNat) "SG" else
               if (!hasGIT && hasNat) "SN" else "SI"
     } else {
-      cC <- c("25" = "SC15k", "30" = "SC45k", "40" = "MC")[[as.character(h)]]
+      # cC <- c("25" = "SC15k", "30" = "SC45k", "40" = "MC")[[as.character(h)]]
+      cC <- c("29" = "SC15k", "30" = "B45kC", "40" = "B90kC")[[as.character(h)]]
       coefC <- avg_r[cC] / avg_r["SC"]
       if      (hasGIT && hasNat)   { colN <- cC }
       else if (hasGIT && !hasNat)  { colN <- "SG"; rscale <- coefC }
@@ -299,34 +317,45 @@ for (ctry in all_countries) {
   }
 
   # Build full variant set (§14 of questionnaire.R)
-  full <- base[, c("gpercentile","income25","cash_GR35","income35","SCmat","MCmat")]
+  full <- base[, c("gpercentile","income25","cash_GR35","income35","SCmat","B90kMat")]
   for (cls in names(hours_classes)) for (sc in names(scopes)) {
     ps_arg <- if (cls == "P") "stable" else "increased"
     full[[scen_name(cls, sc)]] <- round(dist_c_2035(
       hours_classes[[cls]], scopes[[sc]]["g"], scopes[[sc]]["n"], "FD", ps_arg))
   }
-  full[["MCbeef"]]    <- full[["MC"]]
-  full[["MCflights"]] <- full[["MC"]]
-  full[["WC"]]  <- round(base[["WC"]])
+  # B120k class: B120kC from base; B120kG/B120kN/B120kI = B90k{scope} × (45/40)
+  full[["B120kC"]] <- round(base[["B120kC"]])
   for (sl in c("G","N","I"))
-    full[[paste0("W", sl)]] <- round(full[[paste0("M", sl)]] * (45 / 40))
-  for (suffix in c("45k","30k","15k")) {
-    sc_s <- c("45k" = sc45k_sc, "30k" = sc30k_sc, "15k" = sc15k_sc)[[suffix]]
-    for (sl in c("C","G","N","I"))
-      full[[paste0("M", sl, suffix)]] <- round(full[[paste0("M", sl)]] * sc_s)
+    full[[paste0("B120k", sl)]] <- round(full[[paste0("B90k", sl)]] * (45 / 40))
+  # B90k hours sub-variants: B{sl}{xxk} = B90k{sl} × (hours / 40)
+  for (sl in c("C","G","N","I")) {
+    full[[paste0("B45k", sl)]] <- round(full[[paste0("B90k", sl)]] * (30 / 40))
+    full[[paste0("B30k", sl)]] <- round(full[[paste0("B90k", sl)]] * (29 / 40))
+    full[[paste0("B15k", sl)]] <- round(full[[paste0("B90k", sl)]] * (28 / 40))
   }
-  full[["MC_SD"]] <- round(base[["MC_SD"]])
+  # B class: C scope from base; B{G/N/I} = S{scope} × b_scale_c
+  full[["B"]] <- round(base[["B"]])
+  for (sl in c("G","N","I"))
+    full[[paste0("B", sl)]] <- round(full[[paste0("S", sl)]] * b_scale_c)
+  # Bbeef/Bflights: food=2 income at 2035 = B (not B90kC) — must come after B is set
+  full[["Bbeef"]]    <- full[["B"]]
+  full[["Bflights"]] <- full[["B"]]
+  # B90kC_SD standalone
+  full[["B90kC_SD"]] <- round(base[["B90kC_SD"]])
+  # Bmat from base
+  full[["Bmat"]] <- round(base[["Bmat"]])
+  # B90kC_SD and B90kMat
   full[["income25"]] <- round(full[["income25"]])
   full[["cash_GR35"]] <- round(full[["cash_GR35"]])
   full[["income35"]] <- round(full[["income35"]])
   full[["SCmat"]]  <- round(full[["SCmat"]])
-  full[["MCmat"]]  <- round(full[["MCmat"]])
+  full[["B90kMat"]]  <- round(full[["B90kMat"]])
 
   rows2035[[ctry]] <- cbind(country = ctry, full)
   constants_list[[ctry]] <- data.frame(country = ctry,
     extra_tax_rate = round(extra_tax_c, 6), ratio = round(ratio_c, 6))
-  message(sprintf("  %s: extra_tax=%.4f  mc_scale=%.4f  hours_2025=%.1f",
-                  ctry, extra_tax_c, mc_scale_c, hours_c_25))
+  message(sprintf("  %s: extra_tax=%.4f  b90k_scale=%.4f  hours_pw_2025=%.1f",
+                  ctry, extra_tax_c, b90k_scale_c, hours_pw_c_25))
 }
 
 ineq_2035_full <- do.call(rbind, rows2035)

@@ -133,19 +133,23 @@ function findPercentileIn2025(annualEUR) {
 // Columns pre-computed with food2 / PS-increased as canonical assumption
 const FOOD2_COLS_W = new Set([
   "SC","SG","SN","SC45k","SG45k","SN45k","SC15k","SG15k","SN15k",
-  "MC","MG","MN","MC45k","MG45k","MN45k","MC30k","MG30k","MN30k","MC15k","MG15k","MN15k",
-  "MCbeef","MCflights","MC_SD","WC","WG","WN","WI"
+  "B90kC","B90kG","B90kN","B90kI",
+  "B45kC","B45kG","B45kN","B45kI","B30kC","B30kG","B30kN","B30kI","B15kC","B15kG","B15kN","B15kI",
+  "Bbeef","Bflights","B90kC_SD","B120kC","B120kG","B120kN","B120kI",
+  "B","BG","BN","BI"
 ]);
 
 function getColName(h, gR, nR) {
   const hasGIT = gR === "GIT", hasNat = nR === "SN";
   const scope = hasGIT ? (hasNat ? "C" : "G") : (hasNat ? "N" : "I");
-  if (h === 45) return "W" + scope;
-  if (h === 35) return "S" + scope;
-  if (h === 40) return "M" + scope;
-  if (h === 30) return "S" + scope + "45k";
-  if (h === 25) return "S" + scope + "15k";
-  return "S" + scope;
+  // 35h baseline is B (B/BG/BN/BI = S{scope}·b_scale), NOT SC — see scenarios.js.
+  // All non-45h map to the B-class so the hours→income ladder is monotonic.
+  if (h === 45) return "B120k" + scope;
+  if (h === 35) return scope === "C" ? "B" : "B" + scope;
+  if (h === 40) return "B90k" + scope;
+  if (h === 30) return "B45k" + scope;
+  if (h === 29) return "B30k" + scope;
+  return scope === "C" ? "B" : "B" + scope;
 }
 
 function get2035Distribution(h, gR, nR, decarb, ps) {
@@ -174,17 +178,11 @@ function get2100Scope(gR, nR) {
   return "SI";
 }
 
+// Fixed 2100 hours→income coefs vs the scope base (SC/SG/SN/SI), matching the GDP
+// targets used in questionnaire.R §13: 29h→30k=0.5, 30h→45k=0.75, 35h→60k=1.0,
+// 40h→90k=1.5, 45h→120k=2.0. Scope-independent (the scope is the base column).
 function get2100HoursCoef(h, gR, nR) {
-  if (h === 35) return 1;
-  if (!_rows2035 || !_rows2035.length) return 1;
-  const col35 = getColName(35, gR, nR);
-  const colH  = getColName(h, gR, nR);
-  const avg = col => {
-    const vals = _rows2035.map(r => r[col] || 0).filter(v => v > 0);
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-  };
-  const a35 = avg(col35), aH = avg(colH);
-  return a35 > 0 ? aH / a35 : 1;
+  return { 29: 0.5, 30: 0.75, 35: 1.0, 40: 1.5, 45: 2.0 }[h] || 1;
 }
 
 function get2100Income(respondentGp, scope, hoursCoef) {
@@ -287,7 +285,7 @@ function computeTemperature(h, gR, ps, decarb, baf) {
 }
 
 function getWorkingHours2035(h) {
-  return { 25: 28, 30: 31, 35: 35, 40: 40, 45: 41 }[h] || h;
+  return { 29: 29, 30: 30, 35: 35, 40: 40, 45: 41 }[h] || h;
 }
 
 function getPublicServicesFeature(ps) {
@@ -362,7 +360,7 @@ function computeConjointFeatures({
   const scen2035Label = {
     "GIT-SN":"SC", "GIT-current":"SG", "current-SN":"SN", "current-current":"SI"
   }[globalRedistribution + "-" + nationalRedistribution] || "SC";
-  const hoursLbl = { 25:"SC15k",30:"SC45k",35:scen2035Label,40:"MC",45:scen2035Label.replace("S","P") };
+  const hoursLbl = { 29:"B30kC",30:"B45kC",35:scen2035Label,40:"B90kC",45:scen2035Label.replace("S","P") };
   const scenName = hoursLbl[hoursPerWeek] || scen2035Label;
 
   return {

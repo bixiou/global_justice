@@ -1,16 +1,30 @@
 /**
- * conjoint_any.js — split-screen scenario comparison with FREE PARAMETERS.
+ * conjoint_any2.js — IT survey "variant_any2": IDENTICAL to variant_any (conjoint_any.js) EXCEPT
+ * it loads ineq2_IT_2035_full.csv (B scenarios at 2% yearly growth 2025-2035) instead of
+ * ineq_IT_2035_full.csv (1% growth). Self-contained so it can be the only script on its page.
  *
- * Each side (left/right) carries the full underlying-parameter form (as in scenarios.js).
- * The bottom updates dynamically with the seven displayed features. The 2035 distribution
- * is NOT shown; instead each side has two 2100 inequality charts (Italy, World) that
- * reproduce the layout of inequality_figures.R (monthly income, coloured brackets + caption).
+ * Split-screen conjoint comparison of two RANDOMLY drawn scenarios (free parameters). No user
+ * controls: the respondent only chooses between the left and right scenario. Italian UI.
  *
- * Companion file conjoint_few.js is identical except the top input (scenario dropdown).
+ * Parameter draws (uniform, independent across attributes; redraw if both sides are identical):
+ *   – hours worked in 2035 ∈ {32, 36, 40, 44}  (→ 2100-target class 30/35/40/45)
+ *   – decarbonization      ∈ {SD, ID, FD}
+ *   – beef & flights       ∈ {both, beef, flights, none}
+ *   – public services      ∈ {increased, stable}
+ *   – redistribution       ∈ {none, national, global, both}
+ *
+ * Income/couple use DEFAULT values (placeholder) — TODO: feed these automatically from the
+ * respondent's earlier answers (e.g. via URL query params or a global injected by the survey tool).
+ *
+ * Companion files: conjoint_few.js (named-scenario pairs) and conjoint_any2.js (2%-growth dataset).
  */
 "use strict";
 
-const SIDES = [{ id: "L", cls: "left", name: "Left" }, { id: "R", cls: "right", name: "Right" }];
+// ─── Respondent income placeholder (TODO: feed automatically from survey answers) ───────────────
+const DEFAULT_INCOME_MONTHLY = 2500;   // household monthly cash income (EUR)
+const DEFAULT_IS_COUPLE      = false;
+
+const SIDES = [{ id: "L", cls: "left", name: "Sinistra" }, { id: "R", cls: "right", name: "Destra" }];
 
 // Redistribution selector → underlying national/global parameters
 const REDIST_MAP = {
@@ -20,18 +34,43 @@ const REDIST_MAP = {
   none:     { nationalRedistribution: "current", globalRedistribution: "current" }
 };
 
+// ─── Random draw of the free parameters ─────────────────────────────────────────────────────────
+const HOURS_CHOICES  = [32, 36, 40, 44];                       // hours worked in 2035
+const HOURS_CLASS    = { 32: 30, 36: 35, 40: 40, 44: 45 };     // → 2100-target class param
+const DECARB_CHOICES = ["SD", "ID", "FD"];
+const BF_CHOICES     = ["both", "beef", "flights", "none"];
+const PS_CHOICES     = ["increased", "stable"];
+const REDIST_CHOICES = ["none", "national", "global", "both"];
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+function drawParams() {
+  const worked = pick(HOURS_CHOICES);
+  const redist = pick(REDIST_CHOICES);
+  return {
+    workedHours:     worked,
+    hoursPerWeek:    HOURS_CLASS[worked],   // class param fed to the engine
+    decarbonization: pick(DECARB_CHOICES),
+    redist,
+    ...REDIST_MAP[redist],
+    publicServices:  pick(PS_CHOICES),
+    beefAndFlights:  pick(BF_CHOICES)
+  };
+}
+// Signature over the 5 visible attributes (used to guarantee the two sides differ).
+const sig = p => [p.workedHours, p.decarbonization, p.beefAndFlights, p.publicServices, p.redist].join("|");
+
+const PARAMS = {};   // side id → drawn parameter object
+
 // ─── inequality-figure styling (mirrors inequality_figures.R) ────────────────────
 const GRP_COL = { bottom: "#2166AC", median: "#4DAC26", top: "#D6604D", other: "#D9D9D9" };
 const GRP_OF = { p0p5: "bottom", p5p10: "bottom", p45p50: "median", p50p55: "median",
                  p90p95: "top", p95p99: "top", p99p100: "top" };
 function groupOf(b) { return GRP_OF[b] || "other"; }
-// Inline Italian flag drawn as SVG (the 🇮🇹 regional-indicator emoji renders as "IT" on Windows).
-const FLAG_IT = '<svg viewBox="0 0 3 2" width="18" height="12" style="vertical-align:-2px;margin-right:5px;border:0.5px solid #bbb"><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ce2b37"/></svg>';
 const LABELS = {
-  IT:    { title: FLAG_IT + "Monthly incomes of Italians in 2100",
-           bottom: "10% poorest Italians", median: "Typical income", top: "10% richest Italians" },
-  World: { title: "🌍 Monthly incomes worldwide in 2100",
-           bottom: "10% poorest humans", median: "Typical income", top: "10% richest humans" }
+  IT:    { bottom: "10% più povero in Italia", median: "Reddito tipico", top: "10% più ricco in Italia",
+           title: "Disuguaglianza in Italia (2100)" },
+  World: { bottom: "10% più povero della popolazione", median: "Reddito tipico", top: "10% più ricco della popolazione",
+           title: "Disuguaglianza nel mondo (2100)" }
 };
 // Unit-rounded, space as thousands separator (e.g. 23847 → "€23 847").
 const fmtEur = n => "€" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -80,12 +119,9 @@ function renderInequality(canvasId, brackets, annualValues) {
     const v = Math.round(annualValues[i] / 12), col = GRP_COL[groupOf(b)];
     for (let s = 0; s < w; s++) { slotV.push(v); slotC.push(col); slotB.push(b); }
   });
-  // Top bracket (p99p100) monthly value, and whether the chart is clipped (→ a hatch is drawn).
   const i99 = brackets.indexOf("p99p100");
   const topMonthly = i99 >= 0 ? Math.round(annualValues[i99] / 12) : 0;
   const hasHatch = topMonthly > YLIM_MONTHLY;
-  // Clipped bars (value > ylim) keep a solid body up to HATCH_FROM and a thin hatched cap in the
-  // top band (HATCH_FROM..ylim); other bars stay fully solid. Built as two stacked datasets.
   const solidV = slotV.map(v => v > YLIM_MONTHLY ? HATCH_FROM_MONTHLY : v);
   const capV   = slotV.map(v => v > YLIM_MONTHLY ? YLIM_MONTHLY - HATCH_FROM_MONTHLY : 0);
   if (charts[canvasId]) charts[canvasId].destroy();
@@ -101,12 +137,12 @@ function renderInequality(canvasId, brackets, annualValues) {
       plugins: { legend: { display: false },
         tooltip: { filter: item => item.datasetIndex === 0,
                    callbacks: { title: items => slotB[items[0].dataIndex],
-                                label: c => " " + fmtEur(slotV[c.dataIndex]) + "/month" } } },
+                                label: c => " " + fmtEur(slotV[c.dataIndex]) + "/mese" } } },
       scales: {
         x: { stacked: true, display: false, grid: { display: false } },
         y: { stacked: true, min: 0, max: YLIM_MONTHLY,
              ticks: { callback: v => (v >= YLIM_MONTHLY && hasHatch)
-                        ? "€" + Math.round(topMonthly / 10000) * 10 + "k"   // true top of the clipped bar
+                        ? "€" + Math.round(topMonthly / 10000) * 10 + "k"
                         : "€" + (v >= 1000 ? Math.round(v/1000) + "k" : Math.round(v)),
              font: { size: 8 } } }
       }
@@ -125,27 +161,33 @@ function renderCaption(capId, brackets, annualValues, region) {
   document.getElementById(capId).innerHTML = rows.map(([g, lab]) =>
     `<div class="cap-row"><div class="cap-sw" style="background:${GRP_COL[g]}"></div>
        <div class="cap-txt"><b style="color:${GRP_COL[g]}">${lab}</b>
-         <span><span style="color:${GRP_COL[g]};font-weight:700">${fmtEur(meanOf(g))}</span>/month</span></div></div>`
+         <span><span style="color:${GRP_COL[g]};font-weight:700">${fmtEur(meanOf(g))}</span>/mese</span></div></div>`
   ).join("");
 }
 
 // Public-services / beef & flights phrase boxes.
-const BF_TXT = { none: "Same behavior", beef: "Less beef", flights: "Less flights", both: "Less beef<br>Less flights" };
+const BF_TXT = {
+  none:    "Nessuna variazione",
+  beef:    "Meno carne bovina (2 porzioni al mese)<br>Prezzo dei voli triplica",
+  flights: "Meno voli (2500 km all'anno)<br>Prezzo dei voli triplica",
+  both:    "Meno carne bovina (2 porzioni al mese)<br>Meno voli (2500 km all'anno)<br>Prezzo dei voli triplica"
+};
 function setFeatureChips(side, params) {
   document.getElementById("ps-" + side).textContent =
-    params.publicServices === "increased" ? "More public services" : "Stable public services";
+    params.publicServices === "increased" ? "Più servizi pubblici, meno consumi materiali" : "Nessuna variazione";
   document.getElementById("bf-" + side).innerHTML = BF_TXT[params.beefAndFlights];
 }
 
 function resultPanelHTML(side) {
   return `
+    <div class="side-title" id="title-${side}"></div>
     <div class="feat-row">
-      <div class="chip temp"><span class="chip-label">Temperature 2100</span>
+      <div class="chip temp"><span class="chip-label">Temperatura nel 2100</span>
         <span class="chip-val" id="temp-${side}">—</span></div>
-      <div class="chip income"><span class="chip-label">Your income in 2035</span>
-        <span class="chip-val" id="inc-${side}">—</span><span class="chip-unit">€/month</span></div>
-      <div class="chip"><span class="chip-label">Working hours 2035</span>
-        <span class="chip-val" id="hrs-${side}">—</span><span class="chip-unit">h/week</span></div>
+      <div class="chip income"><span class="chip-label">Il tuo reddito nel 2035</span>
+        <span class="chip-val" id="inc-${side}">—</span><span class="chip-unit">€/mese</span></div>
+      <div class="chip"><span class="chip-label">Ore di lavoro nel 2035</span>
+        <span class="chip-val" id="hrs-${side}">—</span><span class="chip-unit">ore/sett.</span></div>
       <div class="chip phrase"><span class="chip-val" id="ps-${side}">—</span></div>
       <div class="chip phrase"><span class="chip-val" id="bf-${side}">—</span></div>
     </div>
@@ -157,14 +199,28 @@ function resultPanelHTML(side) {
       <div class="ineq-cap" id="capW-${side}"></div></div></div>`;
 }
 
+function engineParams(side) {
+  const p = PARAMS[side];
+  return {
+    householdIncomeMonthly: DEFAULT_INCOME_MONTHLY,   // TODO: feed automatically
+    isCouple:               DEFAULT_IS_COUPLE,        // TODO: feed automatically
+    decarbonization:        p.decarbonization,
+    hoursPerWeek:           p.hoursPerWeek,
+    nationalRedistribution: p.nationalRedistribution,
+    globalRedistribution:   p.globalRedistribution,
+    publicServices:         p.publicServices,
+    beefAndFlights:         p.beefAndFlights
+  };
+}
+
 function updateSide(side) {
-  const params = getParams(side);
+  const params = engineParams(side);
   let f;
   try { f = ScenariosModule.computeConjointFeatures(params); }
-  catch (e) { document.getElementById("statusMsg").textContent = "Error: " + e.message; return; }
+  catch (e) { document.getElementById("statusMsg").textContent = "Errore: " + e.message; return; }
 
   document.getElementById("temp-" + side).textContent = "+" + f.temperature.value.toFixed(1) + "°C";
-  document.getElementById("inc-"  + side).textContent = "€" + f.ownIncome.value.toLocaleString("en-US");
+  document.getElementById("inc-"  + side).textContent = "€" + f.ownIncome.value.toLocaleString("it-IT");
   document.getElementById("hrs-"  + side).textContent = f.workingHours.value;
   setFeatureChips(side, params);
 
@@ -175,67 +231,29 @@ function updateSide(side) {
   renderCaption("capW-" + side, gi.brackets, gi.worldValues, "World");
 }
 
-// ─── per-page input handling (the ONLY part that differs from conjoint_few.js) ────
-
-function inputPanelHTML(side) {
-  return `
-    <div class="card">
-      <div class="side-title">${SIDES.find(s => s.id === side).name} scenario</div>
-      <div class="field"><label>Decarbonization pace</label>
-        <select id="decarb-${side}"><option value="SD">Slow (SD)</option>
-          <option value="ID">Intermediate (ID)</option><option value="FD" selected>Fast (FD)</option></select></div>
-      <div class="field"><label>Working hours</label>
-        <select id="hours-${side}"><option value="29">29 h/week</option><option value="30">30 h/week</option>
-          <option value="35" selected>35 h/week</option><option value="40">40 h/week</option>
-          <option value="45">45 h/week</option></select></div>
-      <div class="field"><label>Redistribution</label>
-        <select id="redist-${side}"><option value="both" selected>Both</option><option value="global">Global</option>
-          <option value="national">National</option><option value="none">None</option></select></div>
-      <div class="field"><label>Public services</label>
-        <select id="ps-sel-${side}"><option value="stable">Stable</option>
-          <option value="increased" selected>Increased</option></select></div>
-      <div class="field"><label>Beef &amp; flights</label>
-        <select id="bf-sel-${side}"><option value="none">No change</option><option value="beef">−60% beef</option>
-          <option value="flights">−50% flights</option><option value="both" selected>Both</option></select></div>
-    </div>`;
-}
-
-function getParams(side) {
-  const redist = document.getElementById("redist-" + side).value;
-  return {
-    householdIncomeMonthly: parseFloat(document.getElementById("sharedIncome").value) || 2500,
-    isCouple:        document.getElementById("sharedCouple").checked,
-    decarbonization: document.getElementById("decarb-" + side).value,
-    hoursPerWeek:    parseInt(document.getElementById("hours-" + side).value),
-    ...REDIST_MAP[redist],
-    publicServices:  document.getElementById("ps-sel-" + side).value,
-    beefAndFlights:  document.getElementById("bf-sel-" + side).value
-  };
-}
-
 // ─── init ──────────────────────────────────────────────────────────────────────
-(async function init() {
-  const controls = document.getElementById("controls");
+async function initVariantAny(it2035File) {
   const comparison = document.getElementById("comparison");
+  // Draw two distinct scenarios.
+  PARAMS.L = drawParams();
+  PARAMS.R = drawParams();
+  while (sig(PARAMS.L) === sig(PARAMS.R)) PARAMS.R = drawParams();
+
   SIDES.forEach(s => {
-    const ci = document.createElement("div"); ci.className = "side " + s.cls; ci.innerHTML = inputPanelHTML(s.id); controls.appendChild(ci);
-    const cr = document.createElement("div"); cr.className = "side " + s.cls; cr.innerHTML = resultPanelHTML(s.id); comparison.appendChild(cr);
+    const cr = document.createElement("div"); cr.className = "side " + s.cls; cr.innerHTML = resultPanelHTML(s.id);
+    comparison.appendChild(cr);
+    document.getElementById("title-" + s.id).textContent = s.name;
   });
+
   try {
-    await ScenariosModule.ensureDataLoaded("data/");
-    document.getElementById("statusMsg").textContent = "Adjust the parameters on either side to compare.";
+    await ScenariosModule.ensureDataLoaded("../data/", it2035File);
+    document.getElementById("statusMsg").textContent = "Quale dei due scenari preferisci?";
     SIDES.forEach(s => updateSide(s.id));
   } catch (err) {
     document.getElementById("statusMsg").textContent =
-      "Failed to load data: " + err.message + " — serve this page via a web server.";
-    return;
+      "Caricamento dei dati non riuscito: " + err.message + " — apri questa pagina tramite un web server.";
   }
-  controls.querySelectorAll("select, input").forEach(el =>
-    el.addEventListener("change", () => {
-      const side = el.id.split("-").pop();
-      updateSide(side);
-    }));
-  // Shared income/couple (entered once at the top) affect both sides.
-  ["sharedIncome", "sharedCouple"].forEach(id =>
-    document.getElementById(id).addEventListener("change", () => SIDES.forEach(s => updateSide(s.id))));
-})();
+}
+
+// variant_any2: use the 2%-growth B-scenario dataset.
+initVariantAny("ineq2_IT_2035_full.csv");

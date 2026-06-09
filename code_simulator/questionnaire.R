@@ -19,7 +19,8 @@ FG       <- "../data/FisherGethin/fisher-gethin-2023-slim.dta"
 WID      <- "../data/WID/wid-mprico-nni.csv"
 TEMP_OBS <- "../data/chancel_temp2100_completed.csv"
 
-DECARB_FACTOR <- c(SD = 1.00, ID = 0.98, FD = 0.96)  # income cost of decarbonization at 2035
+DECARB_FACTOR <- c(SD = 1.00, ID = 0.99, FD = 0.97)  # income cost of decarbonization at 2035
+B_GROWTH_RATE <- 0.01    # yearly productivity growth of B scenarios 2025-2035 (replaces avg 2025-2100 rate)
 RETENTION_RATE <- 0.50   # fraction of capital income retained (not paid out)
 RENTAL_YIELD <- 0.035    # imputed rent rate on net housing wealth (PSZ/GGLP/BCG average)
 
@@ -218,7 +219,7 @@ it_extra_tax_rate <- extra_ps_eur_per_adult_it / avg_it35
 message(sprintf("IT extra PS tax rate 2035: %.4f  (%.0f EUR / avg IT35 = %.0f EUR)",
                 it_extra_tax_rate, extra_ps_eur_per_adult_it, avg_it35))
 
-##### 8. Chancel GDP for Italy + MC-scenario productivity parameters (F0a, E0h) #####
+##### 8. Chancel GDP for Italy + B90k-scenario productivity parameters (F0a, E0h, E0a) #####
 a0 <- read_chancel_ts("A0")
 gdp_it_2025    <- as.numeric(a0["2025","IT"])   # EUR PPP 2025 per adult
 gdp_it_sc_2035 <- as.numeric(a0["2035","IT"])
@@ -229,28 +230,42 @@ a0p <- read_chancel_ts("A0p")
 gdp_pc_it_2025    <- as.numeric(a0p["2025","IT"])   # GDP_IT25 (SC per capita, 2025)
 gdp_pc_it_pi_2035 <- as.numeric(a0pi["2035","IT"])  # GDP_PI0  (PI per capita, 2035)
 
-# MC (moderate convergence, 40h constant): same long-run productivity path as SC (converging
-# to 125 EUR/h by 2100), but with per-capita hours fixed at their 2025 level.
+# B90k (formerly MC, moderate convergence, 40h constant): same long-run productivity path as SC
+# (converging to 125 EUR/h by 2100), but with per-worker hours fixed at their 2025 level.
 f0a <- read_chancel_ts("F0a")   # hourly labour productivity (EUR/hour) by country and year
 e0h <- read_chancel_ts("E0h")   # per-capita economic labour hours, SC scenario
 e0k <- read_chancel_ts("E0k")   # per-capita economic labour hours, PC/PI scenarios
+e0a <- read_chancel_ts("E0a")   # per-worker economic labour hours, SC scenario
 prod_it_2025        <- as.numeric(f0a["2025","IT"])
 prod_it_2035        <- as.numeric(f0a["2035","IT"])
 hours_pc_it_2025    <- as.numeric(e0h["2025","IT"])
 hours_pc_it_2035    <- as.numeric(e0h["2035","IT"])
 hours_pc_it_pi_2035 <- as.numeric(e0k["2035","IT"])  # PI per-capita hours, 2035
-avg_prod_growth_it <- (125 / prod_it_2025)^(1 / 75)           # constant annual growth to 125 EUR/h
+hours_pw_it_2025    <- as.numeric(e0a["2025","IT"])
+hours_pw_it_2035    <- as.numeric(e0a["2035","IT"])
+avg_prod_growth_it <- (125 / prod_it_2025)^(1 / 75)           # constant annual growth to 125 EUR/h (former practice, unused)
 prod_growth_2035_it  <- prod_it_2035 / prod_it_2025            # actual SC productivity growth 2025-2035
-change_hours_pc_it   <- hours_pc_it_2035 / hours_pc_it_2025   # < 1 (hours fall in SC by 2035)
-# MC income scale relative to IT35: corrects for SC's front-loaded productivity and hours change
-mc_income_scale_it <- avg_prod_growth_it^10 / (change_hours_pc_it * prod_growth_2035_it)
-# WC income scale: MC × (45/40) — same constant-growth path as MC but at 45h productivity level
-w_income_scale_it <- (45 / 40) * mc_income_scale_it
+# change_hours_pc_it   <- hours_pc_it_2035 / hours_pc_it_2025   # < 1 (hours fall in SC by 2035)
+change_hours_pw_it   <- hours_pw_it_2035 / hours_pw_it_2025   # per-worker hours change 2025-2035 (E0a)
+# B scenarios grow at a flat 1% yearly 2025-2035 (B_GROWTH_RATE), replacing the former practice of
+# using the average 2025-2100 productivity growth rate avg_prod_growth_it^10 (which front-loads SC growth).
+b_growth_10y <- function(rate) (1 + rate)^10               # 10-year cumulative B-scenario growth at `rate`
+# B90k is THE baseline (40h, constant per-worker hours): all other B-class 2035 incomes are B90k × (hours/40),
+# where 2035 worked hours are 28/32/36/40/44 for classes 29/30/35/40/45.
+# B90k income scale relative to IT35: corrects for SC's front-loaded productivity and per-worker hours change.
+# Former practice: b90k_scale_it <- avg_prod_growth_it^10 / (change_hours_pw_it * prod_growth_2035_it)
+b90k_scale_it <- b_growth_10y(B_GROWTH_RATE) / (change_hours_pw_it * prod_growth_2035_it)
+# B (35h class) income scale: B90k × (36/40) — 36 worked hours in 2035 vs B90k's 40
+# Former practice: b_scale_it <- avg_prod_growth_it^10 / prod_growth_2035_it
+b_scale_it <- (36 / 40) * b90k_scale_it
+# B120k (45h class) income scale: B90k × (44/40) — 44 worked hours in 2035
+# Former practice: b120k_scale_it <- (45 / 40) * b90k_scale_it
+b120k_scale_it <- (44 / 40) * b90k_scale_it
 
 ##### 9. ineq_IT_2035: 127 gpercentiles × 14 cols #####
 # Scenario key: {type}_{food}_{decarb} e.g. SC2_FD.
 # food=1: public services stable (no extra PS tax); food=2: increased PS (extra tax applied).
-# decarb: SD=×1.00, ID=×0.98, FD=×0.96 (income cost of decarbonization).
+# decarb: SD=×1.00, ID=×0.99, FD=×0.97 (income cost of decarbonization).
 # Exported columns = selected scenarios: all _2_FD (food=2, fast decarb) except IT35 (SC1_SD)
 # and SCmat (SC1_FD) which have food=1.
 message("Building ineq_IT_2035...")
@@ -279,10 +294,13 @@ ineq_IT_2035 <- data.frame(
   SI          = si0_2035 * fd * (1 - it_extra_tax_rate),                                          # SI2_FD: 35h, no redistribution
   SN          = (it35 - cash_gr35) * (avg_si0_2035 / avg_it35) * fd * (1 - it_extra_tax_rate),     # SN2_FD: national only, (IT35−GR35)×GDP_SI0/avg_SC
   SG          = (si0_2035 + cash_gr35) * (avg_it35 / avg_si0_2035) * fd * (1 - it_extra_tax_rate),  # SG2_FD: global only, (GDP_SC/GDP_SI0)×(SI0+GR35)
-  MC          = it35 * mc_income_scale_it * fd * (1 - it_extra_tax_rate),               # MC2_FD: 40h + GIT constant hours
-  MCmat       = it35 * mc_income_scale_it * fd,                                          # MC1_FD: 40h + GIT, no PS tax
-  WC          = it35 * w_income_scale_it  * fd * (1 - it_extra_tax_rate),                # WC2_FD: 45h + GIT constant-growth
-  MC_SD       = it35 * mc_income_scale_it * DECARB_FACTOR["SD"] * (1 - it_extra_tax_rate)) # MC2_SD: slow decarb
+  B90kC       = it35 * b90k_scale_it * fd * (1 - it_extra_tax_rate),               # B90kC2_FD: 40h + GIT constant hours (formerly MC)
+  B90kMat     = it35 * b90k_scale_it * fd,                                          # B90kC1_FD: 40h + GIT, no PS tax (formerly MCmat)
+  Bmat        = it35 * b_scale_it * fd,                                              # B1_FD: 35h + GIT, no PS tax (B without PS)
+  B120kC      = it35 * b120k_scale_it  * fd * (1 - it_extra_tax_rate),                # B120kC2_FD: 45h + GIT constant-growth (formerly WC)
+  B           = it35 * b_scale_it      * fd * (1 - it_extra_tax_rate),               # B2_FD: 35h + GIT, constant-growth (formerly M60k)
+  B45kC       = it35 * b90k_scale_it * (32 / 40) * fd * (1 - it_extra_tax_rate),    # B45kC2_FD: 30h class, 32 worked hours in 2035 (B90k × 32/40; formerly MC45k/SC45k analog)
+  B90kC_SD    = it35 * b90k_scale_it * DECARB_FACTOR["SD"] * (1 - it_extra_tax_rate)) # B90kC2_SD: slow decarb (formerly MC_SD)
 
 income_cols_2035 <- setdiff(names(ineq_IT_2035), "gpercentile")
 # cash_GR35 is a net-transfer distribution (positive for poor, negative for rich) — not monotone.
@@ -295,13 +313,13 @@ ineq_IT_2035[, income_cols_2035] <- lapply(ineq_IT_2035[, income_cols_2035], rou
 
 ##### 10. ineq_2100: 21 brackets × 21 cols #####
 # All 2100 base distributions computed in full-income units; ratio_IT applied as final step.
-# SC45k/SC15k/MC/PC derived by scaling the SC base (same distributional shape, different GDP level).
+# SC45k/SC15k/B90kC/PC derived by scaling the SC base (same distributional shape, different GDP level).
 # SI = 0.5 × PI; SN = (SC − GR) × GDP_SI0/GDP_SC. The G scope keeps the I (no-redistribution)
 # shape and applies a GLOBAL taxG schedule that is a function of N income (taxG = (SN − SC)/SN, read
 # off the world SN→SC distributions), evaluated at each cell's I (SI) income: SG = SI × (1 − taxG).
 # GDP_SC and GDP_SI0 are gp_width-weighted means of the SC and SI (=½PI) distributions, so SN
 # lands at the SI/no-global GDP level.
-# World populations follow whether the scenario has global redistribution (GIT): SC/SG/MC/PC use
+# World populations follow whether the scenario has global redistribution (GIT): SC/SG/B90kC/PC use
 # SC pop (Z0a, Convergence); PI/SI/SN (no GIT) use PI pop (Z0b, Inequality).
 message("Building ineq_2100...")
 dividend_2100 <- dividend_by_year["2100"]
@@ -351,6 +369,11 @@ sg_it_2100 <- si_it_2100 * (1 - taxg_at(si_it_2100))                            
 pi_pool$sg_income_2100 <- pi_pool$si_income_2100 * (1 - taxg_at(pi_pool$si_income_2100))  # at World I income
 world_SG <- build_world_dist(pi_pool, "sg_income_2100", pop_sc_2100)  # SG has GIT → SC pop (Z0a)
 
+# 2100 hours→income coefs (vs SC = 60k convergence): each hours level maps to a fixed
+# 2100 GDP-per-capita target (k€), so coef = target / 60. B30k(29h)=30k→0.5, B45k(30h)=45k→0.75,
+# B(35h)=60k→1.0, B90k(40h)=90k→1.5, B120k(45h)=120k→2.0. (Replaces the per-worker E0a ratio.)
+B90K_COEF_2100 <- 1.5
+
 bracket_lo <- c(seq(0, 90, 5), 95, 99); bracket_hi <- c(seq(5, 95, 5), 99, 100)
 bracket_names <- paste0("p", bracket_lo, "p", bracket_hi)
 
@@ -370,7 +393,7 @@ ineq_2100 <- data.frame(bracket = bracket_names,
   IT_SCmat = bracket_avg_IT(sc_it_2100        * ratio_IT),         # = IT_SC (struct change ≠ 2100 income)
   IT_SC45k = bracket_avg_IT(sc_it_2100        * ratio_IT * 0.75),
   IT_SC15k = bracket_avg_IT(sc_it_2100        * ratio_IT * 0.25),
-  IT_MC    = bracket_avg_IT(sc_it_2100        * ratio_IT * (630/480)),
+  IT_B90kC = bracket_avg_IT(sc_it_2100        * ratio_IT * B90K_COEF_2100),  # 40h → 90k target (1.5×SC)
   IT_SI    = bracket_avg_IT(si_it_2100        * ratio_IT),
   IT_SN    = bracket_avg_IT(sn_it_2100        * ratio_IT),
   IT_SG    = bracket_avg_IT(sg_it_2100        * ratio_IT),
@@ -380,22 +403,22 @@ ineq_2100 <- data.frame(bracket = bracket_names,
   World_SCmat = bracket_avg_World(world_SC    * ratio_IT),
   World_SC45k = bracket_avg_World(world_SC    * ratio_IT * 0.75),
   World_SC15k = bracket_avg_World(world_SC    * ratio_IT * 0.25),
-  World_MC    = bracket_avg_World(world_SC    * ratio_IT * (630/480)),
+  World_B90kC = bracket_avg_World(world_SC    * ratio_IT * B90K_COEF_2100),  # 40h → 90k target (1.5×SC)
   World_SI    = bracket_avg_World(world_SI    * ratio_IT),
   World_SN    = bracket_avg_World(world_SN    * ratio_IT),
   World_SG    = bracket_avg_World(world_SG    * ratio_IT),
-  # W class: same coef as P (2.0) at 2100; differs from P only in 2035 income path
-  IT_WC       = bracket_avg_IT(sc_it_2100    * ratio_IT * 2.0),
-  World_WC    = bracket_avg_World(world_SC   * ratio_IT * 2.0))
+  # B120k class: same coef as P (2.0) at 2100; differs from P only in 2035 income path (formerly WC)
+  IT_B120kC       = bracket_avg_IT(sc_it_2100    * ratio_IT * 2.0),
+  World_B120kC    = bracket_avg_World(world_SC   * ratio_IT * 2.0))
 
 ineq_2100[, -1] <- lapply(ineq_2100[, -1], round, digits = 0)
 # ineq_2100.csv (filtered export) is written after §13 when scope variants are available.
 
-##### 11. temp100: chancel_temp2100_completed + new rows for SI/SN/SG/MC #####
+##### 11. temp100: chancel_temp2100_completed + new rows for SI/SN/SG/B90kC #####
 # GDP-based no-emissions regression predicts temperature for scenario types not in Chancel data.
 # SI/SN (35h, no GIT): GDP = 50k€/cap × 9.41B = 470.5 T€
 # SG  (35h, GIT):      GDP = 60k€/cap × 9.41B = 564.6 T€ (same as SC)
-# MC  (40h, GIT):      GDP = (630/480)×60 × 9.41 ≈ 741.0 T€
+# B90kC (40h, GIT):    GDP = 1.5 × 60 × 9.41 T€ (90k target)
 message("Building temp100...")
 temp_chancel <- read.csv(TEMP_OBS, na.strings = "")
 obs_temp <- temp_chancel[!is.na(temp_chancel$temp_observed), ]
@@ -403,9 +426,9 @@ obs_temp$decarb <- factor(obs_temp$decarb, levels = c("FD","ID","SD"))
 fit_noem_gdp <- lm(temp_observed ~ gdp * decarb + decarb:sectoral_change, data = obs_temp)
 message(sprintf("No-emissions regression: adj-R2 = %.4f", summary(fit_noem_gdp)$adj.r.squared))
 
-gdp_si_sn <- 50 * 9.41; gdp_sg <- 60 * 9.41; gdp_mc <- (630/480) * 60 * 9.41
+gdp_si_sn <- 50 * 9.41; gdp_sg <- 60 * 9.41; gdp_b90k <- B90K_COEF_2100 * 60 * 9.41
 new_temp_rows <- do.call(rbind, lapply(
-  list(c("SI", gdp_si_sn), c("SN", gdp_si_sn), c("SG", gdp_sg), c("MC", gdp_mc)),
+  list(c("SI", gdp_si_sn), c("SN", gdp_si_sn), c("SG", gdp_sg), c("B90kC", gdp_b90k)),
   function(s) expand.grid(base = s[1], gdp = as.numeric(s[2]),
     decarb = c("FD","ID","SD"), food = c("1","2"), stringsAsFactors = FALSE)))
 new_temp_rows$scenario <- paste0(new_temp_rows$base, new_temp_rows$food, "_", new_temp_rows$decarb)
@@ -436,11 +459,20 @@ world_cols_2100 <- grep("^World_", names(ineq_2100), value = TRUE)
 avg_world2100 <- setNames(
   sapply(world_cols_2100, function(col) sum(ineq_2100[[col]] * bracket_widths) / 100),
   sub("^World_", "", world_cols_2100))
+# 2100 hours coefs are fixed GDP targets (vs SC=60k): B45kC(30h)=45k→0.75, B30kC(29h)=30k→0.5.
+# Exported as avg_World2100_B45kC / avg_World2100_B30kC and used by dist_2100() and the JS.
+avg_world2100["B45kC"] <- avg_world2100["SC"] * 0.75
+avg_world2100["B30kC"] <- avg_world2100["SC"] * 0.5
 
 # No-emissions regression coefficients (for JS temperature computation)
 noem_coefs <- coef(fit_noem_gdp)
 noem_keys  <- paste0("noem_", gsub("[^a-zA-Z0-9]", "_", gsub("^_+|_+$", "",
               gsub("[(]|[)]", "", names(noem_coefs)))))
+
+# avg_IT2035_B45kC/B30kC: add to avg_it2035 for consistent naming in constants export
+# (avg_world2100["B45kC"/"B30kC"] were already added above)
+avg_it2035["B45kC"] <- avg_it2035["B90kC"] * (32 / 40)   # 30h class: 32 worked hours in 2035
+avg_it2035["B30kC"] <- avg_it2035["B90kC"] * (28 / 40)   # 29h class: 28 worked hours in 2035
 
 constants <- data.frame(
   name = c(
@@ -448,9 +480,9 @@ constants <- data.frame(
     "decarb_SD", "decarb_ID", "decarb_FD",
     "temp_beef_reduction_C", "temp_flights_reduction_C",
     "temp_ps_coef_a", "temp_ps_coef_b", "temp_ps_coef_c",
-    # 2100 GDP per capita (k€/adult) by hours × global redistribution
-    "gdp_pc_GIT_25h","gdp_pc_GIT_30h","gdp_pc_GIT_35h","gdp_pc_GIT_40h","gdp_pc_GIT_45h",
-    "gdp_pc_noGIT_25h","gdp_pc_noGIT_30h","gdp_pc_noGIT_35h","gdp_pc_noGIT_40h","gdp_pc_noGIT_45h",
+    # 2100 GDP per capita (k€/adult) by hours × global redistribution (matches Table tab:hours in conjoint.tex)
+    "gdp_pc_GIT_29h","gdp_pc_GIT_30h","gdp_pc_GIT_35h","gdp_pc_GIT_40h","gdp_pc_GIT_45h",
+    "gdp_pc_noGIT_29h","gdp_pc_noGIT_30h","gdp_pc_noGIT_35h","gdp_pc_noGIT_40h","gdp_pc_noGIT_45h",
     "pop_sc_2100_B", "pop_pi_2100_B",
     # SI-2035 construction inputs: per-capita GDP (A0p/A0pi), per-capita hours (E0h/E0k), derived scale
     "gdp_pc_IT_SC_2025", "gdp_pc_IT_PI_2035",
@@ -460,11 +492,11 @@ constants <- data.frame(
     paste0("avg_World2100_", names(avg_world2100))),
   value = c(
     round(ratio_IT, 6), round(it_extra_tax_rate, 6),
-    1.00, 0.98, 0.96,
+    1.00, 0.99, 0.97,
     0.24, 0.155,         # beef / flights temperature reductions (°C)
     67.25, 2.06, 0.0004875,  # PS temperature adjustment: 0.0004875*(a + b*gdp_pc)
-    15, 45, 60, 79, 120,
-    12.5, 37.5, 50, 66, 100,
+    30, 45, 60, 90, 120,    # GIT GDP pc (k€): 29/30/35/40/45h → 30/45/60/90/120k (= income targets, Table tab:hours)
+    25, 37.5, 50, 75, 100,  # no-GIT GDP pc (k€): 29/30/35/40/45h → 25/37.5/50/75/100k
     9.41, 10.18,
     round(gdp_pc_it_2025, 1), round(gdp_pc_it_pi_2035, 1),
     round(hours_pc_it_2035, 2), round(hours_pc_it_pi_2035, 2), round(si_scale_2035, 6),
@@ -483,7 +515,9 @@ message(sprintf("Wrote conjoint_constants.csv  (%d rows)", nrow(constants)))
 # 2100 distribution — only the hours class and the redistribution scope do (couple assumed FALSE).
 message("Building ineq_2100_full...")
 scope_base <- c("GIT-SN" = "SC", "GIT-current" = "SG", "current-SN" = "SN", "current-current" = "SI")
-hours_ccol <- c("25" = "SC15k", "30" = "SC45k", "35" = "SC", "40" = "MC", "45" = "PC")
+# hours_ccol: maps hoursPerWeek → column name for coef calculation
+# hours_ccol <- c("25" = "SC15k", "30" = "SC45k", "35" = "SC", "40" = "MC", "45" = "PC")
+hours_ccol <- c("29" = "SC15k", "30" = "B45kC", "35" = "SC", "40" = "B90kC", "45" = "PC")
 dist_2100 <- function(region, hoursPerWeek, globalRedistribution, nationalRedistribution) {
   base <- scope_base[paste0(globalRedistribution, "-", nationalRedistribution)]
   # coef uses the ROUNDED avg World incomes, exactly as scenarios.js reads them from
@@ -494,12 +528,16 @@ dist_2100 <- function(region, hoursPerWeek, globalRedistribution, nationalRedist
 }
 
 # All 5 hours classes × 4 scopes (C/G/N/I). Scenario name embeds the scope into the class label
-# (S45k → SC45k/SG45k/…, P → PC/PG/…, M → MC/MG/…, S → SC/SG/…), as in method_questionnaire.md.
-hours_classes <- list(P = 45, M = 40, S = 35, S45k = 30, S15k = 25)
+# (S45k → SC45k/SG45k/…, P → PC/PG/…, B90k → B90kC/B90kG/…, S → SC/SG/…), as in method_questionnaire.md.
+# hours_classes <- list(P = 45, M = 40, S = 35, S45k = 30, S15k = 25)
+hours_classes <- list(P = 45, B90k = 40, S = 35, S45k = 30, S15k = 29)
 scopes <- list(C = c(g = "GIT",     n = "SN"),      G = c(g = "GIT",     n = "current"),
                N = c(g = "current", n = "SN"),      I = c(g = "current", n = "current"))
-scen_name <- function(cls, sc) if (cls %in% c("S45k", "S15k"))
-  paste0("S", sc, sub("^S", "", cls)) else paste0(substr(cls, 1, 1), sc)
+scen_name <- function(cls, sc) {
+  if (cls %in% c("S45k", "S15k")) paste0("S", sc, sub("^S", "", cls))
+  else if (cls == "B90k") paste0("B90k", sc)
+  else paste0(substr(cls, 1, 1), sc)
+}
 
 # Start from ineq_2100 (keeps the bracket column and SCmat), then (re)compute every class×scope
 # distribution with the scenarios.js formula so the table coincides exactly with what the JS shows.
@@ -510,31 +548,29 @@ for (cls in names(hours_classes)) for (sc in names(scopes)) {
     ineq_2100_full[[paste0(region, "_", nm)]] <- round(dist_2100(region, hours_classes[[cls]],
                                                                  scopes[[sc]]["g"], scopes[[sc]]["n"]))
 }
-# MC hours sub-variants and food variants.
-# At 2100 food/structural-change does not affect income → MCbeef/MCflights/MCmat = MC.
-# MC45k/MC30k/MC15k use Sxxk/SC factors: same ratio applied to each MC scope column.
-coef_45k_vs_sc <- round(avg_world2100["SC45k"]) / round(avg_world2100["SC"])
-coef_15k_vs_sc <- round(avg_world2100["SC15k"]) / round(avg_world2100["SC"])
+# B hours sub-variants at 2100: fixed GDP-target coefs vs the scope base column (SC/SG/SN/SI):
+# B45k(30h)=45k→0.75, B30k(29h)=30k→0.5, B15k(28h)=15k→0.25. (B90k(40h)=1.5 from the loop above.)
 for (sc in names(scopes)) {
-  nm_mc <- scen_name("M", sc)  # MC / MG / MN / MI
-  sl <- substr(nm_mc, 2, 2)    # scope letter: C / G / N / I
+  base_col <- scope_base[paste0(scopes[[sc]]["g"], "-", scopes[[sc]]["n"])]  # SC/SG/SN/SI
   for (region in c("IT", "World")) {
-    base <- ineq_2100_full[[paste0(region, "_", nm_mc)]]
-    ineq_2100_full[[paste0(region, "_M", sl, "45k")]] <- round(base * coef_45k_vs_sc)
-    ineq_2100_full[[paste0(region, "_M", sl, "30k")]] <- round(base * 0.5)
-    ineq_2100_full[[paste0(region, "_M", sl, "15k")]] <- round(base * coef_15k_vs_sc)
+    sd <- ineq_2100_full[[paste0(region, "_", base_col)]]
+    ineq_2100_full[[paste0(region, "_B45k", sc)]] <- round(sd * 0.75)
+    ineq_2100_full[[paste0(region, "_B30k", sc)]] <- round(sd * 0.5)
+    ineq_2100_full[[paste0(region, "_B15k", sc)]] <- round(sd * 0.25)
   }
 }
-for (nm in c("MCbeef", "MCflights", "MCmat")) {
+# Food variants at 2100: Bbeef/Bflights/Bmat = SC (B=SC at 2100, food/structural-change does not affect 2100 income)
+# Formerly: MCbeef/MCflights/MCmat = MC at 2100
+for (nm in c("Bbeef", "Bflights", "Bmat")) {
   for (region in c("IT", "World"))
-    ineq_2100_full[[paste0(region, "_", nm)]] <- ineq_2100_full[[paste0(region, "_MC")]]
+    ineq_2100_full[[paste0(region, "_", nm)]] <- ineq_2100_full[[paste0(region, "_SC")]]
 }
-# W class at 2100: same as P (coef = 2) — W and P differ only in their 2035 income path
+# B120k class at 2100: same as P (coef = 2) — B120k and P differ only in their 2035 income path (formerly W class)
 for (sc in names(scopes)) {
   nm_p <- scen_name("P", sc)  # PC / PG / PN / PI
-  nm_w <- sub("^P", "W", nm_p)   # WC / WG / WN / WI
+  nm_b120k <- paste0("B120k", sub("^P", "", nm_p))   # B120kC / B120kG / B120kN / B120kI
   for (region in c("IT", "World"))
-    ineq_2100_full[[paste0(region, "_", nm_w)]] <- ineq_2100_full[[paste0(region, "_", nm_p)]]
+    ineq_2100_full[[paste0(region, "_", nm_b120k)]] <- ineq_2100_full[[paste0(region, "_", nm_p)]]
 }
 # 2025 world cash income distribution (bracket anchor for §13 visualisation)
 cash_w25 <- read.csv("../distributions/cash_income_world.csv")
@@ -543,17 +579,18 @@ ineq_2100_full[["World_cash2025"]] <- round(bracket_avg_World(cash_w25))
 write.csv(ineq_2100_full, "../distributions/ineq_2100_full.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ineq_2100_full.csv  (%d rows × %d cols)", nrow(ineq_2100_full), ncol(ineq_2100_full)))
 
-# Filtered ineq_2100.csv: selected scenarios only (MC_SD and MCflight = MC at 2100).
-EXPORT_2100 <- c("MC","SC","MCmat","MC45k","WC","WI","MI","MN","MG","MCbeef","MCflight","MC_SD")
+# Filtered ineq_2100.csv: selected scenarios only (B90kC_SD and Bflight = B90kC at 2100).
+# EXPORT_2100 <- c("MC","SC","MCmat","MC45k","WC","WI","MI","MN","MG","MCbeef","MCflight","MC_SD")
+EXPORT_2100 <- c("B90kC","SC","Bmat","B45kC","B120kC","B120kI","B90kI","B90kN","B90kG","Bbeef","Bflight","B90kC_SD")
 ineq_2100_export <- data.frame(bracket = ineq_2100_full$bracket)
 for (scen in EXPORT_2100) {
-  src <- if (scen == "MCflight") "MCflights" else scen
-  mc_col <- if (scen %in% c("MC_SD","MCflight")) "MC" else src  # both equal MC at 2100
-  ineq_2100_export[[paste0("IT_",    scen)]] <- ineq_2100_full[[paste0("IT_",    mc_col)]]
-  ineq_2100_export[[paste0("World_", scen)]] <- ineq_2100_full[[paste0("World_", mc_col)]]
+  src <- if (scen == "Bflight") "Bflights" else scen
+  b90k_col <- if (scen == "B90kC_SD") "B90kC" else src  # B90kC_SD = B90kC at 2100; Bflight uses Bflights (= SC)
+  ineq_2100_export[[paste0("IT_",    scen)]] <- ineq_2100_full[[paste0("IT_",    b90k_col)]]
+  ineq_2100_export[[paste0("World_", scen)]] <- ineq_2100_full[[paste0("World_", b90k_col)]]
 }
-# Override with actual distinct columns where they differ from MC
-for (scen in c("SC","MC45k","WC","WI","MI","MN","MG","MCbeef","MCmat")) {
+# Override with actual distinct columns where they differ from B90kC
+for (scen in c("SC","B45kC","B120kC","B120kI","B90kI","B90kN","B90kG","Bbeef","Bmat")) {
   ineq_2100_export[[paste0("IT_",    scen)]] <- ineq_2100_full[[paste0("IT_",    scen)]]
   ineq_2100_export[[paste0("World_", scen)]] <- ineq_2100_full[[paste0("World_", scen)]]
 }
@@ -569,7 +606,8 @@ message(sprintf("Wrote ineq_2100.csv  (%d rows × %d cols)", nrow(ineq_2100_expo
 message("Building ineq_IT_2035_full...")
 avg_it35r   <- round(avg_it2035)                 # rounded avg incomes (as in conjoint_constants.csv)
 ps_exported <- 1 - round(it_extra_tax_rate, 6)   # PS factor baked into food=2 columns
-food2_cols  <- c("SC", "SC45k", "SC15k", "SI", "SN", "SG", "MC", "WC", "MC_SD")
+# food2_cols: columns exported at food=2 (carry PS tax)
+food2_cols  <- c("SC", "SC45k", "SC15k", "SI", "SN", "SG", "B90kC", "B45kC", "B120kC", "B90kC_SD", "B", "B15kC", "B30kC")
 dist_2035 <- function(hoursPerWeek, globalRedistribution, nationalRedistribution, decarbonization, publicServices) {
   hasGIT <- globalRedistribution == "GIT"; hasNat <- nationalRedistribution == "SN"; redistScale <- 1
   if (hoursPerWeek == 45) {
@@ -580,7 +618,7 @@ dist_2035 <- function(hoursPerWeek, globalRedistribution, nationalRedistribution
   } else if (hoursPerWeek == 35) {
     colName <- if (hasGIT && hasNat) "SC" else if (hasGIT && !hasNat) "SG" else if (!hasGIT && hasNat) "SN" else "SI"
   } else {
-    cCol  <- unname(c("25" = "SC15k", "30" = "SC45k", "40" = "MC")[as.character(hoursPerWeek)])
+    cCol  <- unname(c("29" = "SC15k", "30" = "B45kC", "40" = "B90kC")[as.character(hoursPerWeek)])
     coefC <- avg_it35r[cCol] / avg_it35r["SC"]
     if (hasGIT && hasNat)        { colName <- cCol }
     else if (hasGIT && !hasNat)  { colName <- "SG"; redistScale <- coefC }
@@ -593,26 +631,33 @@ dist_2035 <- function(hoursPerWeek, globalRedistribution, nationalRedistribution
   ineq_IT_2035[[colName]] * decarbRatio * (psUser / exportedPsFactor) * as.numeric(redistScale)
 }
 
-ineq_IT_2035_full <- ineq_IT_2035[, c("gpercentile", "IT25", "cash_GR35", "IT35", "SCmat", "MCmat")]
+ineq_IT_2035_full <- ineq_IT_2035[, c("gpercentile", "IT25", "cash_GR35", "IT35", "SCmat", "B90kMat")]
+# Also add B90kC_SD (standalone slow decarb), Bmat (B without PS), and rename/add columns
+ineq_IT_2035_full[["B90kC_SD"]] <- round(ineq_IT_2035[["B90kC_SD"]])
+ineq_IT_2035_full[["Bmat"]] <- round(ineq_IT_2035[["Bmat"]])
 for (cls in names(hours_classes)) for (sc in names(scopes)) {
   ps <- if (cls == "P") "stable" else "increased"   # match the class's exported food level
   ineq_IT_2035_full[[scen_name(cls, sc)]] <-
     round(dist_2035(hours_classes[[cls]], scopes[[sc]]["g"], scopes[[sc]]["n"], "FD", ps))
 }
-# MCbeef/MCflights: food=2 income at 2035 = MC (C scope); MCmat already in initial columns.
-ineq_IT_2035_full[["MCbeef"]]    <- ineq_IT_2035_full[["MC"]]
-ineq_IT_2035_full[["MCflights"]] <- ineq_IT_2035_full[["MC"]]
-# W class: WC from base column; WG/WN/WI = M{scope} × (45/40) (same constant-growth, higher hours)
-ineq_IT_2035_full[["WC"]] <- round(ineq_IT_2035[["WC"]])
+# B120k class: B120kC from base column; B120kG/B120kN/B120kI = B90k{scope} × (44/40) (45h class, 44 worked hours in 2035)
+ineq_IT_2035_full[["B120kC"]] <- round(ineq_IT_2035[["B120kC"]])
 for (sl in c("G", "N", "I"))
-  ineq_IT_2035_full[[paste0("W", sl)]] <- round(ineq_IT_2035_full[[paste0("M", sl)]] * (45 / 40))
-# MC hours sub-variants: M{scope}{xxk} = M{scope} × scale (same Sxxk/SC factor as SC variants)
-for (suffix in c("45k", "30k", "15k")) {
-  sc_scale <- c("45k" = sc45k_scale_2035, "30k" = sc30k_scale_2035, "15k" = sc15k_scale_2035)[suffix]
-  for (sl in c("C", "G", "N", "I"))
-    ineq_IT_2035_full[[paste0("M", sl, suffix)]] <- round(ineq_IT_2035_full[[paste0("M", sl)]] * sc_scale)
+  ineq_IT_2035_full[[paste0("B120k", sl)]] <- round(ineq_IT_2035_full[[paste0("B90k", sl)]] * (44 / 40))
+# B90k hours sub-variants: B{sl}{xxk} = B90k{sl} × (worked_hours / 40)
+# 2035 worked hours: B45k(30h class)=32, B30k(29h class)=28, B15k(28h class)=24.
+for (sl in c("C", "G", "N", "I")) {
+  ineq_IT_2035_full[[paste0("B45k", sl)]] <- round(ineq_IT_2035_full[[paste0("B90k", sl)]] * (32 / 40))
+  ineq_IT_2035_full[[paste0("B30k", sl)]] <- round(ineq_IT_2035_full[[paste0("B90k", sl)]] * (28 / 40))
+  ineq_IT_2035_full[[paste0("B15k", sl)]] <- round(ineq_IT_2035_full[[paste0("B90k", sl)]] * (24 / 40))
 }
-ineq_IT_2035_full[["MC_SD"]] <- round(ineq_IT_2035[["MC_SD"]])  # standalone: slow decarb MC
+# B: S-shape with constant-growth productivity (corrects SC front-loading); C scope from base col (formerly M60k)
+ineq_IT_2035_full[["B"]] <- round(ineq_IT_2035[["B"]])
+for (sl in c("G", "N", "I"))
+  ineq_IT_2035_full[[paste0("B", sl)]] <- round(ineq_IT_2035_full[[paste0("S", sl)]] * b_scale_it)
+# Bbeef/Bflights: food=2 income at 2035 = B (not B90kC); B90kMat already in initial columns.
+ineq_IT_2035_full[["Bbeef"]]    <- ineq_IT_2035_full[["B"]]  # B = 35h constant-growth
+ineq_IT_2035_full[["Bflights"]] <- ineq_IT_2035_full[["B"]]
 write.csv(ineq_IT_2035_full, "../distributions/ineq_IT_2035_full.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ineq_IT_2035_full.csv  (%d rows × %d cols)", nrow(ineq_IT_2035_full), ncol(ineq_IT_2035_full)))
 
@@ -621,25 +666,48 @@ it2035_export <- data.frame(
   gpercentile = ineq_IT_2035$gpercentile,
   IT25        = ineq_IT_2035$IT25,
   cash_GR35   = ineq_IT_2035$cash_GR35,
-  MC          = ineq_IT_2035$MC,
+  B90kC       = ineq_IT_2035$B90kC,
   SC          = ineq_IT_2035$SC,
-  MCmat       = ineq_IT_2035$MCmat,
-  MC45k       = ineq_IT_2035_full$MC45k,
-  WC          = ineq_IT_2035$WC,
-  WI          = ineq_IT_2035_full$WI,
-  MI          = ineq_IT_2035_full$MI,
-  MN          = ineq_IT_2035_full$MN,
-  MG          = ineq_IT_2035_full$MG,
-  MCbeef      = ineq_IT_2035$MC,
-  MCflight    = ineq_IT_2035$MC,
-  MC_SD       = ineq_IT_2035$MC_SD)
+  B90kMat     = ineq_IT_2035$B90kMat,
+  Bmat        = ineq_IT_2035$Bmat,
+  B45kC       = ineq_IT_2035_full$B45kC,
+  B120kC      = ineq_IT_2035$B120kC,
+  B90kI       = ineq_IT_2035_full$B90kI,
+  B90kN       = ineq_IT_2035_full$B90kN,
+  B90kG       = ineq_IT_2035_full$B90kG,
+  B           = ineq_IT_2035$B,
+  BG          = ineq_IT_2035_full$BG,
+  BN          = ineq_IT_2035_full$BN,
+  BI          = ineq_IT_2035_full$BI,
+  Bbeef       = ineq_IT_2035$B,
+  Bflight     = ineq_IT_2035$B,
+  B90kC_SD    = ineq_IT_2035$B90kC_SD)
 write.csv(it2035_export, "../distributions/ineq_IT_2035.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ineq_IT_2035.csv  (%d rows × %d cols)", nrow(it2035_export), ncol(it2035_export)))
+
+##### 14b. ineq2_IT_2035: B scenarios at 2% yearly growth 2025-2035 (instead of 1%) #####
+# Every B-class column is exactly proportional to the 10-year B growth factor b_growth_10y(rate)
+# (all B-family columns are B90k × constant, and B90k ∝ b_growth_10y). So the 2% variant is obtained
+# by scaling all B-named columns by k2 = b_growth_10y(0.02) / b_growth_10y(0.01). Non-B columns
+# (IT25, cash_GR35, IT35, SC*, PC, PI, SI, SN, SG) are unaffected.
+message("Building ineq2_IT_2035 (B scenarios at 2% growth)...")
+k2 <- b_growth_10y(0.02) / b_growth_10y(B_GROWTH_RATE)
+b_cols_full <- grep("^B", names(ineq_IT_2035_full), value = TRUE)
+ineq2_IT_2035_full <- ineq_IT_2035_full
+ineq2_IT_2035_full[b_cols_full] <- lapply(ineq2_IT_2035_full[b_cols_full], function(v) round(v * k2))
+write.csv(ineq2_IT_2035_full, "../distributions/ineq2_IT_2035_full.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ineq2_IT_2035_full.csv  (%d rows × %d cols)", nrow(ineq2_IT_2035_full), ncol(ineq2_IT_2035_full)))
+b_cols_exp <- grep("^B", names(it2035_export), value = TRUE)
+ineq2_export <- it2035_export
+ineq2_export[b_cols_exp] <- lapply(ineq2_export[b_cols_exp], function(v) round(v * k2))
+write.csv(ineq2_export, "../distributions/ineq2_IT_2035.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ineq2_IT_2035.csv  (%d rows × %d cols)", nrow(ineq2_export), ncol(ineq2_export)))
 
 # Web-served copies for the conjoint JS (scenarios.js fetches ineq_IT_2035.csv, ineq_2100_full.csv and
 # conjoint_constants.csv from code_simulator/data/). The _full files are copied too for convenience.
 dir.create("data", showWarnings = FALSE)
-for (f in c("ineq_IT_2035.csv", "ineq_IT_2035_full.csv", "ineq_2100.csv", "ineq_2100_full.csv", "conjoint_constants.csv"))
+for (f in c("ineq_IT_2035.csv", "ineq_IT_2035_full.csv", "ineq2_IT_2035.csv", "ineq2_IT_2035_full.csv",
+            "ineq_2100.csv", "ineq_2100_full.csv", "conjoint_constants.csv"))
   file.copy(file.path("../distributions", f), file.path("data", f), overwrite = TRUE)
 message("Copied conjoint CSVs to data/ for the web pages.")
 message("Done.")
