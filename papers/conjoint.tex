@@ -1,5 +1,7 @@
 \documentclass[12pt,a4paper]{article}
 % TODO! beware 0.9 and 0.95 are hard-coded: change?
+% TODO! we don't have C - N = G - I, hence sometimes illogical things happen (e.g. B90k IT, 2500-2800€/m), s.t. G > C and N > I (> G). This is because I = current rescaled (then G = I⋅(1-t(I))) are defined separately from C (then N = (C - GR)⋅GDP_I): since GDP I~G > GDP C~N, we can have G > C despite N < I. We can justify it by saying that the national redistr occurring after G reduces GDP further, so some who benefited from I->N don't benefit from G->C. 
+% We cannot set G = I + C - N because in 2100 IT p0 it could yield 0 = 1k + 2k - 3k. In other words, N couldn't be that large if we also have to have G; or C embeds as lower GDP cumulative effects of G which go beyond the GDP reduction due to N. 
 % TODO Jud et al. (26 cite)
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
