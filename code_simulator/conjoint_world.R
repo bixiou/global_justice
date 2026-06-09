@@ -15,7 +15,9 @@ SIMUL   <- "../data/Bothe/distribution_simul_extract.dta"
 FG      <- "../data/FisherGethin/fisher-gethin-2023-slim.dta"
 WID     <- "../data/WID/wid-mprico-nni.csv"
 
-DECARB_FACTOR  <- c(SD = 1.00, ID = 0.98, FD = 0.96)
+# Existing practice (commented out): DECARB_FACTOR <- c(SD = 1.00, ID = 0.98, FD = 0.96)
+DECARB_FACTOR  <- c(SD = 1.00, ID = 0.99, FD = 0.97)  # aligned with questionnaire.R (income cost of decarbonization)
+B_GROWTH_RATE  <- 0.01    # flat yearly productivity growth of B scenarios 2025-2035 (as in questionnaire.R)
 RETENTION_RATE <- 0.50
 RENTAL_YIELD   <- 0.035
 
@@ -182,8 +184,8 @@ fg_country_data <- function(ctry) {
 }
 
 ##### 4. Scenario constants used in ineq_2035_full construction #####
-# FOOD2_COLS <- c("SC","SC45k","SC15k","SI","SN","SG","MC","MC45k","MC30k","MC15k","WC","MC_SD")
-FOOD2_COLS <- c("SC","SC45k","SC15k","SI","SN","SG","B90kC","B45kC","B30kC","B15kC","B120kC","B90kC_SD",
+# SECTORAL_CHANGE2_COLS <- c("SC","SC45k","SC15k","SI","SN","SG","MC","MC45k","MC30k","MC15k","WC","MC_SD")
+SECTORAL_CHANGE2_COLS <- c("SC","SC45k","SC15k","SI","SN","SG","B90kC","B45kC","B30kC","B15kC","B120kC","B90kC_SD",
                 "B","BG","BN","BI")
 scen_name <- function(cls, sc) {
   if (cls %in% c("S45k","S15k")) paste0("S", sc, sub("^S", "", cls))
@@ -215,8 +217,8 @@ for (ctry in all_countries) {
   inc35_f <- match_gp(s35, "income", gperc_vec)
   ypt35_c <- match_gp(s35, "ypt", gperc_vec); ypt35_c[is.na(ypt35_c)] <- 0
 
+  cash25       <- enforce_monotone_below_99(cash25, gp_C)   # enforce BEFORE the ratio, as in questionnaire.R
   cash_ratio_c <- ifelse(is.finite(inc25_f) & inc25_f > 0, cash25 / inc25_f, NA_real_)
-  cash25       <- enforce_monotone_below_99(cash25, gp_C)
   c35          <- enforce_monotone_below_99(inc35_f * cash_ratio_c, gp_C)
   cash_gr35_c  <- (dividend_by_year["2035"] - ypt35_c) * cash_ratio_c
 
@@ -234,13 +236,15 @@ for (ctry in all_countries) {
   hours_pw_c_35 <- as.numeric(e0a["2035", ctry])
   prod_c_25   <- as.numeric(f0a["2025", ctry])
   prod_c_35   <- as.numeric(f0a["2035", ctry])
-  avg_pg_c    <- (125 / prod_c_25)^(1 / 75)
-  # mc_scale_c  <- avg_pg_c^10 / ((hours_c_35 / hours_c_25) * (prod_c_35 / prod_c_25))
-  b90k_scale_c <- avg_pg_c^10 / ((hours_pw_c_35 / hours_pw_c_25) * (prod_c_35 / prod_c_25))
-  # m60k_scale_c <- avg_pg_c^10 / (prod_c_35 / prod_c_25)
-  b_scale_c <- avg_pg_c^10 / (prod_c_35 / prod_c_25)
+  # Country-specific growth (commented out): avg_pg_c^10 = (125/prod_2025)^(10/75) front-loads SC's
+  # high near-term productivity growth. Replaced by a flat 1% yearly B-growth, as in questionnaire.R.
+  # avg_pg_c     <- (125 / prod_c_25)^(1 / 75)
+  # b90k_scale_c <- avg_pg_c^10 / ((hours_pw_c_35 / hours_pw_c_25) * (prod_c_35 / prod_c_25))
+  # b_scale_c    <- avg_pg_c^10 / (prod_c_35 / prod_c_25)
+  b90k_scale_c <- (1 + B_GROWTH_RATE)^10 / ((hours_pw_c_35 / hours_pw_c_25) * (prod_c_35 / prod_c_25))
+  b_scale_c    <- (1 + B_GROWTH_RATE)^10 / (prod_c_35 / prod_c_25)
   # wc_scale_c  <- (45 / 40) * mc_scale_c
-  b120k_scale_c <- (45 / 40) * b90k_scale_c
+  b120k_scale_c <- (44 / 40) * b90k_scale_c   # B120k (45h class): 44 worked hours in 2035
 
   # SC45k/SC15k GDP-based scales
   sc45k_sc <- as.numeric(a0["2025", ctry]) / as.numeric(a0["2035", ctry])
@@ -277,7 +281,7 @@ for (ctry in all_countries) {
     B90kC       = c35 * b90k_scale_c * fd * ps,
     B120kC      = c35 * b120k_scale_c * fd * ps,
     B           = c35 * b_scale_c * fd * ps,
-    B45kC       = c35 * b90k_scale_c * (30 / 40) * fd * ps,
+    B45kC       = c35 * b90k_scale_c * (32 / 40) * fd * ps,   # 30h class: 32 worked hours in 2035
     B90kC_SD    = c35 * b90k_scale_c * DECARB_FACTOR["SD"] * ps)
 
   for (col in setdiff(names(base), c("gpercentile","cash_GR35")))
@@ -310,7 +314,7 @@ for (ctry in all_countries) {
       else if (!hasGIT && hasNat)  { colN <- "SN"; rscale <- coefC * avg_r["SI"] / avg_r["SN"] }
       else                         { colN <- "SI"; rscale <- coefC }
     }
-    epf <- if (colN %in% FOOD2_COLS) ps_exp else 1
+    epf <- if (colN %in% SECTORAL_CHANGE2_COLS) ps_exp else 1
     dr  <- DECARB_FACTOR[[decarb]] / DECARB_FACTOR[["FD"]]
     psU <- if (pubS == "increased") ps_exp else 1
     base[[colN]] * dr * (psU / epf) * as.numeric(rscale)
@@ -323,21 +327,22 @@ for (ctry in all_countries) {
     full[[scen_name(cls, sc)]] <- round(dist_c_2035(
       hours_classes[[cls]], scopes[[sc]]["g"], scopes[[sc]]["n"], "FD", ps_arg))
   }
-  # B120k class: B120kC from base; B120kG/B120kN/B120kI = B90k{scope} × (45/40)
+  # B120k class: B120kC from base; B120kG/B120kN/B120kI = B90k{scope} × (44/40) (45h class, 44 worked hours in 2035)
   full[["B120kC"]] <- round(base[["B120kC"]])
   for (sl in c("G","N","I"))
-    full[[paste0("B120k", sl)]] <- round(full[[paste0("B90k", sl)]] * (45 / 40))
-  # B90k hours sub-variants: B{sl}{xxk} = B90k{sl} × (hours / 40)
+    full[[paste0("B120k", sl)]] <- round(full[[paste0("B90k", sl)]] * (44 / 40))
+  # B90k hours sub-variants: B{sl}{xxk} = B90k{sl} × (worked_hours / 40)
+  # 2035 worked hours: B45k(30h class)=32, B30k(29h class)=28, B15k(28h class)=24.
   for (sl in c("C","G","N","I")) {
-    full[[paste0("B45k", sl)]] <- round(full[[paste0("B90k", sl)]] * (30 / 40))
-    full[[paste0("B30k", sl)]] <- round(full[[paste0("B90k", sl)]] * (29 / 40))
-    full[[paste0("B15k", sl)]] <- round(full[[paste0("B90k", sl)]] * (28 / 40))
+    full[[paste0("B45k", sl)]] <- round(full[[paste0("B90k", sl)]] * (32 / 40))
+    full[[paste0("B30k", sl)]] <- round(full[[paste0("B90k", sl)]] * (28 / 40))
+    full[[paste0("B15k", sl)]] <- round(full[[paste0("B90k", sl)]] * (24 / 40))
   }
   # B class: C scope from base; B{G/N/I} = S{scope} × b_scale_c
   full[["B"]] <- round(base[["B"]])
   for (sl in c("G","N","I"))
     full[[paste0("B", sl)]] <- round(full[[paste0("S", sl)]] * b_scale_c)
-  # Bbeef/Bflights: food=2 income at 2035 = B (not B90kC) — must come after B is set
+  # Bbeef/Bflights: sectoral_change=2 income at 2035 = B (not B90kC) — must come after B is set
   full[["Bbeef"]]    <- full[["B"]]
   full[["Bflights"]] <- full[["B"]]
   # B90kC_SD standalone

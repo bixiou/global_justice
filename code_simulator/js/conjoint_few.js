@@ -33,7 +33,7 @@ const SCENARIO_PARAMS = {
   B30kG:   { label: "B30kG (29h, global only)",           hoursPerWeek: 29, nationalRedistribution: "current", globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "both" },
   B30kN:   { label: "B30kN (29h, national only)",         hoursPerWeek: 29, nationalRedistribution: "SN",      globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
   B30kI:   { label: "B30kI (29h, no redistribution)",     hoursPerWeek: 29, nationalRedistribution: "current", globalRedistribution: "current", publicServices: "increased", beefAndFlights: "both" },
-  // ── B90k food/structural-change variants ──────────────────────────────────────
+  // ── B90k sectoral_change variants ──────────────────────────────────────
   B90kMat:   { label: "B90kMat — B90k, no sectoral change",          hoursPerWeek: 40, nationalRedistribution: "SN",      globalRedistribution: "GIT",     publicServices: "stable",    beefAndFlights: "none",    col2035Override: "B90kMat",  col2100Override: "B90kC" },
   Bbeef:     { label: "Bbeef — B, beef reduction only (−60%)",        hoursPerWeek: 35, nationalRedistribution: "SN",      globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "beef",    col2035Override: "B",        col2100Override: "SC" },
   Bflights:  { label: "Bflights — B, flights only (−50%)",            hoursPerWeek: 35, nationalRedistribution: "SN",      globalRedistribution: "GIT",     publicServices: "increased", beefAndFlights: "flights", col2035Override: "B",        col2100Override: "SC" },

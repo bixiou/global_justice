@@ -9,8 +9,8 @@
  * Income/couple use DEFAULT values (placeholder) — TODO: feed these automatically from the
  * respondent's earlier answers (e.g. via URL query params or a global injected by the survey tool).
  *
- * Scenario roster (label = our display name; code = method nomenclature {type}{scope}{food}_{decarb}):
- *   BC=BC2_FD(35h)·2  BC60k=B90kC2_FD(40h)  BCmat=BC1_FD(35h, food1)  BC45k=B45kC2_FD(30h)
+ * Scenario roster (label = our display name; code = method nomenclature {type}{scope}{sectoral_change}_{decarb}):
+ *   BC=BC2_FD(35h)·2  BC60k=B90kC2_FD(40h)  BCmat=BC1_FD(35h, sectoral_change=1)  BC45k=B45kC2_FD(30h)
  *   BC120k=B120kC2_FD(45h)  BI120k=B120kI1_FD(45h, no redist)  BI=BI2_FD  BN=BN2_FD  BG=BG2_FD
  *   BCbeef=BC2_FDbeef  BCflight=BC2_FDflight  BC_SD=BC2_SD
  * NOTE (ambiguities flagged to the user): "BC60k" is read as the 40h B90k scenario (the literal
@@ -63,7 +63,7 @@ function groupOf(b) { return GRP_OF[b] || "other"; }
 const LABELS = {
   IT:    { bottom: "10% più povero in Italia", median: "Reddito tipico", top: "10% più ricco in Italia",
            title: "Disuguaglianza in Italia (2100)" },
-  World: { bottom: "10% più povero della popolazione", median: "Reddito tipico", top: "10% più ricco della popolazione",
+  World: { bottom: "10% più povero del mondo", median: "Reddito tipico", top: "10% più ricco del mondo",
            title: "Disuguaglianza nel mondo (2100)" }
 };
 const fmtEur = n => "€" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -151,13 +151,13 @@ function renderCaption(capId, brackets, annualValues, region) {
 
 const BF_TXT = {
   none:    "Nessuna variazione",
-  beef:    "Meno carne bovina (2 porzioni al mese)<br>Prezzo dei voli triplica",
-  flights: "Meno voli (2500 km all'anno)<br>Prezzo dei voli triplica",
-  both:    "Meno carne bovina (2 porzioni al mese)<br>Meno voli (2500 km all'anno)<br>Prezzo dei voli triplica"
+  beef:    "Meno prodotti bovini (2 porzioni al mese)<br>Prezzo dei voli triplica",
+  flights: "Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica",
+  both:    "Meno prodotti bovini (2 porzioni al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica"
 };
 function setFeatureChips(side, params) {
   document.getElementById("ps-" + side).textContent =
-    params.publicServices === "increased" ? "Più servizi pubblici, meno consumi materiali" : "Nessuna variazione";
+    params.publicServices === "increased" ? "Più servizi pubblici" : "Nessuna variazione";
   document.getElementById("bf-" + side).innerHTML = BF_TXT[params.beefAndFlights];
 }
 
@@ -224,7 +224,7 @@ function updateSide(side) {
   });
 
   try {
-    await ScenariosModule.ensureDataLoaded("../data/");
+    await ScenariosModule.ensureDataLoaded("data/");
     document.getElementById("statusMsg").textContent = "Quale dei due scenari preferisci?";
     SIDES.forEach(s => updateSide(s.id));
   } catch (err) {

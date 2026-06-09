@@ -68,16 +68,17 @@ function numerify(rows) {
  * computeConjointFeatures(). Safe to call multiple times.
  *
  * @param {string} [basePath] – URL prefix; defaults to "data/"
- * @param {string} [it2035File] – 2035 distributions file; defaults to "ineq_IT_2035_full.csv".
- *        Pass "ineq2_IT_2035_full.csv" to use the 2%-growth B-scenario variant (variant_any2).
+ * @param {string} [it2035File] – 2035 distributions file; defaults to "ineq_IT_2035.csv".
+ *        Pass "ineq2_IT_2035.csv" to use the 2%-growth B-scenario variant (variant_any2).
+ *        These IT-survey CSVs are column-trimmed to only what this engine reads.
  */
 async function ensureDataLoaded(basePath, it2035File) {
   if (_dataReady) return;
   basePath = basePath || "data/";
-  it2035File = it2035File || "ineq_IT_2035_full.csv";
+  it2035File = it2035File || "ineq_IT_2035.csv";
   const [rows2035, rows2100, constRows] = await Promise.all([
-    loadCsv(basePath + it2035File),              // ineq_IT_2035 (+variants); ineq2_* for the 2% B-growth variant
-    loadCsv(basePath + "ineq_2100_full.csv"),   // ineq_2100 + all scope/sub-target variants
+    loadCsv(basePath + it2035File),             // ineq_IT_2035 (+variants); ineq2_* for the 2% B-growth variant
+    loadCsv(basePath + "ineq_2100.csv"),        // 2100 IT+World distributions (SC/SG/SN/SI scopes)
     loadCsv(basePath + "conjoint_constants.csv"),
   ]);
   _ineqIT2035 = numerify(rows2035);
@@ -150,10 +151,10 @@ function interpolateAtPercentile(dist, targetGp) {
  *
  * Hours handling (method_questionnaire.md §"How parameters determine incomes"):
  *   – 35h: the B-family scope column (B/BG/BN/BI) is used directly.
- *   – 29/30/40/45h: each scope keeps its OWN 35h shape (national for N, inequality for
+ *   – 30/40/45h: each scope keeps its OWN 35h shape (national for N, inequality for
  *     G/I — NOT the converged SC shape) and is rescaled to the hours level by the convergence
  *     hours coef coefC = avg(C_hours)/avg(SC), where the C column is the B-family target class
- *     for those hours (B30kC/B45kC/B90kC/B120kC — so 45h uses B120k, not the P-family):
+ *     for those hours (B45kC/B90kC/B120kC — so 45h uses B120k, not the P-family):
  *       N_x = SN · (avg_yIx / avg_SN),  avg_yIx = avg_SI · coefC   (yNx0 in the method)
  *       G_x = SG · coefC                                           (= (SI+GR35)·avg_Cx/avg_SI)
  *       I_x = SI · coefC
@@ -175,7 +176,7 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
   if (col2035Override) {
     // Direct column lookup from ineq_IT_2035_full (pre-computed at FD, sectoral_change=2 or sectoral_change=1)
     const sectoralChange2Cols = new Set(["SC","SC45k","SC15k","SI","SN","SG",
-                                "B90kC","B45kC","B30kC","B15kC","B120kC","B90kC_SD",
+                                "B90kC","B45kC","B15kC","B120kC","B90kC_SD",
                                 "B","BG","BN","BI"]);
     const exportedPsFactor = sectoralChange2Cols.has(col2035Override) ? psExported : 1;
     const decarbRatio = decarbUser / decarbExported;
@@ -188,7 +189,7 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
 
   // Columns exported at sectoral_change=2 (carry PS tax):
   const sectoralChange2Cols  = new Set(["SC","SC45k","SC15k","SI","SN","SG",
-                               "B90kC","B45kC","B30kC","B15kC","B120kC","B90kC_SD",
+                               "B90kC","B45kC","B15kC","B120kC","B90kC_SD",
                                "B","BG","BN","BI"]);
   // Columns exported at sectoral_change=1 (no PS tax): IT25, cash_GR35, IT35, SCmat, PC, PI
 
@@ -206,11 +207,11 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
     else if (!hasGIT && hasNat)  colName = "BN";
     else                         colName = "BI";
   } else {
-    // 29/30/40/45h: keep each scope's own 35h shape and rescale its level by the
-    // convergence hours coef coefC = avg(C_hours) / avg(SC). All B-class (B90k-derived), so the
-    // hours→income ladder is monotonic (29h<30h<35h<40h<45h). The 45h class uses the B120k
-    // B-scenario (matching the displayed 44h), exactly as 40h uses B90k — not the P-family.
-    const cCol  = { 29: "B30kC", 30: "B45kC", 40: "B90kC", 45: "B120kC" }[hoursPerWeek];
+    // 30/40/45h: keep each scope's own 35h shape and rescale its level by the convergence hours
+    // coef coefC = avg(C_hours) / avg(SC). All B-class (B90k-derived), so the hours→income ladder
+    // is monotonic (30h<35h<40h<45h). The 45h class uses the B120k B-scenario (matching the
+    // displayed 44h), exactly as 40h uses B90k — not the P-family. (29h is unused by the IT survey.)
+    const cCol  = { 30: "B45kC", 40: "B90kC", 45: "B120kC" }[hoursPerWeek];
     const coefC = C["avg_IT2035_" + cCol] / C["avg_IT2035_SC"];
     if      (hasGIT && hasNat)  { colName = cCol;                              } // C: exact C hours column
     else if (hasGIT && !hasNat) { colName = "SG"; redistScale = coefC;        } // G: SG keeps (SI+GR35) shape
@@ -444,7 +445,7 @@ function computeConjointFeatures({
     "current-SN":"SN", "current-current":"SI"
   }[(globalRedistribution + "-" + nationalRedistribution)] || "SC";
   // 45h uses the B120k B-family class (matching the displayed 44h), not the P-family.
-  const hoursLabel = { 29:"B30kC",30:"B45kC",35:scenarioLabel35h,40:"B90kC",45:"B120kC" };
+  const hoursLabel = { 30:"B45kC",35:scenarioLabel35h,40:"B90kC",45:"B120kC" };
   const natScenarioName = hoursLabel[hoursPerWeek] || scenarioLabel35h;
 
   return {

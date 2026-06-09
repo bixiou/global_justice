@@ -66,7 +66,7 @@ function groupOf(b) { return GRP_OF[b] || "other"; }
 const LABELS = {
   IT:    { bottom: "10% più povero in Italia", median: "Reddito tipico", top: "10% più ricco in Italia",
            title: "Disuguaglianza in Italia (2100)" },
-  World: { bottom: "10% più povero della popolazione", median: "Reddito tipico", top: "10% più ricco della popolazione",
+  World: { bottom: "10% più povero del mondo", median: "Reddito tipico", top: "10% più ricco del mondo",
            title: "Disuguaglianza nel mondo (2100)" }
 };
 // Unit-rounded, space as thousands separator (e.g. 23847 → "€23 847").
@@ -165,13 +165,13 @@ function renderCaption(capId, brackets, annualValues, region) {
 // Public-services / beef & flights phrase boxes.
 const BF_TXT = {
   none:    "Nessuna variazione",
-  beef:    "Meno carne bovina (2 porzioni al mese)<br>Prezzo dei voli triplica",
-  flights: "Meno voli (2500 km all'anno)<br>Prezzo dei voli triplica",
-  both:    "Meno carne bovina (2 porzioni al mese)<br>Meno voli (2500 km all'anno)<br>Prezzo dei voli triplica"
+  beef:    "Meno prodotti bovini (2 porzioni al mese)<br>Prezzo dei voli triplica",
+  flights: "Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica",
+  both:    "Meno prodotti bovini (2 porzioni al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica"
 };
 function setFeatureChips(side, params) {
   document.getElementById("ps-" + side).textContent =
-    params.publicServices === "increased" ? "Più servizi pubblici, meno consumi materiali" : "Nessuna variazione";
+    params.publicServices === "increased" ? "Più servizi pubblici" : "Nessuna variazione";
   document.getElementById("bf-" + side).innerHTML = BF_TXT[params.beefAndFlights];
 }
 
@@ -243,7 +243,7 @@ async function initVariantAny(it2035File) {
   });
 
   try {
-    await ScenariosModule.ensureDataLoaded("../data/", it2035File);
+    await ScenariosModule.ensureDataLoaded("data/", it2035File);
     document.getElementById("statusMsg").textContent = "Quale dei due scenari preferisci?";
     SIDES.forEach(s => updateSide(s.id));
   } catch (err) {

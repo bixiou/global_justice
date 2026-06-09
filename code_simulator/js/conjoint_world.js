@@ -130,8 +130,8 @@ function findPercentileIn2025(annualEUR) {
 }
 
 // ─── 2035 distribution ─────────────────────────────────────────────────────────
-// Columns pre-computed with food2 / PS-increased as canonical assumption
-const FOOD2_COLS_W = new Set([
+// Columns pre-computed with sectoral_change=2 / PS-increased as canonical assumption
+const SECTORAL_CHANGE2_COLS_W = new Set([
   "SC","SG","SN","SC45k","SG45k","SN45k","SC15k","SG15k","SN15k",
   "B90kC","B90kG","B90kN","B90kI",
   "B45kC","B45kG","B45kN","B45kI","B30kC","B30kG","B30kN","B30kI","B15kC","B15kG","B15kN","B15kI",
@@ -160,7 +160,7 @@ function get2035Distribution(h, gR, nR, decarb, ps) {
   const decarbExp = C["decarb_FD"];
   const psUser    = ps === "increased" ? psExp : 1;
   const col       = getColName(h, gR, nR);
-  const epf       = FOOD2_COLS_W.has(col) ? psExp : 1;
+  const epf       = SECTORAL_CHANGE2_COLS_W.has(col) ? psExp : 1;
   const dr        = decarbU / decarbExp;
   const pr        = psUser / epf;
   return _rows2035.map(row => {
@@ -268,24 +268,26 @@ function predictBaseTemp(gdpTotal, decarb, sc) {
 
 function computeTemperature(h, gR, ps, decarb, baf) {
   const C = _C;
-  const hasGIT    = gR === "GIT";
-  const food      = ps === "increased" ? 2 : 1;
+  const hasGIT         = gR === "GIT";
+  const sectoralChange = ps === "increased" ? 2 : 1;     // renamed from food
   const beefR     = baf === "beef"    || baf === "both";
   const flightR   = baf === "flights" || baf === "both";
-  const isPItype  = h === 45 && !hasGIT;
+  const isPItype  = h === 45 && !hasGIT;                  // distinct 2100 population/GDP basis (not sectoral change)
   const gdpPcKey  = hasGIT ? "gdp_pc_GIT_" + h + "h" : "gdp_pc_noGIT_" + h + "h";
   const gdpPc     = C[gdpPcKey];
   const popB      = isPItype ? C["pop_pi_2100_B"] : C["pop_sc_2100_B"];
-  const sc        = (food === 2 && !isPItype) ? 1 : 0;
+  const sc        = sectoralChange === 2 ? 1 : 0;        // PS increased always applies the cooling term (incl. PI)
   let temp        = predictBaseTemp(gdpPc * popB, decarb, sc);
-  const canonBeef = food === 2, canonFlight = food === 2;
+  const canonBeef = sectoralChange === 2, canonFlight = sectoralChange === 2;
   if (beefR    !== canonBeef)   temp += beefR    ? -C["temp_beef_reduction_C"]    : +C["temp_beef_reduction_C"];
   if (flightR  !== canonFlight) temp += flightR  ? -C["temp_flights_reduction_C"] : +C["temp_flights_reduction_C"];
   return Math.round(temp * 10) / 10;
 }
 
 function getWorkingHours2035(h) {
-  return { 29: 29, 30: 30, 35: 35, 40: 40, 45: 41 }[h] || h;
+  // 2035 worked hours per 2100-target class, evenly spaced around the B90k (40h) baseline
+  // in steps of 4 — matching scenarios.js (the IT survey) so both surveys label hours the same.
+  return { 29: 28, 30: 32, 35: 36, 40: 40, 45: 44 }[h] || h;
 }
 
 function getPublicServicesFeature(ps) {
@@ -360,7 +362,7 @@ function computeConjointFeatures({
   const scen2035Label = {
     "GIT-SN":"SC", "GIT-current":"SG", "current-SN":"SN", "current-current":"SI"
   }[globalRedistribution + "-" + nationalRedistribution] || "SC";
-  const hoursLbl = { 29:"B30kC",30:"B45kC",35:scen2035Label,40:"B90kC",45:scen2035Label.replace("S","P") };
+  const hoursLbl = { 29:"B30kC",30:"B45kC",35:scen2035Label,40:"B90kC",45:"B120kC" };
   const scenName = hoursLbl[hoursPerWeek] || scen2035Label;
 
   return {

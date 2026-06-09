@@ -255,19 +255,23 @@ b_growth_10y <- function(rate) (1 + rate)^10               # 10-year cumulative 
 # B90k income scale relative to IT35: corrects for SC's front-loaded productivity and per-worker hours change.
 # Former practice: b90k_scale_it <- avg_prod_growth_it^10 / (change_hours_pw_it * prod_growth_2035_it)
 b90k_scale_it <- b_growth_10y(B_GROWTH_RATE) / (change_hours_pw_it * prod_growth_2035_it)
-# B (35h class) income scale: B90k × (36/40) — 36 worked hours in 2035 vs B90k's 40
+# B (35h class) income scale: B90k × the actual SC per-worker hours change 2025-2035 (E0a), i.e.
+# b_scale = (1+g)^10 / prod_growth_2035 — the 35h class is the real SC trajectory, so it uses the
+# modelled per-worker hours rather than a flat ratio. Matches conjoint_world.R's b_scale_c.
 # Former practice: b_scale_it <- avg_prod_growth_it^10 / prod_growth_2035_it
-b_scale_it <- (36 / 40) * b90k_scale_it
+# Existing practice (commented out): flat 36/40 (36 worked hours in 2035 vs B90k's 40)
+# b_scale_it <- (36 / 40) * b90k_scale_it
+b_scale_it <- change_hours_pw_it * b90k_scale_it
 # B120k (45h class) income scale: B90k × (44/40) — 44 worked hours in 2035
 # Former practice: b120k_scale_it <- (45 / 40) * b90k_scale_it
 b120k_scale_it <- (44 / 40) * b90k_scale_it
 
 ##### 9. ineq_IT_2035: 127 gpercentiles × 14 cols #####
-# Scenario key: {type}_{food}_{decarb} e.g. SC2_FD.
-# food=1: public services stable (no extra PS tax); food=2: increased PS (extra tax applied).
+# Scenario key: {type}_{sectoral_change}_{decarb} e.g. SC2_FD.
+# sectoral_change=1: public services stable (no extra PS tax); sectoral_change=2: increased PS (extra tax applied).
 # decarb: SD=×1.00, ID=×0.99, FD=×0.97 (income cost of decarbonization).
-# Exported columns = selected scenarios: all _2_FD (food=2, fast decarb) except IT35 (SC1_SD)
-# and SCmat (SC1_FD) which have food=1.
+# Exported columns = selected scenarios: all _2_FD (sectoral_change=2, fast decarb) except IT35 (SC1_SD)
+# and SCmat (SC1_FD) which have sectoral_change=1.
 message("Building ineq_IT_2035...")
 fd        <- DECARB_FACTOR["FD"]           # 0.96
 
@@ -430,9 +434,11 @@ gdp_si_sn <- 50 * 9.41; gdp_sg <- 60 * 9.41; gdp_b90k <- B90K_COEF_2100 * 60 * 9
 new_temp_rows <- do.call(rbind, lapply(
   list(c("SI", gdp_si_sn), c("SN", gdp_si_sn), c("SG", gdp_sg), c("B90kC", gdp_b90k)),
   function(s) expand.grid(base = s[1], gdp = as.numeric(s[2]),
-    decarb = c("FD","ID","SD"), food = c("1","2"), stringsAsFactors = FALSE)))
-new_temp_rows$scenario <- paste0(new_temp_rows$base, new_temp_rows$food, "_", new_temp_rows$decarb)
-new_temp_rows$sectoral_change <- as.integer(new_temp_rows$food == "2")
+    decarb = c("FD","ID","SD"), sectoral_change_code = c("1","2"), stringsAsFactors = FALSE)))
+# sectoral_change_code is the 1/2 scenario-modality label (Chancel naming, e.g. SC2_FD); the
+# regression predictor sectoral_change is its 0/1 dummy (name locked by chancel_temp2100_completed.csv).
+new_temp_rows$scenario <- paste0(new_temp_rows$base, new_temp_rows$sectoral_change_code, "_", new_temp_rows$decarb)
+new_temp_rows$sectoral_change <- as.integer(new_temp_rows$sectoral_change_code == "2")
 new_temp_rows$decarb_f <- factor(new_temp_rows$decarb, levels = c("FD","ID","SD"))
 new_temp_rows$temp_final <- round(predict(fit_noem_gdp,
   data.frame(gdp = new_temp_rows$gdp, decarb = new_temp_rows$decarb_f,
@@ -559,7 +565,7 @@ for (sc in names(scopes)) {
     ineq_2100_full[[paste0(region, "_B15k", sc)]] <- round(sd * 0.25)
   }
 }
-# Food variants at 2100: Bbeef/Bflights/Bmat = SC (B=SC at 2100, food/structural-change does not affect 2100 income)
+# Food variants at 2100: Bbeef/Bflights/Bmat = SC (B=SC at 2100, sectoral_change does not affect 2100 income)
 # Formerly: MCbeef/MCflights/MCmat = MC at 2100
 for (nm in c("Bbeef", "Bflights", "Bmat")) {
   for (region in c("IT", "World"))
@@ -600,14 +606,14 @@ message(sprintf("Wrote ineq_2100.csv  (%d rows × %d cols)", nrow(ineq_2100_expo
 ##### 14. ineq_IT_2035_full.csv: ineq_IT_2035 plus every redistribution-scope variant #####
 # Scenario distribution given the underlying parameters, translated from scenarios.js
 # getIT2035Distribution(): each scenario column is the appropriate base column rescaled by the hours
-# coef and the decarbonization/public-services (food) factors, using the ROUNDED constants exactly as
-# scenarios.js reads them. Scope variants are taken at the same food/decarb level as the class's
-# exported C column: food=1 / PS stable for the P class (like PC/PI), food=2 / PS increased otherwise.
+# coef and the decarbonization/public-services (sectoral_change) factors, using the ROUNDED constants exactly as
+# scenarios.js reads them. Scope variants are taken at the same sectoral_change/decarb level as the class's
+# exported C column: sectoral_change=1 / PS stable for the P class (like PC/PI), sectoral_change=2 / PS increased otherwise.
 message("Building ineq_IT_2035_full...")
 avg_it35r   <- round(avg_it2035)                 # rounded avg incomes (as in conjoint_constants.csv)
-ps_exported <- 1 - round(it_extra_tax_rate, 6)   # PS factor baked into food=2 columns
-# food2_cols: columns exported at food=2 (carry PS tax)
-food2_cols  <- c("SC", "SC45k", "SC15k", "SI", "SN", "SG", "B90kC", "B45kC", "B120kC", "B90kC_SD", "B", "B15kC", "B30kC")
+ps_exported <- 1 - round(it_extra_tax_rate, 6)   # PS factor baked into sectoral_change=2 columns
+# sectoral_change2_cols: columns exported at sectoral_change=2 (carry PS tax)
+sectoral_change2_cols  <- c("SC", "SC45k", "SC15k", "SI", "SN", "SG", "B90kC", "B45kC", "B120kC", "B90kC_SD", "B", "B15kC", "B30kC")
 dist_2035 <- function(hoursPerWeek, globalRedistribution, nationalRedistribution, decarbonization, publicServices) {
   hasGIT <- globalRedistribution == "GIT"; hasNat <- nationalRedistribution == "SN"; redistScale <- 1
   if (hoursPerWeek == 45) {
@@ -625,7 +631,7 @@ dist_2035 <- function(hoursPerWeek, globalRedistribution, nationalRedistribution
     else if (!hasGIT && hasNat)  { colName <- "SN"; redistScale <- coefC * avg_it35r["SI"] / avg_it35r["SN"] }
     else                         { colName <- "SI"; redistScale <- coefC }
   }
-  exportedPsFactor <- if (colName %in% food2_cols) ps_exported else 1
+  exportedPsFactor <- if (colName %in% sectoral_change2_cols) ps_exported else 1
   decarbRatio <- as.numeric(DECARB_FACTOR[decarbonization] / DECARB_FACTOR["FD"])
   psUser <- if (publicServices == "increased") ps_exported else 1
   ineq_IT_2035[[colName]] * decarbRatio * (psUser / exportedPsFactor) * as.numeric(redistScale)
@@ -636,7 +642,7 @@ ineq_IT_2035_full <- ineq_IT_2035[, c("gpercentile", "IT25", "cash_GR35", "IT35"
 ineq_IT_2035_full[["B90kC_SD"]] <- round(ineq_IT_2035[["B90kC_SD"]])
 ineq_IT_2035_full[["Bmat"]] <- round(ineq_IT_2035[["Bmat"]])
 for (cls in names(hours_classes)) for (sc in names(scopes)) {
-  ps <- if (cls == "P") "stable" else "increased"   # match the class's exported food level
+  ps <- if (cls == "P") "stable" else "increased"   # match the class's exported sectoral_change level
   ineq_IT_2035_full[[scen_name(cls, sc)]] <-
     round(dist_2035(hours_classes[[cls]], scopes[[sc]]["g"], scopes[[sc]]["n"], "FD", ps))
 }
@@ -655,7 +661,7 @@ for (sl in c("C", "G", "N", "I")) {
 ineq_IT_2035_full[["B"]] <- round(ineq_IT_2035[["B"]])
 for (sl in c("G", "N", "I"))
   ineq_IT_2035_full[[paste0("B", sl)]] <- round(ineq_IT_2035_full[[paste0("S", sl)]] * b_scale_it)
-# Bbeef/Bflights: food=2 income at 2035 = B (not B90kC); B90kMat already in initial columns.
+# Bbeef/Bflights: sectoral_change=2 income at 2035 = B (not B90kC); B90kMat already in initial columns.
 ineq_IT_2035_full[["Bbeef"]]    <- ineq_IT_2035_full[["B"]]  # B = 35h constant-growth
 ineq_IT_2035_full[["Bflights"]] <- ineq_IT_2035_full[["B"]]
 write.csv(ineq_IT_2035_full, "../distributions/ineq_IT_2035_full.csv", row.names = FALSE, quote = FALSE)
@@ -710,4 +716,20 @@ for (f in c("ineq_IT_2035.csv", "ineq_IT_2035_full.csv", "ineq2_IT_2035.csv", "i
             "ineq_2100.csv", "ineq_2100_full.csv", "conjoint_constants.csv"))
   file.copy(file.path("../distributions", f), file.path("data", f), overwrite = TRUE)
 message("Copied conjoint CSVs to data/ for the web pages.")
+
+# Self-contained, column-trimmed copies for the IT survey pages (conjoint_any/any2/few fetch from
+# IT_survey/data/ via the vendored IT_survey/scenarios.js). Only the columns that scenarios.js
+# actually reads are kept, and "_full" is dropped from the file names.
+dir.create("IT_survey/data", recursive = TRUE, showWarnings = FALSE)
+it2035_keep <- c("gpercentile", "IT25", "SG", "SN", "SI",
+                 "B", "BG", "BN", "BI", "B45kC", "B90kC", "B120kC")   # getIT2035Distribution (30/35/40/45h, B-family) + IT25 lookup
+ineq2100_keep <- c("bracket", paste0("IT_", c("SC","SG","SN","SI")),
+                   paste0("World_", c("SC","SG","SN","SI")))         # get2100Distributions (SC/SG/SN/SI scopes)
+write.csv(ineq_IT_2035_full[, it2035_keep],  "IT_survey/data/ineq_IT_2035.csv",  row.names = FALSE, quote = FALSE)
+write.csv(ineq2_IT_2035_full[, it2035_keep], "IT_survey/data/ineq2_IT_2035.csv", row.names = FALSE, quote = FALSE)
+write.csv(ineq_2100_full[, ineq2100_keep],   "IT_survey/data/ineq_2100.csv",     row.names = FALSE, quote = FALSE)
+# Constants: drop the B30kC rows (the 29h class is unused by the IT survey).
+write.csv(constants[!grepl("B30kC", constants$name), ], "IT_survey/data/conjoint_constants.csv",
+          row.names = FALSE, quote = FALSE)
+message("Wrote trimmed conjoint CSVs to IT_survey/data/ (self-contained survey).")
 message("Done.")
