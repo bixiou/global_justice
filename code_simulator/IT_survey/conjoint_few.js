@@ -224,7 +224,7 @@ function updateSide(side) {
   });
 
   try {
-    await ScenariosModule.ensureDataLoaded("data/", "ineq2_IT_2035.csv");   // F0a (actual 2025-2035) growth
+    await ScenariosModule.ensureDataLoaded("data/", "ineq_IT_2035.csv");   // flat 1.5% growth (B family)
     document.getElementById("statusMsg").textContent = "Quale dei due scenari preferisci?";
     SIDES.forEach(s => updateSide(s.id));
   } catch (err) {

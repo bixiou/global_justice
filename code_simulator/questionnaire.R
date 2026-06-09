@@ -723,8 +723,11 @@ message("Copied conjoint CSVs to data/ for the web pages.")
 # IT_survey/data/ via the vendored IT_survey/scenarios.js). Only the columns that scenarios.js
 # actually reads are kept, and "_full" is dropped from the file names.
 dir.create("IT_survey/data", recursive = TRUE, showWarnings = FALSE)
-it2035_keep <- c("gpercentile", "IT25", "SG", "SN", "SI",
-                 "B", "BG", "BN", "BI", "B45kC", "B90kC", "B120kC")   # getIT2035Distribution (30/35/40/45h, B-family) + IT25 lookup
+it2035_keep <- c("gpercentile", "IT25",                              # IT25 = 2025 cash for percentile lookup
+                 "B", "BG", "BN", "BI",                              # 35h baseline, 4 scopes
+                 "B45kC", "B45kG", "B45kN", "B45kI",                 # 30h, 4 scopes
+                 "B90kC", "B90kG", "B90kN", "B90kI",                 # 40h, 4 scopes
+                 "B120kC", "B120kG", "B120kN", "B120kI")             # 45h, 4 scopes (getIT2035Distribution reads B-family cols directly)
 ineq2100_keep <- c("bracket", paste0("IT_", c("SC","SG","SN","SI")),
                    paste0("World_", c("SC","SG","SN","SI")))         # get2100Distributions (SC/SG/SN/SI scopes)
 write.csv(ineq_IT_2035_full[, it2035_keep],  "IT_survey/data/ineq_IT_2035.csv",  row.names = FALSE, quote = FALSE)
