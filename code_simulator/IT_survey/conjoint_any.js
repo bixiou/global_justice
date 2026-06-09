@@ -165,9 +165,9 @@ function renderCaption(capId, brackets, annualValues, region) {
 // Public-services / beef & flights phrase boxes.
 const BF_TXT = {
   none:    "Nessuna variazione",
-  beef:    "Meno prodotti bovini (2 porzioni al mese)<br>Prezzo dei voli triplica",
+  beef:    "Meno prodotti bovini (2 porzioni di carne al mese)",
   flights: "Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica",
-  both:    "Meno prodotti bovini (2 porzioni al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica"
+  both:    "Meno prodotti bovini (2 porzioni di carne al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica"
 };
 function setFeatureChips(side, params) {
   document.getElementById("ps-" + side).textContent =
