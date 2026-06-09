@@ -66,7 +66,7 @@ const LABELS = {
   World: { bottom: "10% più povero del mondo", median: "Reddito tipico", top: "10% più ricco del mondo",
            title: "Disuguaglianza nel mondo (2100)" }
 };
-const fmtEur = n => "€" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+const fmtEur = n => "€" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 const charts = {};
 
 const YLIM_MONTHLY = 30000;
@@ -151,9 +151,9 @@ function renderCaption(capId, brackets, annualValues, region) {
 
 const BF_TXT = {
   none:    "Nessuna variazione",
-  beef:    "Meno prodotti bovini (2 porzioni al mese)<br>Prezzo dei voli triplica",
-  flights: "Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica",
-  both:    "Meno prodotti bovini (2 porzioni al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica"
+  beef:    "Meno prodotti bovini (2 porzioni di carne al mese)",
+  flights: "Meno voli (2.500 km all'anno)<br>Prezzi triplicati",
+  both:    "Meno prodotti bovini (2 porzioni di carne al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzi triplicati"
 };
 function setFeatureChips(side, params) {
   document.getElementById("ps-" + side).textContent =
@@ -224,7 +224,7 @@ function updateSide(side) {
   });
 
   try {
-    await ScenariosModule.ensureDataLoaded("data/");
+    await ScenariosModule.ensureDataLoaded("data/", "ineq2_IT_2035.csv");   // F0a (actual 2025-2035) growth
     document.getElementById("statusMsg").textContent = "Quale dei due scenari preferisci?";
     SIDES.forEach(s => updateSide(s.id));
   } catch (err) {

@@ -64,7 +64,7 @@ A scenario is characterised by four structural dimensions:
 
 \begin{description}
   \item[Hours (or class).] The average weekly working hours converge to a
-    2100 target corresponding to one of: \scenario{S15k}, \scenario{S45k},
+    2100 target corresponding to one of: \scenario{S45k},
     \scenario{S} (= \scenario{S60k}), \scenario{B} (= \scenario{S} at 2100, constant-growth productivity),
     \scenario{B90k} (formerly \scenario{M}), \scenario{B120k} (formerly \scenario{W}), \scenario{P} (from
     shortest to longest; see Table~\ref{tab:hours}).
@@ -99,7 +99,6 @@ decarbonization).
 \cmidrule(lr){3-4}
  & & \shortstack{With global\\ redistribution} & \shortstack{Without global\\ redistribution} \\
 \midrule
-28 & \scenario{B30k} & 30   & 25   \\
 32 & \scenario{B45k} & 45   & 37.5 \\
 36 & \scenario{S} / \scenario{B} & 60 & 50 \\
 40 & \scenario{B90k} & 90   & 75   \\
@@ -127,8 +126,8 @@ respondent themselves and seven policy-relevant parameters:
     and NZE pathways respectively. The income cost at 2035 is 0\,\% (SD), 1\,\% (ID) or 3\,\% (FD). % TODO put the cost info elsewhere
 
   \item \textbf{Working hours}: each scenario is identified by its weekly hours \emph{worked in
-    2035} --- 28/32/36/40/44, evenly spaced around the \scenario{B90k} baseline (40\,h) in steps
-    of 4 --- and converges to a 2100 GDP-per-capita target of 30/45/60/90/120\,k\EUR respectively
+    2035} --- 32/36/40/44, in steps of 4 around the \scenario{B90k} baseline (40\,h) --- and
+    converges to a 2100 GDP-per-capita target of 45/60/90/120\,k\EUR respectively
     (see Table~\ref{tab:hours}).
 
   \item \textbf{National redistribution}: current level, or National redistribution (\scenario{N}).
@@ -341,7 +340,6 @@ $\delta_\text{FD} = 0.97$ and $\psi = 1 - \tau_\text{PS}$:
   \scenario{PC}    &= 1.15\,\text{IT35}_p \cdot \delta_\text{FD}  &&\text{(PC1\_FD)} \\
   \scenario{PI}    &= 1.4\,\text{IT25}_p \cdot \delta_\text{FD}   &&\text{(PI1\_FD)} \\
   \scenario{SC45k} &= (G_{2025}/G_{2035})\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi \\
-  \scenario{SC15k} &= 0.9\,(G_{2025}/G_{2035})\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi \\
   \scenario{SI}    &= (G^{PI}_{2035}/G_{2025})\,(h^{SC}_{2035}/h^{PI}_{2035})\,\text{IT25}_p
                        \cdot \delta_\text{FD} \cdot \psi \\
   \scenario{SN}    &= (\text{IT35}_p - \text{cash\_GR35}_p)\,(G^{SI_0}/\overline{\text{SC}})
@@ -363,14 +361,10 @@ $\delta_\text{FD} = 0.97$ and $\psi = 1 - \tau_\text{PS}$:
   \scenario{Bflights}&= \scenario{B}
                        &&\text{(B2\_FD, flights focus; income = B)} \\
   \scenario{B45kC}   &= \tfrac{32}{40}\,\Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi
-                       &&\text{(B45kC2\_FD: 32h worked, 45k target; formerly \scenario{MC45k})} \\
-  \scenario{B30kC}   &= \tfrac{28}{40}\,\Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi
-                       &&\text{(28h worked, 30k target; formerly \scenario{MC30k})} \\
-  \scenario{B15kC}   &= \tfrac{24}{40}\,\Phi\,\text{IT35}_p \cdot \delta_\text{FD} \cdot \psi
-                       &&\text{(24h worked, 15k target; formerly \scenario{MC15k})}
+                       &&\text{(B45kC2\_FD: 32h worked, 45k target; formerly \scenario{MC45k})}
 \end{align}
 % B90k (40h worked) is the baseline. B (36h worked) uses SC's actual per-worker hours change
-% (E0a, omega_2035); B30k/B45k/B120k use flat worked-hours ratios 28/32/44 over 40.
+% (E0a, omega_2035); B45k/B120k use flat worked-hours ratios 32/44 over 40.
 
 \noindent where $G_{t}$ denotes Italy's per-capita GDP at year $t$ (\citealt{Chancel2026} \texttt{A0p};
 $G^{PI}_{2035}$ is the PI per-capita GDP, \texttt{A0pi}); $h^{SC}_{2035},h^{PI}_{2035}$ are
@@ -380,8 +374,8 @@ $\overline{\text{SC}},G^{SI_0}$ the gp-weighted means of the SC and SI bases; an
 B90k income scale factor defined in Section~\ref{sec:MC}. \scenario{B90k} (40\,h worked) is the baseline.
 \scenario{B} (36\,h worked) is the real SC trajectory, so it scales by SC's actual 2035 per-worker
 hours change $\omega_{2035}$ (sheet \texttt{E0a}); the constructed classes
-\scenario{B30k}/\scenario{B45k}/\scenario{B120k} (28/32/44\,h worked) equal $\Phi\,\text{IT35}_p$ times
-their flat worked-hours ratio (28/32/44 over 40).
+\scenario{B45k}/\scenario{B120k} (32/44\,h worked) equal $\Phi\,\text{IT35}_p$ times
+their flat worked-hours ratio (32/44 over 40).
 
 \attentionbox{%
   \scenario{PI} uses IT25 (2025 cash income) as its base, not IT35, because the
@@ -409,10 +403,10 @@ working hours constant at their 2025 level (40\,h) and is the baseline of the B 
 2035 income scale relative to IT35 is:
 \begin{equation}
   \label{eq:MCscale}
-  \Phi = \frac{(1+g)^{10}}{\omega_{2035} \cdot \phi_{2035}}, \qquad g = 1\,\%,
+  \Phi = \frac{(1+g)^{10}}{\omega_{2035} \cdot \phi_{2035}}, \qquad g = 1.5\,\%,
 \end{equation}
 where $(1+g)^{10}$ is the cumulative 2025--2035 income growth of the B scenarios at a flat
-yearly rate $g = 1\,\%$ (this replaces the former practice of using the average 2025--2100
+yearly rate $g = 1.5\,\%$ (this replaces the former practice of using the average 2025--2100
 productivity rate $\bar{g}^{10}$, with $\bar{g} = (125/\phi_{2025})^{1/75}$, which front-loads
 SC's high near-term growth), $\phi_{2035} = \phi_{2035}/\phi_{2025}$ is the actual SC productivity
 growth 2025--2035 (from \citet{Chancel2026} sheet \texttt{F0a}), and $\omega_{2035} =
@@ -428,7 +422,7 @@ per-worker hours ratio from sheet \texttt{E0a} is used only for the 2035 income 
 \attentionbox{%
   In the SC scenario, productivity growth is front-loaded (peaking around 2080
   before declining), so the actual SC growth $\phi_{2035}$ can exceed the flat-rate
-  numerator $(1.01)^{10}\approx 1.105$. In that case $\Phi < 1$, meaning \scenario{B90k} income at 2035 is
+  numerator $(1.015)^{10}\approx 1.161$. In that case $\Phi < 1$, meaning \scenario{B90k} income at 2035 is
   \emph{lower} than SC income — a plausible result because SC extracts peak
   productivity via its 36\,h week while \scenario{B90k} works 40\,h at a lower per-hour
   frontier.
@@ -491,7 +485,7 @@ to the \scenario{SC} distribution:
   \text{X}_{IT,2100} = c_X \times \scenario{SC}_{IT,2100}.
 \end{equation}
 Each weekly-hours level maps to a fixed 2100 GDP-per-capita target (k\EUR, with global
-redistribution), so its coef is simply target$/60$: \scenario{B30k} (28h, 30k)$\to 0.5$,
+redistribution), so its coef is simply target$/60$:
 \scenario{B45k} (32h, 45k)$\to 0.75$, \scenario{B} (36h, 60k)$\to 1.0$, \scenario{B90k}
 (40h, 90k)$\to 1.5$, \scenario{B120k} (44h, 120k)$\to 2.0$.
 \scenario{B} (formerly \scenario{M60k}) and \scenario{Bbeef}/\scenario{Bflights}/\scenario{Bmat}
@@ -503,13 +497,13 @@ all equal \scenario{SC} at 2100 (B reaches the SC level at 2100).
   B food variants (Bbeef, Bflights, Bmat) equal SC at 2100 (B=SC at 2100; food does not affect 2100 income).
   B120k and P share the same 2100 coef (2.0); they differ only in their 2035 income formula.}
 \label{tab:coefs2100}
-\begin{tabular}{lcccccccc}
+\begin{tabular}{lcccc}
 \toprule
-Scenario & B15kC & B30kC & SC (=B,Bmat,Bbeef,Bflights) & B45kC & B90kC & B120kC, PC \\
-Hours (worked 2035) & 24h & 28h & 36h & 32h & 40h & 44h \\
-GDP target (k\EUR) & 15 & 30 & 60 & 45 & 90 & 120 \\
+Scenario & SC (=B,Bmat,Bbeef,Bflights) & B45kC & B90kC & B120kC, PC \\
+Hours (worked 2035) & 36h & 32h & 40h & 44h \\
+GDP target (k\EUR) & 60 & 45 & 90 & 120 \\
 \midrule
-Coef     & 0.25  & 0.50  & 1.00 & 0.75 & 1.50 & 2.00 \\
+Coef     & 1.00 & 0.75 & 1.50 & 2.00 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -537,7 +531,7 @@ with non-positive or non-finite income are dropped. Gaps in the resulting
 100-grid are filled by linear interpolation.
 
 Populations used follow whether the scenario has global redistribution (GIT): $\text{Pop}^{SC}$
-(\citealt{Chancel2026} sheet \texttt{Z0a}, $\approx 9.41$\,B in 2100, Convergence) for SC, SG, SC45k, SC15k, \scenario{B90k}
+(\citealt{Chancel2026} sheet \texttt{Z0a}, $\approx 9.41$\,B in 2100, Convergence) for SC, SG, SC45k, \scenario{B90k}
 and PC; and $\text{Pop}^{PI}$ (\texttt{Z0b}, $\approx 10.18$\,B, Inequality) for PI, SI and SN.
 
 \attentionbox{%
@@ -646,9 +640,9 @@ SC shape. The 36h scope base is rescaled to the target worked-hours level $x$ by
   \scenario{G}_{x} &= (\scenario{SI}+\text{cash\_GR35})\,\frac{\bar{y}^{C}_{x}}{\bar{\scenario{SI}}},
 \end{align}
 where $\bar{y}^{I}_{x}$ ($\bar{y}^{C}_{x}$) is the gp-weighted mean of the
-inequality (convergence) distribution at hours class $x \in
-\{\text{S15k},\text{B45kC},\text{B90k},\text{P}\}$, and the bars denote 35h-column
-weighted means in \texttt{ineq\_IT\_2035.csv}. (At $x = $ 35h the ratio is 1 and
+inequality (convergence) distribution at worked-hours level $x \in
+\{\text{B45kC},\text{B90k},\text{P}\}$, and the bars denote 36h-column
+weighted means in \texttt{ineq\_IT\_2035.csv}. (At $x = $ 36h the ratio is 1 and
 the scope base is returned unchanged.)
 
 \attentionbox{%
@@ -667,7 +661,7 @@ The \emph{national incomes} chart shows the IT 2100 distribution in 21 brackets
 and the \emph{global incomes} chart shows both the IT and the World 2100
 distributions. All values are cash-income-equivalent (scaled by $r_\text{IT}$).
 
-For hours variants not equal to 35h, the ineq\_2100 distribution for the
+For worked-hours variants other than 36h, the ineq\_2100 distribution for the
 given redistribution scope is scaled by:
 \begin{equation}
   c_\text{hours} = \frac{\bar{W}_\text{hours}}{\bar{W}_\text{SC}},
@@ -746,23 +740,25 @@ scopes by the same proportionality.
     Income in EUR PPP 2025/adult/yr.
 
   \item[\texttt{ineq\_IT\_2035\_full.csv}]
-    127 rows $\times$ additional columns: all 6 hours classes $\times$ 4 scopes + standalone
-    columns SCmat, B90kMat, Bmat, Bbeef, Bflights + B90k sub-target variants
-    B\{45k/30k/15k\}\{C/G/N/I\}. Bbeef and Bflights equal B (income = B at 2035).
-    B120k\{C/G/N/I\} uses the 45h-class formula $(\frac{44}{40}\Phi)$; B120kG/N/I $=$ B90k\{G/N/I\} $\times 1.1$.
+    127 rows $\times$ additional columns: all 4 hours classes (32/36/40/44) $\times$ 4 scopes + standalone
+    columns SCmat, B90kMat, Bmat, Bbeef, Bflights + the B90k sub-target variant
+    B45k\{C/G/N/I\}. Bbeef and Bflights equal B (income = B at 2035).
+    B120k\{C/G/N/I\} uses the 44h formula $(\frac{44}{40}\Phi)$; B120kG/N/I $=$ B90k\{G/N/I\} $\times 1.1$.
 
   \item[\texttt{ineq2\_IT\_2035.csv}, \texttt{ineq2\_IT\_2035\_full.csv}]
-    Same as \texttt{ineq\_IT\_2035(\_full).csv} but the B scenarios use a $2\,\%$ yearly growth
-    for 2025--2035 instead of $1\,\%$. Every B-named column is scaled by
-    $(1.02)^{10}/(1.01)^{10}\approx 1.10$; non-B columns are identical.
+    Same as \texttt{ineq\_IT\_2035(\_full).csv} but the B scenarios use the country's actual
+    2025--2035 productivity growth from \citet{Chancel2026} sheet \texttt{F0a}
+    ($\phi_{2035}=\phi_{2035}/\phi_{2025}$) instead of the flat 1.5\,\%. Every B-named column is scaled
+    by $\phi_{2035}/(1.015)^{10}$; since this cancels SC's productivity term, the 35h B equals SC.
+    Non-B columns are identical.
 
   \item[\texttt{ineq\_2100.csv}]
     21 rows (brackets) $\times$ columns (bracket label + IT and World for each
     of the selected scenarios, including B90kC, B120kC). Income in EUR PPP 2025/adult/yr $\times$ $r_\text{IT}$.
 
   \item[\texttt{ineq\_2100\_full.csv}]
-    21 rows $\times$ additional columns: all 6 hours classes $\times$ 4 scopes + SCmat +
-    B90k sub-target variants B\{45k/30k/15k\}\{C/G/N/I\} + Bbeef, Bflights, Bmat (= SC at 2100, since B=SC at 2100) +
+    21 rows $\times$ additional columns: all 4 hours classes $\times$ 4 scopes + SCmat +
+    the B90k sub-target variant B45k\{C/G/N/I\} + Bbeef, Bflights, Bmat (= SC at 2100, since B=SC at 2100) +
     B120k\{C/G/N/I\} (= P\{C/G/N/I\} at 2100; formerly W\{C/G/N/I\}).
 
   \item[\texttt{temp100.csv}]

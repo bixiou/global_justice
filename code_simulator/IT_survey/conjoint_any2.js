@@ -1,7 +1,7 @@
 /**
  * conjoint_any2.js — IT survey "variant_any2": IDENTICAL to variant_any (conjoint_any.js) EXCEPT
- * it loads ineq2_IT_2035.csv (B scenarios at 2% yearly growth 2025-2035) instead of
- * ineq_IT_2035.csv (1% growth). Self-contained so it can be the only script on its page.
+ * it loads ineq2_IT_2035.csv (B scenarios at the country-specific F0a productivity growth) instead of
+ * ineq_IT_2035.csv (flat 1.5% growth). Self-contained so it can be the only script on its page.
  *
  * Split-screen conjoint comparison of two RANDOMLY drawn scenarios (free parameters). No user
  * controls: the respondent only chooses between the left and right scenario. Italian UI.
@@ -16,7 +16,7 @@
  * Income/couple use DEFAULT values (placeholder) — TODO: feed these automatically from the
  * respondent's earlier answers (e.g. via URL query params or a global injected by the survey tool).
  *
- * Companion files: conjoint_few.js (named-scenario pairs) and conjoint_any2.js (2%-growth dataset).
+ * Companion files: conjoint_few.js (named-scenario pairs) and conjoint_any2.js (F0a-growth dataset).
  */
 "use strict";
 
@@ -72,8 +72,8 @@ const LABELS = {
   World: { bottom: "10% più povero del mondo", median: "Reddito tipico", top: "10% più ricco del mondo",
            title: "Disuguaglianza nel mondo (2100)" }
 };
-// Unit-rounded, space as thousands separator (e.g. 23847 → "€23 847").
-const fmtEur = n => "€" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+// Unit-rounded, "." as thousands separator (e.g. 23847 → "€23.847").
+const fmtEur = n => "€" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 const charts = {};   // canvasId → Chart instance
 
 const YLIM_MONTHLY = 30000;        // monthly-income y-limit for the inequality bars
@@ -168,9 +168,9 @@ function renderCaption(capId, brackets, annualValues, region) {
 // Public-services / beef & flights phrase boxes.
 const BF_TXT = {
   none:    "Nessuna variazione",
-  beef:    "Meno prodotti bovini (2 porzioni al mese)<br>Prezzo dei voli triplica",
-  flights: "Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica",
-  both:    "Meno prodotti bovini (2 porzioni al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzo dei voli triplica"
+  beef:    "Meno prodotti bovini (2 porzioni di carne al mese)",
+  flights: "Meno voli (2.500 km all'anno)<br>Prezzi triplicati",
+  both:    "Meno prodotti bovini (2 porzioni di carne al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzi triplicati"
 };
 function setFeatureChips(side, params) {
   document.getElementById("ps-" + side).textContent =

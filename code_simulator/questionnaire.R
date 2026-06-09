@@ -20,7 +20,7 @@ WID      <- "../data/WID/wid-mprico-nni.csv"
 TEMP_OBS <- "../data/chancel_temp2100_completed.csv"
 
 DECARB_FACTOR <- c(SD = 1.00, ID = 0.99, FD = 0.97)  # income cost of decarbonization at 2035
-B_GROWTH_RATE <- 0.01    # yearly productivity growth of B scenarios 2025-2035 (replaces avg 2025-2100 rate)
+B_GROWTH_RATE <- 0.015   # yearly productivity growth of B scenarios 2025-2035 (replaces avg 2025-2100 rate)
 RETENTION_RATE <- 0.50   # fraction of capital income retained (not paid out)
 RENTAL_YIELD <- 0.035    # imputed rent rate on net housing wealth (PSZ/GGLP/BCG average)
 
@@ -243,11 +243,11 @@ hours_pc_it_2035    <- as.numeric(e0h["2035","IT"])
 hours_pc_it_pi_2035 <- as.numeric(e0k["2035","IT"])  # PI per-capita hours, 2035
 hours_pw_it_2025    <- as.numeric(e0a["2025","IT"])
 hours_pw_it_2035    <- as.numeric(e0a["2035","IT"])
-avg_prod_growth_it <- (125 / prod_it_2025)^(1 / 75)           # constant annual growth to 125 EUR/h (former practice, unused)
+avg_prod_growth_it <- (125 / prod_it_2025)^(1 / 75)           # avg 2025-2100 growth to 125 EUR/h (former practice, unused)
 prod_growth_2035_it  <- prod_it_2035 / prod_it_2025            # actual SC productivity growth 2025-2035
 # change_hours_pc_it   <- hours_pc_it_2035 / hours_pc_it_2025   # < 1 (hours fall in SC by 2035)
 change_hours_pw_it   <- hours_pw_it_2035 / hours_pw_it_2025   # per-worker hours change 2025-2035 (E0a)
-# B scenarios grow at a flat 1% yearly 2025-2035 (B_GROWTH_RATE), replacing the former practice of
+# B scenarios grow at a flat 1.5% yearly 2025-2035 (B_GROWTH_RATE), replacing the former practice of
 # using the average 2025-2100 productivity growth rate avg_prod_growth_it^10 (which front-loads SC growth).
 b_growth_10y <- function(rate) (1 + rate)^10               # 10-year cumulative B-scenario growth at `rate`
 # B90k is THE baseline (40h, constant per-worker hours): all other B-class 2035 incomes are B90k × (hours/40),
@@ -691,13 +691,15 @@ it2035_export <- data.frame(
 write.csv(it2035_export, "../distributions/ineq_IT_2035.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ineq_IT_2035.csv  (%d rows × %d cols)", nrow(it2035_export), ncol(it2035_export)))
 
-##### 14b. ineq2_IT_2035: B scenarios at 2% yearly growth 2025-2035 (instead of 1%) #####
-# Every B-class column is exactly proportional to the 10-year B growth factor b_growth_10y(rate)
-# (all B-family columns are B90k × constant, and B90k ∝ b_growth_10y). So the 2% variant is obtained
-# by scaling all B-named columns by k2 = b_growth_10y(0.02) / b_growth_10y(0.01). Non-B columns
-# (IT25, cash_GR35, IT35, SC*, PC, PI, SI, SN, SG) are unaffected.
-message("Building ineq2_IT_2035 (B scenarios at 2% growth)...")
-k2 <- b_growth_10y(0.02) / b_growth_10y(B_GROWTH_RATE)
+##### 14b. ineq2_IT_2035: B scenarios at the country's actual 2025-2035 F0a growth (instead of flat B_GROWTH_RATE) #####
+# Every B-class column is exactly proportional to its 10-year B growth factor (all B-family columns are
+# B90k × constant, and B90k ∝ growth factor). The ineq2 variant uses the country's ACTUAL 2025-2035
+# productivity growth from Chancel sheet F0a (prod_growth_2035_it = prod_2035/prod_2025) instead of the
+# flat B_GROWTH_RATE. Obtained by scaling all B-named columns by
+# k2 = prod_growth_2035_it / b_growth_10y(B_GROWTH_RATE). This cancels SC's productivity term, so the
+# 35h B equals SC. Non-B columns (IT25, cash_GR35, IT35, SC*, PC, PI, SI, SN, SG) are unaffected.
+message("Building ineq2_IT_2035 (B scenarios at country's actual 2025-2035 F0a growth)...")
+k2 <- prod_growth_2035_it / b_growth_10y(B_GROWTH_RATE)
 b_cols_full <- grep("^B", names(ineq_IT_2035_full), value = TRUE)
 ineq2_IT_2035_full <- ineq_IT_2035_full
 ineq2_IT_2035_full[b_cols_full] <- lapply(ineq2_IT_2035_full[b_cols_full], function(v) round(v * k2))
