@@ -148,18 +148,12 @@ function interpolateAtPercentile(dist, targetGp) {
  * selected scenarios (mostly sectoral_change=2, FD), so we re-scale for the user's chosen
  * decarbonization and public-services level.
  *
- * Hours handling (method_questionnaire.md §"How parameters determine incomes"):
- *   – 35h: the B-family scope column (B/BG/BN/BI) is used directly.
- *   – 29/30/40/45h: each scope keeps its OWN 35h shape (national for N, inequality for
- *     G/I — NOT the converged SC shape) and is rescaled to the hours level by the convergence
- *     hours coef coefC = avg(C_hours)/avg(SC), where the C column is the B-family target class
- *     for those hours (B30kC/B45kC/B90kC/B120kC — so 45h uses B120k, not the P-family):
- *       N_x = SN · (avg_yIx / avg_SN),  avg_yIx = avg_SI · coefC   (yNx0 in the method)
- *       G_x = SG · coefC                                           (= (SI+GR35)·avg_Cx/avg_SI)
- *       I_x = SI · coefC
- *   The SN/SG columns already embed their 35h redefinition (see questionnaire.R):
- *   SN = (SC − GR)·(GDP_SI0/GDP_SC) sits at the no-global level; SG = (GDP_SC/GDP_SI0)·(SI0+GR35)
- *   keeps the inequality shape at the converged level.
+ * Hours handling: each hours class × scope reads its precomputed B-family column directly — the
+ * SAME method as conjoint_world.js getColName, so any2/few/world stay consistent. 35h → B (C) /
+ * BG/BN/BI; 30/40/45h → B{45k,90k,120k}{C,G,N,I} (45h uses B120k, the displayed 44h, not the
+ * P-family). The non-convergence (G/N/I) columns are built in questionnaire.R §14 as
+ * SG/SN/SI × coefC at the dataset's own growth (so reading them here keeps any2/few on the F0a
+ * dataset, instead of re-deriving with the 1.5%-based avg_IT2035 constants).
  *
  * @returns {number[]} 127-element array
  */
@@ -175,8 +169,11 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
   if (col2035Override) {
     // Direct column lookup from ineq_IT_2035_full (pre-computed at FD, sectoral_change=2 or sectoral_change=1)
     const sectoralChange2Cols = new Set(["SC","SC45k","SC15k","SI","SN","SG",
-                                "B90kC","B45kC","B30kC","B15kC","B120kC","B90kC_SD",
-                                "B","BG","BN","BI"]);
+                                "B","BG","BN","BI",
+                                "B45kC","B45kG","B45kN","B45kI",
+                                "B90kC","B90kG","B90kN","B90kI",
+                                "B120kC","B120kG","B120kN","B120kI",
+                                "B30kC","B15kC","B90kC_SD"]);
     const exportedPsFactor = sectoralChange2Cols.has(col2035Override) ? psExported : 1;
     const decarbRatio = decarbUser / decarbExported;
     const psRatio     = psUser / exportedPsFactor;
@@ -188,36 +185,28 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
 
   // Columns exported at sectoral_change=2 (carry PS tax):
   const sectoralChange2Cols  = new Set(["SC","SC45k","SC15k","SI","SN","SG",
-                               "B90kC","B45kC","B30kC","B15kC","B120kC","B90kC_SD",
-                               "B","BG","BN","BI"]);
+                               "B","BG","BN","BI",
+                               "B45kC","B45kG","B45kN","B45kI",
+                               "B90kC","B90kG","B90kN","B90kI",
+                               "B120kC","B120kG","B120kN","B120kI",
+                               "B30kC","B15kC","B90kC_SD"]);
   // Columns exported at sectoral_change=1 (no PS tax): IT25, cash_GR35, IT35, SCmat, PC, PI
 
   const hasGIT = globalRedistribution === "GIT";
   const hasNat = nationalRedistribution === "SN";
+  const scope  = hasGIT ? (hasNat ? "C" : "G") : (hasNat ? "N" : "I");
 
-  let colName;       // exported column to use as base
-  let redistScale = 1; // additional level scale applied to the scope base column
-
-  if (hoursPerWeek === 35) {
-    // 35h baseline is B (constant-growth productivity), NOT SC (which front-loads
-    // SC's unrealistically high short-term productivity). B/BG/BN/BI = S{scope}·b_scale.
-    if      (hasGIT && hasNat)   colName = "B";
-    else if (hasGIT && !hasNat)  colName = "BG";
-    else if (!hasGIT && hasNat)  colName = "BN";
-    else                         colName = "BI";
-  } else {
-    // 29/30/40/45h: keep each scope's own 35h shape and rescale its level by the
-    // convergence hours coef coefC = avg(C_hours) / avg(SC). All B-class (B90k-derived), so the
-    // hours→income ladder is monotonic (29h<30h<35h<40h<45h). The 45h class uses the B120k
-    // B-scenario (matching the displayed 44h), exactly as 40h uses B90k — not the P-family.
-    const cCol  = { 29: "B30kC", 30: "B45kC", 40: "B90kC", 45: "B120kC" }[hoursPerWeek];
-    const coefC = C["avg_IT2035_" + cCol] / C["avg_IT2035_SC"];
-    if      (hasGIT && hasNat)  { colName = cCol;                              } // C: exact C hours column
-    else if (hasGIT && !hasNat) { colName = "SG"; redistScale = coefC;        } // G: SG keeps (SI+GR35) shape
-    else if (!hasGIT && hasNat) { colName = "SN";                               // N: avg matches I level, SN shape
-      redistScale = coefC * C["avg_IT2035_SI"] / C["avg_IT2035_SN"]; }
-    else                        { colName = "SI"; redistScale = coefC;        } // I: SI keeps its shape
-  }
+  // Read the precomputed B-family column for this hours class × scope — SAME method as
+  // conjoint_world.js getColName, so any2/few/world stay consistent. The non-convergence (G/N/I)
+  // columns B{45k,90k,120k}{G,N,I} are precomputed in the CSV, so they carry the loaded dataset's
+  // own growth (no runtime coefC rescaling, which previously mixed the 1.5% constants into the F0a
+  // ineq2 dataset). 45h uses B120k (the displayed 44h), 40h B90k, 30h B45k, 35h the B baseline.
+  let colName;
+  if      (hoursPerWeek === 45) colName = "B120k" + scope;
+  else if (hoursPerWeek === 40) colName = "B90k"  + scope;
+  else if (hoursPerWeek === 30) colName = "B45k"  + scope;
+  else if (hoursPerWeek === 29) colName = "B30k"  + scope;
+  else                          colName = scope === "C" ? "B" : "B" + scope;   // 35h baseline
 
   const exportedPsFactor = sectoralChange2Cols.has(colName) ? psExported : 1;
   const decarbRatio = decarbUser / decarbExported;
@@ -225,7 +214,7 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
 
   return _ineqIT2035.map(row => {
     const v = row[colName];
-    return (v == null || isNaN(v)) ? 0 : v * decarbRatio * psRatio * redistScale;
+    return (v == null || isNaN(v)) ? 0 : v * decarbRatio * psRatio;
   });
 }
 
