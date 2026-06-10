@@ -185,7 +185,7 @@ const ORDER = {};   // { blocks:[…], r2035:[…], r2100:[…] } — set in ini
 
 // Row titles shown once in the shared left column (2035 attributes + temperature).
 const ATTR_LABELS = { hours: "Ore di lavoro (full-time)",
-                      income: `Reddito mensile netto del suo nucleo familiare (attuale: ${DEFAULT_INCOME_MONTHLY.toLocaleString("it-IT")} €/mese)`,
+                      income: `<span class="lbl-full">Reddito mensile netto del suo nucleo familiare</span><span class="lbl-short">Il suo reddito</span> (attuale: ${DEFAULT_INCOME_MONTHLY.toLocaleString("it-IT")} €/mese)`,
                       bf: "Alimentazione e voli", ps: "Servizi pubblici",
                       temp: "Riscaldamento globale" };
 
@@ -210,7 +210,7 @@ function buildGrid() {
     (name === "2035" ? ORDER.r2035 : ORDER.r2100).forEach(r => {
       const isAttr = name === "2035" || r === "temp";
       const title = isAttr ? ATTR_LABELS[r] : LABELS[r].title;
-      html += `<div class="rlabel ${isAttr ? "rlabel-attr" : "rlabel-dist"}">${title}</div>` +
+      html += `<div class="rlabel ${isAttr ? "rlabel-attr" : "rlabel-dist"}"><span>${title}</span></div>` +
         (isAttr ? valCell(r, "L") + valCell(r, "R") : distCell(r, "L") + distCell(r, "R"));
     });
   });
