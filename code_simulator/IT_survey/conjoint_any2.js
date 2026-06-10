@@ -68,12 +68,12 @@ const GRP_OF = { p0p5: "bottom", p5p10: "bottom", p45p50: "median", p50p55: "med
 function groupOf(b) { return GRP_OF[b] || "other"; }
 const LABELS = {
   IT:    { bottom: "10% più povero in Italia", median: "Reddito tipico", top: "10% più ricco in Italia",
-           title: "Disuguaglianza in Italia (2100)" },
+           title: `<span class="flag-it"></span> Redditi in Italia` },
   World: { bottom: "10% più povero del mondo", median: "Reddito tipico", top: "10% più ricco del mondo",
-           title: "Disuguaglianza nel mondo (2100)" }
+           title: "🌍 Redditi nel mondo" }
 };
-// Unit-rounded, "." as thousands separator (e.g. 23847 → "€23.847").
-const fmtEur = n => "€" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+// Unit-rounded, "." as thousands separator, Italian "amount €" order (e.g. 23847 → "23.847 €").
+const fmtEur = n => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " €";
 const charts = {};   // canvasId → Chart instance
 
 const YLIM_MONTHLY = 30000;        // monthly-income y-limit for the inequality bars
@@ -142,8 +142,8 @@ function renderInequality(canvasId, brackets, annualValues) {
         x: { stacked: true, display: false, grid: { display: false } },
         y: { stacked: true, min: 0, max: YLIM_MONTHLY,
              ticks: { callback: v => (v >= YLIM_MONTHLY && hasHatch)
-                        ? "€" + Math.round(topMonthly / 10000) * 10 + "k"
-                        : "€" + (v >= 1000 ? Math.round(v/1000) + "k" : Math.round(v)),
+                        ? Math.round(topMonthly / 10000) * 10 + "k"
+                        : (v >= 1000 ? Math.round(v/1000) + "k" : Math.round(v)),
              font: { size: 8 } } }
       }
     }
@@ -159,44 +159,62 @@ function renderCaption(capId, brackets, annualValues, region) {
   const L = LABELS[region];
   const rows = [["bottom", L.bottom], ["median", L.median], ["top", L.top]];
   document.getElementById(capId).innerHTML = rows.map(([g, lab]) =>
-    `<div class="cap-row"><div class="cap-sw" style="background:${GRP_COL[g]}"></div>
-       <div class="cap-txt"><b style="color:${GRP_COL[g]}">${lab}</b>
-         <span><span style="color:${GRP_COL[g]};font-weight:700">${fmtEur(meanOf(g))}</span>/mese</span></div></div>`
+    `<div class="cap-row"><b style="color:${GRP_COL[g]}">${lab}</b>
+       <span><span style="color:${GRP_COL[g]};font-weight:700">${fmtEur(meanOf(g))}</span>/mese</span></div>`
   ).join("");
 }
 
-// Public-services / beef & flights phrase boxes.
+// Beef & flights phrase text.
 const BF_TXT = {
   none:    "Nessuna variazione",
   beef:    "Meno prodotti bovini (2 porzioni di carne al mese)",
   flights: "Meno voli (2.500 km all'anno)<br>Prezzi triplicati",
   both:    "Meno prodotti bovini (2 porzioni di carne al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzi triplicati"
 };
-function setFeatureChips(side, params) {
-  document.getElementById("ps-" + side).textContent =
-    params.publicServices === "increased" ? "Più servizi pubblici" : "Nessuna variazione";
-  document.getElementById("bf-" + side).innerHTML = BF_TXT[params.beefAndFlights];
-}
 
-function resultPanelHTML(side) {
-  return `
-    <div class="side-title" id="title-${side}"></div>
-    <div class="feat-row">
-      <div class="chip temp"><span class="chip-label">Temperatura nel 2100</span>
-        <span class="chip-val" id="temp-${side}">—</span></div>
-      <div class="chip income"><span class="chip-label">Il tuo reddito nel 2035</span>
-        <span class="chip-val" id="inc-${side}">—</span><span class="chip-unit">€/mese</span></div>
-      <div class="chip"><span class="chip-label">Ore di lavoro nel 2035</span>
-        <span class="chip-val" id="hrs-${side}">—</span><span class="chip-unit">ore/sett.</span></div>
-      <div class="chip phrase"><span class="chip-val" id="ps-${side}">—</span></div>
-      <div class="chip phrase"><span class="chip-val" id="bf-${side}">—</span></div>
-    </div>
-    <div class="card"><h4>${LABELS.IT.title}</h4>
-      <div class="ineq"><div class="ineq-chart"><canvas id="cIT-${side}"></canvas></div>
-      <div class="ineq-cap" id="capIT-${side}"></div></div></div>
-    <div class="card"><h4>${LABELS.World.title}</h4>
-      <div class="ineq"><div class="ineq-chart"><canvas id="cW-${side}"></canvas></div>
-      <div class="ineq-cap" id="capW-${side}"></div></div></div>`;
+// ─── table layout: a SINGLE 3-column grid — a shared left "title" column plus the L and R
+// scenario columns — so each row's cells share a grid row and stay vertically locked, and
+// each row title appears only once (on the left). The block order (2035 / 2100) AND the row
+// order WITHIN each block are drawn once (ORDER) and apply to both columns. ───────────────
+const shuffle = arr => {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+};
+const ORDER = {};   // { blocks:[…], r2035:[…], r2100:[…] } — set in init, applies to both columns
+
+// Row titles shown once in the shared left column (2035 attributes + temperature).
+const ATTR_LABELS = { hours: "Ore di lavoro (full-time)",
+                      income: `Reddito mensile netto del suo nucleo familiare (attuale: ${DEFAULT_INCOME_MONTHLY.toLocaleString("it-IT")} €/mese)`,
+                      bf: "Alimentazione e voli", ps: "Servizi pubblici",
+                      temp: "Riscaldamento globale" };
+
+// Value cell for an attribute row: just the value (filled in by updateSide).
+const valCell = (key, side) =>
+  `<div class="gcell vcell ${side === "L" ? "col-l" : "col-r"}">
+     <span class="attr-val" id="${key}-${side}">—</span></div>`;
+
+// Distribution cell: the income card (chart + per-side legend); its title is the row's left label.
+const distCell = (region, side) => {
+  const sfx = region === "IT" ? "IT" : "W";
+  return `<div class="gcell dcell ${side === "L" ? "col-l" : "col-r"}"><div class="card">
+      <div class="ineq"><div class="ineq-chart"><canvas id="c${sfx}-${side}"></canvas></div>
+      <div class="ineq-cap" id="cap${sfx}-${side}"></div></div></div></div>`;
+};
+
+// Build the grid: a full-width block header, then per row a left title cell + the L and R cells.
+function buildGrid() {
+  let html = "";
+  ORDER.blocks.forEach(name => {
+    html += `<div class="block-head">Nel ${name}</div>`;
+    (name === "2035" ? ORDER.r2035 : ORDER.r2100).forEach(r => {
+      const isAttr = name === "2035" || r === "temp";
+      const title = isAttr ? ATTR_LABELS[r] : LABELS[r].title;
+      html += `<div class="rlabel ${isAttr ? "rlabel-attr" : "rlabel-dist"}">${title}</div>` +
+        (isAttr ? valCell(r, "L") + valCell(r, "R") : distCell(r, "L") + distCell(r, "R"));
+    });
+  });
+  return html;
 }
 
 function engineParams(side) {
@@ -219,16 +237,35 @@ function updateSide(side) {
   try { f = ScenariosModule.computeConjointFeatures(params); }
   catch (e) { document.getElementById("statusMsg").textContent = "Errore: " + e.message; return; }
 
-  document.getElementById("temp-" + side).textContent = "+" + f.temperature.value.toFixed(1) + "°C";
-  document.getElementById("inc-"  + side).textContent = "€" + f.ownIncome.value.toLocaleString("it-IT");
-  document.getElementById("hrs-"  + side).textContent = f.workingHours.value;
-  setFeatureChips(side, params);
+  document.getElementById("temp-"   + side).textContent = "+" + f.temperature.value.toFixed(1) + "°C";
+  document.getElementById("hours-"  + side).textContent = f.workingHours.value + " ore/sett.";
+  document.getElementById("income-" + side).textContent = f.ownIncome.value.toLocaleString("it-IT") + " €/mese";
+  document.getElementById("ps-"     + side).textContent =
+    params.publicServices === "increased" ? "Più servizi pubblici" : "Nessuna variazione";
+  document.getElementById("bf-"     + side).innerHTML = BF_TXT[params.beefAndFlights];
 
   const gi = f.globalIncomes;
   renderInequality("cIT-" + side, gi.brackets, gi.itValues);
   renderCaption("capIT-" + side, gi.brackets, gi.itValues, "IT");
   renderInequality("cW-" + side, gi.brackets, gi.worldValues);
   renderCaption("capW-" + side, gi.brackets, gi.worldValues, "World");
+}
+
+// ─── export: expose the drawn layout + both scenarios so the survey tool can record
+// exactly what each respondent saw (window.conjointExport, refreshed on every build). ──
+function buildExport() {
+  const sideData = id => {
+    const p = PARAMS[id];
+    return { workedHours: p.workedHours, hoursPerWeek: p.hoursPerWeek,
+             decarbonization: p.decarbonization, redistribution: p.redist,
+             nationalRedistribution: p.nationalRedistribution, globalRedistribution: p.globalRedistribution,
+             publicServices: p.publicServices, beefAndFlights: p.beefAndFlights };
+  };
+  return {
+    variant: "any2",
+    rowOrder: { blocks: ORDER.blocks.slice(), r2035: ORDER.r2035.slice(), r2100: ORDER.r2100.slice() },
+    sides: { L: sideData("L"), R: sideData("R") }
+  };
 }
 
 // ─── init ──────────────────────────────────────────────────────────────────────
@@ -239,15 +276,17 @@ async function initVariantAny(it2035File) {
   PARAMS.R = drawParams();
   while (sig(PARAMS.L) === sig(PARAMS.R)) PARAMS.R = drawParams();
 
-  SIDES.forEach(s => {
-    const cr = document.createElement("div"); cr.className = "side " + s.cls; cr.innerHTML = resultPanelHTML(s.id);
-    comparison.appendChild(cr);
-    document.getElementById("title-" + s.id).textContent = s.name;
-  });
+  // Draw the shared block/row order (same in both panels).
+  ORDER.blocks = shuffle(["2035", "2100"]);
+  ORDER.r2035  = shuffle(["hours", "income", "bf", "ps"]);
+  ORDER.r2100  = shuffle(["temp", "IT", "World"]);
+
+  comparison.innerHTML = buildGrid();
+  window.conjointExport = buildExport();
 
   try {
     await ScenariosModule.ensureDataLoaded("data/", it2035File);
-    document.getElementById("statusMsg").textContent = "Quale dei due scenari preferisci?";
+    document.getElementById("statusMsg").textContent = "";
     SIDES.forEach(s => updateSide(s.id));
   } catch (err) {
     document.getElementById("statusMsg").textContent =
