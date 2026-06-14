@@ -35,8 +35,7 @@ const REDIST_MAP = {
 };
 
 // ─── Random draw of the free parameters ─────────────────────────────────────────────────────────
-const HOURS_CHOICES  = [32, 36, 40, 44];                       // hours worked in 2035
-const HOURS_CLASS    = { 32: 30, 36: 35, 40: 40, 44: 45 };     // → 2100-target class param
+const HOURS_CHOICES  = [32, 36, 40, 44];                       // real 2035 weekly hours worked (fed directly to the engine)
 const DECARB_CHOICES = ["SD", "ID", "FD"];
 const BF_CHOICES     = ["both", "beef", "flights", "none"];
 const PS_CHOICES     = ["increased", "stable"];
@@ -48,7 +47,7 @@ function drawParams() {
   const redist = pick(REDIST_CHOICES);
   return {
     workedHours:     worked,
-    hoursPerWeek:    HOURS_CLASS[worked],   // class param fed to the engine
+    hoursPerWeek:    worked,                // real 2035 hours, fed directly to the engine
     decarbonization: pick(DECARB_CHOICES),
     redist,
     ...REDIST_MAP[redist],

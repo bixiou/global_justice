@@ -468,8 +468,8 @@ noem_keys  <- paste0("noem_", gsub("[^a-zA-Z0-9]", "_", gsub("^_+|_+$", "",
 
 # avg_IT2035_B45kC/B30kC: add to avg_it2035 for consistent naming in constants export
 # (avg_world2100["B45kC"/"B30kC"] were already added above)
-avg_it2035["B45kC"] <- avg_it2035["B90kC"] * (32 / 40)   # 30h class: 32 worked hours in 2035
-avg_it2035["B30kC"] <- avg_it2035["B90kC"] * (28 / 40)   # 29h class: 28 worked hours in 2035
+avg_it2035["B45kC"] <- avg_it2035["B90kC"] * (32 / 40)   # B45k class: 32 worked hours in 2035
+avg_it2035["B30kC"] <- avg_it2035["B90kC"] * (28 / 40)   # B30k class: 28 worked hours in 2035
 
 constants <- data.frame(
   name = c(
@@ -478,8 +478,8 @@ constants <- data.frame(
     "temp_beef_reduction_C", "temp_flights_reduction_C",
     "temp_ps_coef_a", "temp_ps_coef_b", "temp_ps_coef_c",
     # 2100 GDP per capita (k€/adult) by hours × global redistribution (matches Table tab:hours in conjoint.tex)
-    "gdp_pc_GIT_29h","gdp_pc_GIT_30h","gdp_pc_GIT_35h","gdp_pc_GIT_40h","gdp_pc_GIT_45h",
-    "gdp_pc_noGIT_29h","gdp_pc_noGIT_30h","gdp_pc_noGIT_35h","gdp_pc_noGIT_40h","gdp_pc_noGIT_45h",
+    "gdp_pc_GIT_28h","gdp_pc_GIT_32h","gdp_pc_GIT_36h","gdp_pc_GIT_40h","gdp_pc_GIT_44h",
+    "gdp_pc_noGIT_28h","gdp_pc_noGIT_32h","gdp_pc_noGIT_36h","gdp_pc_noGIT_40h","gdp_pc_noGIT_44h",
     "pop_sc_2100_B", "pop_pi_2100_B",
     # SI-2035 construction inputs: per-capita GDP (A0p/A0pi), per-capita hours (E0h/E0k), derived scale
     "gdp_pc_IT_SC_2025", "gdp_pc_IT_PI_2035",
@@ -492,8 +492,8 @@ constants <- data.frame(
     1.00, 0.99, 0.97,
     0.24, 0.155,         # beef / flights temperature reductions (°C)
     67.25, 2.06, 0.0004875,  # PS temperature adjustment: 0.0004875*(a + b*gdp_pc)
-    30, 45, 60, 90, 120,    # GIT GDP pc (k€): 29/30/35/40/45h → 30/45/60/90/120k (= income targets, Table tab:hours)
-    25, 37.5, 50, 75, 100,  # no-GIT GDP pc (k€): 29/30/35/40/45h → 25/37.5/50/75/100k
+    30, 45, 60, 90, 120,    # GIT GDP pc (k€): 28/32/36/40/44h → 30/45/60/90/120k (= income targets, Table tab:hours)
+    25, 37.5, 50, 75, 100,  # no-GIT GDP pc (k€): 28/32/36/40/44h → 25/37.5/50/75/100k
     9.41, 10.18,
     round(gdp_pc_it_2025, 1), round(gdp_pc_it_pi_2035, 1),
     round(hours_pc_it_2035, 2), round(hours_pc_it_pi_2035, 2), round(si_scale_2035, 6),
@@ -512,22 +512,22 @@ message(sprintf("Wrote conjoint_constants.csv  (%d rows)", nrow(constants)))
 # 2100 distribution — only the hours class and the redistribution scope do (couple assumed FALSE).
 message("Building ineq_2100_full...")
 scope_base <- c("GIT-SN" = "SC", "GIT-current" = "SG", "current-SN" = "SN", "current-current" = "SI")
-# hours_ccol: maps hoursPerWeek → column name for coef calculation
-# hours_ccol <- c("25" = "SC15k", "30" = "SC45k", "35" = "SC", "40" = "MC", "45" = "PC")
-hours_ccol <- c("29" = "SC15k", "30" = "B45kC", "35" = "SC", "40" = "B90kC", "45" = "PC")
+# hours_ccol: maps hoursPerWeek (real 2035 weekly hours) → column name for coef calculation
+# hours_ccol <- c("24" = "SC15k", "32" = "SC45k", "36" = "SC", "40" = "MC", "44" = "PC")
+hours_ccol <- c("28" = "SC15k", "32" = "B45kC", "36" = "SC", "40" = "B90kC", "44" = "PC")
 dist_2100 <- function(region, hoursPerWeek, globalRedistribution, nationalRedistribution) {
   base <- scope_base[paste0(globalRedistribution, "-", nationalRedistribution)]
   # coef uses the ROUNDED avg World incomes, exactly as scenarios.js reads them from
   # conjoint_constants.csv (so the table reproduces the JS bit-for-bit).
-  coef <- if (hoursPerWeek == 35) 1 else
+  coef <- if (hoursPerWeek == 36) 1 else
     as.numeric(round(avg_world2100[hours_ccol[as.character(hoursPerWeek)]]) / round(avg_world2100["SC"]))
   ineq_2100[[paste0(region, "_", base)]] * coef
 }
 
 # All 5 hours classes × 4 scopes (C/G/N/I). Scenario name embeds the scope into the class label
 # (S45k → SC45k/SG45k/…, P → PC/PG/…, B90k → B90kC/B90kG/…, S → SC/SG/…), as in method_questionnaire.md.
-# hours_classes <- list(P = 45, M = 40, S = 35, S45k = 30, S15k = 25)
-hours_classes <- list(P = 45, B90k = 40, S = 35, S45k = 30, S15k = 29)
+# hours_classes <- list(P = 44, M = 40, S = 36, S45k = 32, S15k = 24)
+hours_classes <- list(P = 44, B90k = 40, S = 36, S45k = 32, S15k = 28)
 scopes <- list(C = c(g = "GIT",     n = "SN"),      G = c(g = "GIT",     n = "current"),
                N = c(g = "current", n = "SN"),      I = c(g = "current", n = "current"))
 scen_name <- function(cls, sc) {
@@ -546,7 +546,7 @@ for (cls in names(hours_classes)) for (sc in names(scopes)) {
                                                                  scopes[[sc]]["g"], scopes[[sc]]["n"]))
 }
 # B hours sub-variants at 2100: fixed GDP-target coefs vs the scope base column (SC/SG/SN/SI):
-# B45k(30h)=45k→0.75, B30k(29h)=30k→0.5, B15k(28h)=15k→0.25. (B90k(40h)=1.5 from the loop above.)
+# B45k(32h)=45k→0.75, B30k(28h)=30k→0.5, B15k(24h)=15k→0.25. (B90k(40h)=1.5 from the loop above.)
 for (sc in names(scopes)) {
   base_col <- scope_base[paste0(scopes[[sc]]["g"], "-", scopes[[sc]]["n"])]  # SC/SG/SN/SI
   for (region in c("IT", "World")) {
@@ -607,15 +607,15 @@ ps_exported <- 1 - round(it_extra_tax_rate, 6)   # PS factor baked into sectoral
 sectoral_change2_cols  <- c("SC", "SC45k", "SC15k", "SI", "SN", "SG", "B90kC", "B45kC", "B120kC", "B90kC_SD", "B", "B15kC", "B30kC")
 dist_2035 <- function(hoursPerWeek, globalRedistribution, nationalRedistribution, decarbonization, publicServices) {
   hasGIT <- globalRedistribution == "GIT"; hasNat <- nationalRedistribution == "SN"; redistScale <- 1
-  if (hoursPerWeek == 45) {
+  if (hoursPerWeek == 44) {
     if (hasGIT && hasNat)        { colName <- "PC" }
     else if (!hasGIT && !hasNat) { colName <- "PI" }
     else if (hasGIT && !hasNat)  { colName <- "SG"; redistScale <- avg_it35r["PC"] / avg_it35r["SC"] }
     else                         { colName <- "SN"; redistScale <- avg_it35r["PI"] / avg_it35r["SN"] }
-  } else if (hoursPerWeek == 35) {
+  } else if (hoursPerWeek == 36) {
     colName <- if (hasGIT && hasNat) "SC" else if (hasGIT && !hasNat) "SG" else if (!hasGIT && hasNat) "SN" else "SI"
   } else {
-    cCol  <- unname(c("29" = "SC15k", "30" = "B45kC", "40" = "B90kC")[as.character(hoursPerWeek)])
+    cCol  <- unname(c("28" = "SC15k", "32" = "B45kC", "40" = "B90kC")[as.character(hoursPerWeek)])
     coefC <- avg_it35r[cCol] / avg_it35r["SC"]
     if (hasGIT && hasNat)        { colName <- cCol }
     else if (hasGIT && !hasNat)  { colName <- "SG"; redistScale <- coefC }

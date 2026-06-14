@@ -142,13 +142,13 @@ const SECTORAL_CHANGE2_COLS_W = new Set([
 function getColName(h, gR, nR) {
   const hasGIT = gR === "GIT", hasNat = nR === "SN";
   const scope = hasGIT ? (hasNat ? "C" : "G") : (hasNat ? "N" : "I");
-  // 35h baseline is B (B/BG/BN/BI = S{scope}·b_scale), NOT SC — see scenarios.js.
-  // All non-45h map to the B-class so the hours→income ladder is monotonic.
-  if (h === 45) return "B120k" + scope;
-  if (h === 35) return scope === "C" ? "B" : "B" + scope;
+  // 36h baseline is B (B/BG/BN/BI = S{scope}·b_scale), NOT SC — see scenarios.js.
+  // All non-44h map to the B-class so the hours→income ladder is monotonic.
+  if (h === 44) return "B120k" + scope;
+  if (h === 36) return scope === "C" ? "B" : "B" + scope;
   if (h === 40) return "B90k" + scope;
-  if (h === 30) return "B45k" + scope;
-  if (h === 29) return "B30k" + scope;
+  if (h === 32) return "B45k" + scope;
+  if (h === 28) return "B30k" + scope;
   return scope === "C" ? "B" : "B" + scope;
 }
 
@@ -182,7 +182,7 @@ function get2100Scope(gR, nR) {
 // targets used in questionnaire.R §13: 29h→30k=0.5, 30h→45k=0.75, 35h→60k=1.0,
 // 40h→90k=1.5, 45h→120k=2.0. Scope-independent (the scope is the base column).
 function get2100HoursCoef(h, gR, nR) {
-  return { 29: 0.5, 30: 0.75, 35: 1.0, 40: 1.5, 45: 2.0 }[h] || 1;
+  return { 28: 0.5, 32: 0.75, 36: 1.0, 40: 1.5, 44: 2.0 }[h] || 1;
 }
 
 function get2100Income(respondentGp, scope, hoursCoef) {
@@ -272,7 +272,7 @@ function computeTemperature(h, gR, ps, decarb, baf) {
   const sectoralChange = ps === "increased" ? 2 : 1;     // renamed from food
   const beefR     = baf === "beef"    || baf === "both";
   const flightR   = baf === "flights" || baf === "both";
-  const isPItype  = h === 45 && !hasGIT;                  // distinct 2100 population/GDP basis (not sectoral change)
+  const isPItype  = h === 44 && !hasGIT;                  // distinct 2100 population/GDP basis (not sectoral change)
   const gdpPcKey  = hasGIT ? "gdp_pc_GIT_" + h + "h" : "gdp_pc_noGIT_" + h + "h";
   const gdpPc     = C[gdpPcKey];
   const popB      = isPItype ? C["pop_pi_2100_B"] : C["pop_sc_2100_B"];
@@ -285,9 +285,9 @@ function computeTemperature(h, gR, ps, decarb, baf) {
 }
 
 function getWorkingHours2035(h) {
-  // 2035 worked hours per 2100-target class, evenly spaced around the B90k (40h) baseline
-  // in steps of 4 — matching scenarios.js (the IT survey) so both surveys label hours the same.
-  return { 29: 28, 30: 32, 35: 36, 40: 40, 45: 44 }[h] || h;
+  // hoursPerWeek now carries the real 2035 worked hours (28|32|36|40|44), evenly spaced around
+  // the B90k (40h) baseline in steps of 4 — matching scenarios.js so both surveys label alike.
+  return h;
 }
 
 function getPublicServicesFeature(ps) {
@@ -362,7 +362,7 @@ function computeConjointFeatures({
   const scen2035Label = {
     "GIT-SN":"SC", "GIT-current":"SG", "current-SN":"SN", "current-current":"SI"
   }[globalRedistribution + "-" + nationalRedistribution] || "SC";
-  const hoursLbl = { 29:"B30kC",30:"B45kC",35:scen2035Label,40:"B90kC",45:"B120kC" };
+  const hoursLbl = { 28:"B30kC",32:"B45kC",36:scen2035Label,40:"B90kC",44:"B120kC" };
   const scenName = hoursLbl[hoursPerWeek] || scen2035Label;
 
   return {

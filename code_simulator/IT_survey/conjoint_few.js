@@ -10,11 +10,11 @@
  * respondent's earlier answers (e.g. via URL query params or a global injected by the survey tool).
  *
  * Scenario roster (label = our display name; code = method nomenclature {type}{scope}{sectoral_change}_{decarb}):
- *   BC=BC2_FD(35h)·2  BC60k=B90kC2_FD(40h)  BCmat=BC1_FD(35h, sectoral_change=1)  BC45k=B45kC2_FD(30h)
- *   BC120k=B120kC2_FD(45h)  BI120k=B120kI1_FD(45h, no redist)  BI=BI2_FD  BN=BN2_FD  BG=BG2_FD
+ *   BC=BC2_FD(36h)·2  BC90k=B90kC2_FD(40h)  BCmat=BC1_FD(36h, sectoral_change=1)  BC45k=B45kC2_FD(32h)
+ *   BC120k=B120kC2_FD(44h)  BI120k=B120kI1_FD(44h, no redist)  BI=BI2_FD  BN=BN2_FD  BG=BG2_FD
  *   BCbeef=BC2_FDbeef  BCflight=BC2_FDflight  BC_SD=BC2_SD
- * NOTE (ambiguities flagged to the user): "BC60k" is read as the 40h B90k scenario (the literal
- * "60k" would equal the 35h B and duplicate BC). "BC120k=BC1_FD" is read as B120kC2_FD. The beef/
+ * NOTE: the 40h scenario is keyed BC90k after its 90k income target (the baseline BC is the 60k,
+ * 36h scenario). "BC120k=BC1_FD" is read as B120kC2_FD. The beef/
  * flights focus follows the user's parentheticals: BCbeef = "less flights, stable beef" (beefAndFlights
  * = "flights"); BCflight = "less beef, stable flight" (beefAndFlights = "beef").
  */
@@ -31,18 +31,18 @@ const P = (hoursPerWeek, nationalRedistribution, globalRedistribution, decarboni
   ({ hoursPerWeek, nationalRedistribution, globalRedistribution, decarbonization, publicServices, beefAndFlights });
 
 const SCENARIOS = {
-  BC:      { weight: 2, label: "Convergenza B — 36h",                  params: P(35, "SN",      "GIT",     "FD", "increased", "both") },
-  BC60k:   { weight: 1, label: "Convergenza B90k — 40h",               params: P(40, "SN",      "GIT",     "FD", "increased", "both") },
-  BCmat:   { weight: 1, label: "Convergenza B — 36h, servizi stabili", params: P(35, "SN",      "GIT",     "FD", "stable",    "none") },
-  BC45k:   { weight: 1, label: "Convergenza B45k — 32h",               params: P(30, "SN",      "GIT",     "FD", "increased", "both") },
-  BC120k:  { weight: 1, label: "Convergenza B120k — 44h",              params: P(45, "SN",      "GIT",     "FD", "increased", "both") },
-  BI120k:  { weight: 1, label: "Disuguaglianza B120k — 44h",           params: P(45, "current", "current", "FD", "stable",    "none") },
-  BI:      { weight: 1, label: "Disuguaglianza — 36h",                 params: P(35, "current", "current", "FD", "increased", "both") },
-  BN:      { weight: 1, label: "Solo redistribuzione nazionale — 36h", params: P(35, "SN",      "current", "FD", "increased", "both") },
-  BG:      { weight: 1, label: "Solo redistribuzione globale — 36h",   params: P(35, "current", "GIT",     "FD", "increased", "both") },
-  BCbeef:  { weight: 1, label: "Convergenza B — meno voli",            params: P(35, "SN",      "GIT",     "FD", "increased", "flights") },
-  BCflight:{ weight: 1, label: "Convergenza B — meno carne",           params: P(35, "SN",      "GIT",     "FD", "increased", "beef") },
-  BC_SD:   { weight: 1, label: "Convergenza B — decarbonizz. lenta",   params: P(35, "SN",      "GIT",     "SD", "increased", "both") }
+  BC:      { weight: 2, label: "Convergenza B — 36h",                  params: P(36, "SN",      "GIT",     "FD", "increased", "both") },
+  BC90k:   { weight: 1, label: "Convergenza B90k — 40h",               params: P(40, "SN",      "GIT",     "FD", "increased", "both") },
+  BCmat:   { weight: 1, label: "Convergenza B — 36h, servizi stabili", params: P(36, "SN",      "GIT",     "FD", "stable",    "none") },
+  BC45k:   { weight: 1, label: "Convergenza B45k — 32h",               params: P(32, "SN",      "GIT",     "FD", "increased", "both") },
+  BC120k:  { weight: 1, label: "Convergenza B120k — 44h",              params: P(44, "SN",      "GIT",     "FD", "increased", "both") },
+  BI120k:  { weight: 1, label: "Disuguaglianza B120k — 44h",           params: P(44, "current", "current", "FD", "stable",    "none") },
+  BI:      { weight: 1, label: "Disuguaglianza — 36h",                 params: P(36, "current", "current", "FD", "increased", "both") },
+  BN:      { weight: 1, label: "Solo redistribuzione nazionale — 36h", params: P(36, "SN",      "current", "FD", "increased", "both") },
+  BG:      { weight: 1, label: "Solo redistribuzione globale — 36h",   params: P(36, "current", "GIT",     "FD", "increased", "both") },
+  BCbeef:  { weight: 1, label: "Convergenza B — meno voli",            params: P(36, "SN",      "GIT",     "FD", "increased", "flights") },
+  BCflight:{ weight: 1, label: "Convergenza B — meno carne",           params: P(36, "SN",      "GIT",     "FD", "increased", "beef") },
+  BC_SD:   { weight: 1, label: "Convergenza B — decarbonizz. lenta",   params: P(36, "SN",      "GIT",     "SD", "increased", "both") }
 };
 
 // Weighted pick over a list of scenario keys.

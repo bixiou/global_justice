@@ -192,8 +192,8 @@ scen_name <- function(cls, sc) {
   else if (cls == "B90k") paste0("B90k", sc)
   else paste0(substr(cls, 1, 1), sc)
 }
-# hours_classes <- list(P = 45, M = 40, S = 35, S45k = 30, S15k = 25)
-hours_classes <- list(P = 45, B90k = 40, S = 35, S45k = 30, S15k = 29)
+# hours_classes <- list(P = 44, M = 40, S = 36, S45k = 32, S15k = 24)
+hours_classes <- list(P = 44, B90k = 40, S = 36, S45k = 32, S15k = 28)
 scopes <- list(C = c(g = "GIT", n = "SN"), G = c(g = "GIT", n = "current"),
                N = c(g = "current", n = "SN"), I = c(g = "current", n = "current"))
 
@@ -246,7 +246,7 @@ for (ctry in all_countries) {
   # b90k_scale_c <- (1 + B_GROWTH_RATE)^10 / ((hours_pw_c_35 / hours_pw_c_25) * (prod_c_35 / prod_c_25))
   # b_scale_c    <- (1 + B_GROWTH_RATE)^10 / (prod_c_35 / prod_c_25)
   # wc_scale_c  <- (45 / 40) * mc_scale_c
-  b120k_scale_c <- (44 / 40) * b90k_scale_c   # B120k (45h class): 44 worked hours in 2035
+  b120k_scale_c <- (44 / 40) * b90k_scale_c   # B120k class: 44 worked hours in 2035
 
   # SC45k/SC15k GDP-based scales
   sc45k_sc <- as.numeric(a0["2025", ctry]) / as.numeric(a0["2035", ctry])
@@ -283,7 +283,7 @@ for (ctry in all_countries) {
     B90kC       = c35 * b90k_scale_c * fd * ps,
     B120kC      = c35 * b120k_scale_c * fd * ps,
     B           = c35 * b_scale_c * fd * ps,
-    B45kC       = c35 * b90k_scale_c * (32 / 40) * fd * ps,   # 30h class: 32 worked hours in 2035
+    B45kC       = c35 * b90k_scale_c * (32 / 40) * fd * ps,   # B45k class: 32 worked hours in 2035
     B90kC_SD    = c35 * b90k_scale_c * DECARB_FACTOR["SD"] * ps)
 
   for (col in setdiff(names(base), c("gpercentile","cash_GR35")))
@@ -299,17 +299,17 @@ for (ctry in all_countries) {
   # dist_c_2035: same logic as questionnaire.R §14 dist_2035()
   dist_c_2035 <- function(h, gR, nR, decarb = "FD", pubS = "increased") {
     hasGIT <- gR == "GIT"; hasNat <- nR == "SN"; rscale <- 1
-    if (h == 45) {
+    if (h == 44) {
       if      (hasGIT && hasNat)   colN <- "PC"
       else if (!hasGIT && !hasNat) colN <- "PI"
       else if (hasGIT && !hasNat)  { colN <- "SG"; rscale <- avg_r["PC"] / avg_r["SC"] }
       else                         { colN <- "SN"; rscale <- avg_r["PI"] / avg_r["SN"] }
-    } else if (h == 35) {
+    } else if (h == 36) {
       colN <- if (hasGIT && hasNat) "SC" else if (hasGIT && !hasNat) "SG" else
               if (!hasGIT && hasNat) "SN" else "SI"
     } else {
-      # cC <- c("25" = "SC15k", "30" = "SC45k", "40" = "MC")[[as.character(h)]]
-      cC <- c("29" = "SC15k", "30" = "B45kC", "40" = "B90kC")[[as.character(h)]]
+      # cC <- c("24" = "SC15k", "32" = "SC45k", "40" = "MC")[[as.character(h)]]
+      cC <- c("28" = "SC15k", "32" = "B45kC", "40" = "B90kC")[[as.character(h)]]
       coefC <- avg_r[cC] / avg_r["SC"]
       if      (hasGIT && hasNat)   { colN <- cC }
       else if (hasGIT && !hasNat)  { colN <- "SG"; rscale <- coefC }

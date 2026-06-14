@@ -13,7 +13,7 @@
  *   householdIncomeMonthly  – respondent household monthly cash income (EUR)
  *   isCouple                – boolean: income shared by two adults
  *   decarbonization         – "SD" | "ID" | "FD"
- *   hoursPerWeek            – 29 | 30 | 35 | 40 | 45
+ *   hoursPerWeek            – 28 | 32 | 36 | 40 | 44   (real 2035 weekly hours worked)
  *   nationalRedistribution  – "current" | "SN"
  *   globalRedistribution    – "current" | "GIT"
  *   publicServices          – "stable" | "increased"
@@ -201,13 +201,13 @@ function getIT2035Distribution(hoursPerWeek, globalRedistribution,
   // conjoint_world.js getColName, so any2/few/world stay consistent. The non-convergence (G/N/I)
   // columns B{45k,90k,120k}{G,N,I} are precomputed in the CSV, so they carry the loaded dataset's
   // own growth (no runtime coefC rescaling, which previously mixed the 1.5% constants into the F0a
-  // ineq2 dataset). 45h uses B120k (the displayed 44h), 40h B90k, 30h B45k, 35h the B baseline.
-  // (29h/B30k is unused by the IT survey.)
+  // ineq2 dataset). 44h uses B120k, 40h B90k, 32h B45k, 36h the B baseline.
+  // (28h/B30k is unused by the IT survey.)
   let colName;
-  if      (hoursPerWeek === 45) colName = "B120k" + scope;
+  if      (hoursPerWeek === 44) colName = "B120k" + scope;
   else if (hoursPerWeek === 40) colName = "B90k"  + scope;
-  else if (hoursPerWeek === 30) colName = "B45k"  + scope;
-  else                          colName = scope === "C" ? "B" : "B" + scope;   // 35h baseline
+  else if (hoursPerWeek === 32) colName = "B45k"  + scope;
+  else                          colName = scope === "C" ? "B" : "B" + scope;   // 36h baseline
 
   const exportedPsFactor = sectoralChange2Cols.has(colName) ? psExported : 1;
   const decarbRatio = decarbUser / decarbExported;
@@ -249,9 +249,9 @@ function get2100Distributions(hoursPerWeek, globalRedistribution, nationalRedist
   else if (!hasGIT && hasNat)  scopeSuffix = "SN";
   else                         scopeSuffix = "SI";
 
-  // Fixed 2100 hours→income coefs vs the scope base (GDP targets ÷ 60k SC): 29h→30k=0.5,
-  // 30h→45k=0.75, 35h→60k=1.0, 40h→90k=1.5, 45h→120k=2.0. Matches questionnaire.R §13.
-  const hoursCoef = { 29: 0.5, 30: 0.75, 35: 1.0, 40: 1.5, 45: 2.0 }[hoursPerWeek] || 1;
+  // Fixed 2100 hours→income coefs vs the scope base (GDP targets ÷ 60k SC): 28h→30k=0.5,
+  // 32h→45k=0.75, 36h→60k=1.0, 40h→90k=1.5, 44h→120k=2.0. Matches questionnaire.R §13.
+  const hoursCoef = { 28: 0.5, 32: 0.75, 36: 1.0, 40: 1.5, 44: 2.0 }[hoursPerWeek] || 1;
 
   // For scope-specific hours scaling (e.g. SG at 30h ≈ SG_35h × SC45k_coef)
   const itColName    = "IT_"    + scopeSuffix;
@@ -313,7 +313,7 @@ function computeTemperature(hoursPerWeek, globalRedistribution,
   const sectoralChange = publicServices === "increased" ? 2 : 1;   // renamed from food (1=stable, 2=increased PS)
   const beefReduced   = beefAndFlights === "beef"    || beefAndFlights === "both";
   const flightReduced = beefAndFlights === "flights" || beefAndFlights === "both";
-  const isPItype      = hoursPerWeek === 45 && !hasGIT;  // distinct 2100 population/GDP basis (not sectoral change)
+  const isPItype      = hoursPerWeek === 44 && !hasGIT;  // distinct 2100 population/GDP basis (not sectoral change)
 
   const gdpPcKey = hasGIT
     ? "gdp_pc_GIT_"   + hoursPerWeek + "h"
@@ -338,14 +338,13 @@ function computeTemperature(hoursPerWeek, globalRedistribution,
 // ─── Working hours in 2035 ────────────────────────────────────────────────────
 
 /**
- * Weekly working hours actually worked in 2035 for the given 2100-target scenario class.
- * The class label (29/30/35/40/45) encodes the 2100 GDP-per-capita target; the 2035 transition
- * hours are evenly spaced around the B90k (40h) baseline in steps of 4:
- *   class 29 → 28h, 30 → 32h, 35 → 36h, 40 → 40h, 45 → 44h.
- * These same 2035 hours drive the 2035 income scale (worked_hours / 40 relative to B90k).
+ * Weekly working hours actually worked in 2035. The hoursPerWeek param now carries the real
+ * 2035 hours directly (28 | 32 | 36 | 40 | 44), evenly spaced around the B90k (40h) baseline in
+ * steps of 4. These hours also encode the 2100 GDP-per-capita target (28h→30k … 44h→120k) and
+ * drive the 2035 income scale (worked_hours / 40 relative to B90k).
  */
 function getWorkingHours2035(hoursPerWeek) {
-  return { 29: 28, 30: 32, 35: 36, 40: 40, 45: 44 }[hoursPerWeek] || hoursPerWeek;
+  return hoursPerWeek;
 }
 
 // ─── Public services feature description ──────────────────────────────────────
@@ -433,8 +432,8 @@ function computeConjointFeatures({
     "GIT-SN":   "SC",  "GIT-current":   "SG",
     "current-SN":"SN", "current-current":"SI"
   }[(globalRedistribution + "-" + nationalRedistribution)] || "SC";
-  // 45h uses the B120k B-family class (matching the displayed 44h), not the P-family.
-  const hoursLabel = { 30:"B45kC",35:scenarioLabel35h,40:"B90kC",45:"B120kC" };
+  // 44h uses the B120k B-family class, not the P-family.
+  const hoursLabel = { 32:"B45kC",36:scenarioLabel35h,40:"B90kC",44:"B120kC" };
   const natScenarioName = hoursLabel[hoursPerWeek] || scenarioLabel35h;
 
   return {

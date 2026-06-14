@@ -185,9 +185,9 @@ function inputPanelHTML(side) {
         <select id="decarb-${side}"><option value="SD">Slow (SD)</option>
           <option value="ID">Intermediate (ID)</option><option value="FD" selected>Fast (FD)</option></select></div>
       <div class="field"><label>Working hours</label>
-        <select id="hours-${side}"><option value="29">29 h/week</option><option value="30">30 h/week</option>
-          <option value="35" selected>35 h/week</option><option value="40">40 h/week</option>
-          <option value="45">45 h/week</option></select></div>
+        <select id="hours-${side}"><option value="28">28 h/week</option><option value="32">32 h/week</option>
+          <option value="36" selected>36 h/week</option><option value="40">40 h/week</option>
+          <option value="44">44 h/week</option></select></div>
       <div class="field"><label>Redistribution</label>
         <select id="redist-${side}"><option value="both" selected>Both</option><option value="global">Global</option>
           <option value="national">National</option><option value="none">None</option></select></div>
