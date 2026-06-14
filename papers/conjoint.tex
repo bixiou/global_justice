@@ -82,7 +82,7 @@ The Italian survey runs three variants of the conjoint: %, all living in
 
   \item[\file{conjoint\_any}.] This explores the full design space rather than a curated shortlist: the parameters of each scenario are drawn uniformly and independently (the draw is repeated if the two sides come out identical). 
 
-  \item[\file{conjoint\_any2}.] Similar to \file{conjoint\_any} except that hourly productivity grows at Italy's  2025--2035 productivity rate modelled by \cite{Chancel2026} (close to 3\%), instead of the flat 1.5\,\%/year assumption used by \file{conjoint\_few} and \file{conjoint\_any}  (Section~\ref{sec:variants}).
+  \item[\file{conjoint\_any2}.] Similar to \file{conjoint\_any} except that hourly productivity grows at Italy's  2025--2035 productivity rate modelled by \cite{Chancel2026} (close to 3\%), instead of the flat 1.5\,\%/year assumption used by \file{conjoint\_few} and \file{conjoint\_any}.
 \end{description}
 
 % Because \file{conjoint\_few} and \file{conjoint\_any} share the flat-growth dataset and \file{conjoint\_any2} uses the country-growth dataset, the script exports both: \file{ineq\_IT\_2035} and \file{ineq2\_IT\_2035}. Everything else --- the 2100 distributions, temperatures and constants --- is common to all three tasks.
@@ -160,6 +160,12 @@ Respondents think in terms of the money that actually reaches their household, s
 Starting from the \citet{FisherGethin2023} pre-tax income share at each percentile, the script subtracts direct taxes (income, wealth and corporate), social contributions and indirect taxes (VAT), adds back cash transfers from government, then makes three small adjustments: it removes the imputed rent on owner-occupied housing (using the \citealt{Garbinti2021} housing-wealth profile), removes the retained (non-distributed) part of corporate profits, and adds back capital consumption for the capital-income share. %Finally, it subtracts the global tax already paid in 2025. 
 The result is scaled to euros by Italy's 2025 national net income per adult from \cite{Bothe2026}. The bottom 99\,\% of the resulting profile is sorted into increasing order to remove imputation noise (the top percentiles are left untouched).
 
+Concretely, with $\bar a=\sum_p w_p\,a^{\mathrm{pre}}_p$ the population-mean pre-tax income and $\kappa_p$ percentile $p$'s share of capital income, the 2025 cash income is
+\[
+  c_{25}(p)=\mathrm{NNI}\left[\frac{a^{\mathrm{pre}}_p-T_p+S_p}{\bar a}-\rho\,\kappa_p-y\,h_p\right]+\kappa_p\,\mathrm{CFC},
+\]
+where $T_p$ gathers direct, corporate, social and indirect (VAT) taxes, $S_p$ government cash transfers, $\rho$ the retained-earnings rate, $y$ the imputed-rent yield, $h_p$ the housing-wealth share, $\mathrm{NNI}$ Italy's 2025 net national income per adult and $\mathrm{CFC}$ the per-adult consumption of fixed capital.
+
 \note{%
   VAT is subtracted because the \citet{FisherGethin2023} pre-tax income is measured at market prices, which include indirect taxes. Removing VAT converts it to factor-cost income, the basis on which cash incomes add up. Skipping this step would overstate cash income.
 }
@@ -181,13 +187,21 @@ All 2035 distributions descend from a single base, \col{IT35}: the gross cash in
 Every other 2035 scenario is then this base (or a scope-specific cousin of it, see below) multiplied by up to four independent factors:
 
 \begin{description}
-  \item[An hours factor.] Longer hours mean more output: relative to the 36\,h benchmark, the model moves income to the class's productivity level. The 40\,h ``\scenario{B90k}'' class is the reference of this family; its factor corrects the benchmark for the fact that the convergence scenario front-loads productivity growth and shortens the working week, so working a constant 40\,h can actually leave 2035 income a little \emph{below} the benchmark (Section~\ref{sec:bfamily}). The 32\,h and 44\,h classes are the 40\,h class scaled by their  worked-hours ratio (32/40, 44/40); the 36\,h ``\scenario{B}'' class uses the convergence scenario's own modelled change in hours per worker. % TODO
+  \item[An hours factor.] Hours proportionately translate into output. The 40\,h ``\scenario{B90k}'' class is the family's reference (hours are held at their 2025 level); the 32\,h and 44\,h classes are \scenario{B90k} scaled by their worked-hours ratio (32/40, 44/40), and the 36\,h ``\scenario{B}'' class follows \cite{Chancel2026}'s modelled hours trajectory (close to $36/40$), reaching exactly the 60k income level by 2100. %Income is thus monotone in hours within the family. \scenario{B90k}'s 40\,h income still lands slightly \emph{below} the \scenario{SC} benchmark (Section~\ref{sec:bfamily}), but only because \scenario{SC} assumes \citeauthor{Chancel2026}'s faster 3\,\%/year productivity growth, not because of hours.
   \item[A scope adjustment.] Turning national and/or global redistribution on or off both reshapes the distribution and moves its average to the GDP level that scope implies (Section~\ref{sec:scopes}).
   \item[A decarbonisation factor.] A flat income penalty for faster decarbonisation: 1.00 for slow, 0.99 for intermediate, 0.97 for fast --- i.e.\ fast decarbonisation costs 3\,\% of income at each percentile in 2035. We choose these factors to reflect the extra investment diverted into the energy transition, noting that the intermediate scenario is closer to the slow pace than to the fast one. 
   \item[A public-services factor.] When public services expand (the structural-change option), the extra spending is financed by a flat-rate tax. The rate is set so that the additional public-spending share of national expenditure between 2025 and 2035 is exactly covered by taxing average income at that rate; for Italy it is about 4.9\,\%. The factor is then one minus this rate.
 \end{description}
 
-\noindent The benchmark \scenario{SC} is simply \col{IT35} with the fast-decarbonisation and public-services factors applied. \scenario{B90kC}, \scenario{B45kC}, \scenario{B}, \scenario{PC} and so on add the corresponding hours factor; the scope variants substitute the appropriate base and scope adjustment. The \scenario{PI} (long-hours, no-redistribution) scenario is the only one built directly from 2025 cash income rather than from \col{IT35}, because it never undergoes the convergence transition --- it simply grows the current distribution by a flat GDP factor of 1.4. % TODO
+\noindent In symbols, the base is the 2035 SC income carried into cash units percentile by percentile, and each convergence-scope scenario at hours class $k$ multiplies it by the three factors:
+\[
+  \col{IT35}(p)=y^{\mathrm{SC}}_{2035}(p)\,\frac{c_{25}(p)}{y_{2025}(p)},
+  \qquad
+  \mathrm{col}_k(p)=\col{IT35}(p)\;\eta_k\;\delta\;\psi,
+\]
+with the per-percentile cash-to-income ratio $c_{25}/y_{2025}$ (here $y_{2025},y^{\mathrm{SC}}_{2035}$ are \citeauthor{Bothe2026}'s 2025 and 2035 SC incomes), hours factor $\eta_k$ (Section~\ref{sec:bfamily}), decarbonisation factor $\delta\in\{1,0.99,0.97\}$, and public-services factor $\psi=1-\tau$ ($\tau\approx4.9\%$) when services expand, $\psi=1$ otherwise.
+
+\noindent The 36\,h benchmark \scenario{B} is \col{IT35} with its hours factor and the fast-decarbonisation and public-services factors applied; \scenario{B90k} (40\,h), \scenario{B45k} (32\,h) and \scenario{B120k} (44\,h) only change the hours factor, while the \scenario{N}, \scenario{G} and \scenario{I} scope variants substitute the appropriate base and scope adjustment. The no-redistribution (inequality-scope) scenarios are the exception: \scenario{BI} (36\,h), \scenario{BI120k} (44\,h) and their hours variants start from 2025 cash income rather than from \col{IT35}, because they keep the current distribution instead of the converged one --- the 2025 cash income is rescaled to the no-global GDP level and to each hours class, after which the same decarbonisation and public-services factors apply.
 
 % \subsection{The net global transfer, GR35}
 % \label{sec:gr35}
@@ -212,6 +226,14 @@ The four scopes are best understood as the four cells of a $2\times2$ table (nat
   \item[\scenario{G} (Global only).] It keeps the inequality shape, then apply a \emph{global} transfer schedule on top: at each income level the schedule subsidises the poor and taxes the rich at the rate the global transfer does worldwide (to move from \scenario{N} to \scenario{C}). That schedule is computed at the world level but applied to each Italian income.
 \end{description}
 
+Writing $\mathrm{GDP}_X=\sum_p w_p\,X(p)$ for a base's population average, $\scenario{I}_0=c_{25}\,s$ for the 2025 cash income rescaled to the no-global GDP level (factor $s$) and $\mathrm{GR}$ for the net global transfer \col{cash\_GR35}, the four 2035 bases (before the $\delta,\psi$ factors) are
+\[
+  \scenario{C}=\col{IT35},\quad
+  \scenario{I}=\scenario{I}_0,\quad
+  \scenario{N}=(\col{IT35}-\mathrm{GR})\,\frac{\mathrm{GDP}_{\scenario{I}_0}}{\mathrm{GDP}_{\col{IT35}}},\quad
+  \scenario{G}=(\scenario{I}_0+\mathrm{GR})\,\frac{\mathrm{GDP}_{\col{IT35}}}{\mathrm{GDP}_{\scenario{I}_0}}.
+\]
+
 \note{%
   The global schedule for \scenario{G} is read off the \emph{world} distribution (what rate each income level faces globally) and then applied within Italy. As a result the neat accounting identity ``\scenario{G} is to \scenario{I} as \scenario{C} is to \scenario{N}'' holds at the world level but not within a single country, and occasionally we can have both \scenario{G}$>$\scenario{C} and \scenario{N}$>$\scenario{I}. This can be interpreted as a further reduction of GDP when national redistribution occurs after global redistribution, so that some who benefit from national redistribution in absence of global redistribution don't benefit from it when global redistribution is present. 
 
@@ -228,6 +250,15 @@ Compared to \cite{Chancel2026} scenarios which entail a 3\% hourly productivity 
 % , and its 2035 income is the benchmark scaled by a factor that nets out convergence's front-loaded productivity and its falling hours. 
 The shorter and longer classes (\scenario{B45k} at 32\,h,
 \scenario{B120k} at 44\,h) are \scenario{B90k} times their worked-hours ratio (e.g., $\scenario{B45k} = \scenario{B90k} \cdot 32/40$). The 36\,h class \scenario{B} is special: it uses the working hours trajectory of \cite{Chancel2026} (close to $36/40$ times 2025 hours per worker in 2035); by 2100 it reaches exactly the 60k income level from \cite{Chancel2026}.
+
+With $r=1.5\%$ the B growth rate, $\gamma$ Italy's 2025--2035 SC productivity growth and $\Delta h$ SC per-worker hours change over the same period, the hours factors of Section~\ref{sec:factors} are
+\[
+  \eta_{\scenario{B90k}}=\frac{(1+r)^{10}}{\Delta h\,\gamma},\qquad
+  \eta_{\scenario{B}}=\Delta h\,\eta_{\scenario{B90k}},\qquad
+  \eta_{\scenario{B45k}}=\tfrac{32}{40}\,\eta_{\scenario{B90k}},\qquad
+  \eta_{\scenario{B120k}}=\tfrac{44}{40}\,\eta_{\scenario{B90k}}.
+\]
+The $\Delta h\,\gamma$ in the denominator removes convergence's front-loaded productivity and its falling hours, leaving \scenario{B90k} on the conservative flat-growth path.
 
 % \note{%
 %   Because convergence productivity growth peaks mid-century and then declines, the 2035 productivity
@@ -253,6 +284,15 @@ The meaningful comparison across scenarios and countries is ``full income'' (sec
 \subsection{Italy and the world}
 
 For Italy, the four scopes at 2100 are built exactly as in 2035, from \citet{Bothe2026}'s 2100 income: Convergence is the full income itself; National-only rescales to the no-global levels (from \citet{Bothe2026}'s Persistent Inequality scenario); Inequality grows the 2025 income by the inequality path's GDP factor and halves it (the no-redistribution level); Global-only applies the world transfer schedule to the Inequality income.
+
+With $Y_{2100}$ \citeauthor{Bothe2026}'s SC income, $D$ the global dividend, $y^{\mathrm{nat}}_{2025}$ the pre-global 2025 national income, $\Gamma_{\scenario{I}}$ the inequality path's 2025--2100 GDP growth and $\tau_G(\cdot)$ the world tax-rate schedule (a function of national income, read off the world \scenario{SN}$\to$\scenario{SC} distributions),
+\[
+  \scenario{C}=Y_{2100},\quad
+  \scenario{N}=(Y_{2100}-D)\,\frac{\mathrm{GDP}_{\scenario{I}}}{\mathrm{GDP}_{\scenario{C}}},\quad
+  \scenario{I}=\tfrac12\,y^{\mathrm{nat}}_{2025}\,\Gamma_{\scenario{I}},\quad
+  \scenario{G}=\bigl(1-\tau_G(\scenario{I})\bigr)\scenario{I}.
+\]
+Each column is then multiplied by the cash-equivalent scalar ($\approx0.69$) and, for the hours classes, by the Table~\ref{tab:coefs2100} multiplier.
 
 To aggregate countries' distributions into the world's one, we pool every (country, percentile) cell weighted by its population share, sort them by income, and read off one hundred equal-population global percentiles (filling any gaps by interpolation). The population used follows the scenario: the Convergence population (about 9.4 billion in 2100) when global redistribution is on, the Inequality population (about 10.2 billion) when it is off.
 
@@ -291,8 +331,18 @@ Multiplier & 0.75 & 1.00 & 1.50 & 2.00 \\
 Temperature depends on the world 2100 GDP, on the decarbonisation pace, and on structural change. For the scenarios \citet{Chancel2026} explicitly model, the script uses their reported 2100 temperature directly. For the few scenario types they do not model (the no-global and 40\,h families), it predicts temperature from a regression of the observed temperatures on 2100 GDP, decarbonisation pace and structural change, fitted on the two dozen scenarios \citet{Chancel2026} do
 report. The fit is very tight (it reproduces the observed temperatures to within 0.1\,°C, the rounding granularity). %, though its accuracy on the extrapolated scenarios is necessarily unknown. TODO! find a better fit?
 
-On top of the base temperature, two additive corrections capture the food and travel choices --- $-0.24$\,°C for cutting beef and $-0.155$\,°C for cutting flights --- and a GDP-dependent correction captures the emissions effect of expanded public services. Which corrections
-apply depends on the decarbonisation pace: under slow and intermediate decarbonisation the canonical case is fixed by the public-services choice and beef/flights are adjustments; under fast decarbonisation, where land use dominates, the canonical case is fixed by the beef choice and flights/public services are the adjustments. % TODO clarify
+The base prediction is the OLS fit
+\[
+  T = \beta_0 + \beta_g\,G + \sum_{d\in\{\mathrm{ID},\mathrm{SD}\}}\!\bigl(\beta_d+\beta_{g,d}\,G\bigr)\mathbf 1_{d}
+      + \sum_{d\in\{\mathrm{FD},\mathrm{ID},\mathrm{SD}\}}\!\beta_{s,d}\,s\,\mathbf 1_{d},
+\]
+with $G$ the world 2100 GDP, $s\in\{0,1\}$ the structural-change (expanded public services) dummy, $d$ the decarbonisation pace and $\mathbf 1_d$ its indicator (fast decarbonisation \scenario{FD} is the reference level). The emissions effect of expanded public services is thus already in the base, through the term $\beta_{s,d}\,s$, which the interaction makes decarbonisation-specific.
+
+On top of the base, two additive corrections capture the food and travel choices --- $-0.24$\,°C for cutting beef and $-0.155$\,°C for cutting flights. They are applied relative to the canonical pairing in which structural change ($s=1$) comes with both beef and flights reduced: if the respondent's beef or flight choice departs from that pairing, the corresponding $\pm0.24$ or $\pm0.155$\,°C is added back.
+
+\paragraph{Calibrating the two corrections.} The beef value is the diet share of \citeauthor{Chancel2026}'s structural-change effect: their \scenario{1}$\to$\scenario{2} transition lowers 2100 warming by $0.44$\,°C, of which about $55\%$ is attributable to dietary change rather than to the accompanying reforestation --- combining the EAT-Lancet land-use saving of Hayek et al.\ (2021) with \citeauthor{Chancel2026}'s agricultural term --- giving $0.55\times0.44=\mathbf{0.24}$\,°C for the $\sim$60\,\% beef cut. The direct food-warming estimate of Ivanovich et al.\ (2023) is smaller ($\approx 0.16$\,°C at a $9.4$\,bn population) because it omits the carbon opportunity cost of the freed grazing land.
+
+The flight value starts from $0.29$\,°C of 2100 aviation warming under high-traffic, fast-efficiency assumptions (Smith et al.\ 2026). Halving flights scales this by the scenario's projected air traffic --- a product of an income factor ($\approx 0.05\times$ GDP per capita in k\EUR), a transport-share factor and a decarbonisation factor, relative to the reference $1.14$ of the highest-traffic case. Since that would make the respondent's flight choice depend on the surrounding scenario, the correction is instead fixed at one benchmark (\scenario{BI1\_ID}: inequality, no structural change, intermediate decarbonisation), giving $\mathbf{0.155}$\,°C.
 
 % \note{%
 %   \scenario{B90k} (40\,h) is not in \citet{Chancel2026}'s emission output, so its temperature is
@@ -307,8 +357,11 @@ apply depends on the decarbonisation pace: under slow and intermediate decarboni
 
 Given the precomputed tables, the web page does only light arithmetic.
 
-\paragraph{The respondent's own 2035 income.} It converts the household's monthly cash income to an annual individual income (halving it for couples), locates that income's percentile in the 2025 cash distribution by interpolation, and then reads the chosen scenario's 2035 column at that percentile. The chosen column is assembled on the fly from the exported base columns by applying the same hours, scope, decarbonisation and public-services factors described in Section~\ref{sec:factors}, exactly reproducing the precomputed values. 
-(The percentile search uses only the bottom 99 brackets, where the cash distribution is monotone; above the 99th percentile the top bracket's income is returned.) % TODO!
+\paragraph{The respondent's own 2035 income.} It converts the household's monthly cash income to an annual individual income $y$ (halving it for couples) and locates its g-percentile $g^\star$ in the 2025 cash distribution \col{IT25} by linear interpolation: writing $(g_i,\col{IT25}_i)_{i=1}^{127}$ for the g-percentile grid, for the bracket with $\col{IT25}_i \le y < \col{IT25}_{i+1}$,
+\[
+  g^\star \;=\; g_i + \frac{y-\col{IT25}_i}{\col{IT25}_{i+1}-\col{IT25}_i}\,(g_{i+1}-g_i).
+\]
+The displayed income is the same interpolation of the chosen scenario's 2035 column at $g^\star$. The search runs on the 127 g-percentiles, not coarse percentiles --- 28 of them cover the top 1\,\%, where incomes vary most --- and \col{IT25} increases across all 127 brackets, so the lookup is unambiguous (an income below the first or above the last bracket clamps to it). The chosen column is assembled on the fly from the exported base columns by applying the same hours, scope, decarbonisation and public-services factors described in Section~\ref{sec:factors}, exactly reproducing the precomputed values.
 
 \paragraph{The 2100 bar charts.} A ``national incomes'' chart shows Italy's 2100 distribution in 21 brackets (the top 1\%, the next 4\%, and the rest divided in brackets with 5\% width); a ``global incomes'' chart shows the world income. Both are read from the 2100 table for the scenario's scope and scaled by the hours multiplier of Table~\ref{tab:coefs2100}. %All values are the cash-equivalent magnitudes (already multiplied by the 0.69 scalar).
 
@@ -356,8 +409,8 @@ Given the precomputed tables, the web page does only light arithmetic.
 % ==============================================================================
 
 \begin{description}
-  \item[\file{ineq\_IT\_2035.csv} (and \file{\_full}).] 127 g-percentiles $\times$ the 2035 cash-income scenario columns, the 2025 reference and the net global transfer \col{cash\_GR35}. The \file{\_full} version carries every hours-class $\times$ scope combination; the trimmed survey copy keeps only the columns the engine reads.
-  \item[\file{ineq2\_IT\_2035.csv} (and \file{\_full}).] The same, with the B scenarios using each country's own 2025--2035 productivity growth (Section~\ref{sec:variants}).
+  \item[\file{ineq\_IT\_2035.csv} (and \file{\_full}).] 127 g-percentiles $\times$ the 2035 cash-income columns. The plain file holds the 2025 reference \col{IT25}, the net global transfer \col{cash\_GR35} and the four hours classes $\times$ four scopes the engine reads (the self-contained survey copy drops \col{cash\_GR35}, which the engine does not use); the \file{\_full} version additionally carries the construction columns (\col{IT35}, \scenario{SC} and the food/decarbonisation variants) and every hours-class $\times$ scope combination.
+  \item[\file{ineq2\_IT\_2035.csv} (and \file{\_full}).] The same, with the B scenarios using each country's own 2025--2035 productivity growth.
   \item[\file{ineq\_2100.csv} (and \file{\_full}).] 21 brackets $\times$ the 2100 income columns for Italy and the world, in 2025-cash-equivalent units.
   \item[\file{temp100.csv}.] One 2100 temperature per scenario (the \citet{Chancel2026} scenarios  plus the regression-filled ones), with the GDP, structural-change and decarbonisation labels used
     to build it.

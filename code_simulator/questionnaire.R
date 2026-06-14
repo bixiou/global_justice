@@ -658,29 +658,19 @@ ineq_IT_2035_full[["Bflights"]] <- ineq_IT_2035_full[["B"]]
 write.csv(ineq_IT_2035_full, "../distributions/ineq_IT_2035_full.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ineq_IT_2035_full.csv  (%d rows × %d cols)", nrow(ineq_IT_2035_full), ncol(ineq_IT_2035_full)))
 
-# Filtered ineq_IT_2035.csv: selected scenarios + IT25 + GR35.
-it2035_export <- data.frame(
-  gpercentile = ineq_IT_2035$gpercentile,
-  IT25        = ineq_IT_2035$IT25,
-  cash_GR35   = ineq_IT_2035$cash_GR35,
-  B90kC       = ineq_IT_2035$B90kC,
-  SC          = ineq_IT_2035$SC,
-  B90kMat     = ineq_IT_2035$B90kMat,
-  Bmat        = ineq_IT_2035$Bmat,
-  B45kC       = ineq_IT_2035_full$B45kC,
-  B120kC      = ineq_IT_2035$B120kC,
-  B90kI       = ineq_IT_2035_full$B90kI,
-  B90kN       = ineq_IT_2035_full$B90kN,
-  B90kG       = ineq_IT_2035_full$B90kG,
-  B           = ineq_IT_2035$B,
-  BG          = ineq_IT_2035_full$BG,
-  BN          = ineq_IT_2035_full$BN,
-  BI          = ineq_IT_2035_full$BI,
-  Bbeef       = ineq_IT_2035$B,
-  Bflight     = ineq_IT_2035$B,
-  B90kC_SD    = ineq_IT_2035$B90kC_SD)
-write.csv(it2035_export, "../distributions/ineq_IT_2035.csv", row.names = FALSE, quote = FALSE)
-message(sprintf("Wrote ineq_IT_2035.csv  (%d rows × %d cols)", nrow(it2035_export), ncol(it2035_export)))
+# Column grids for the trimmed ineq_IT_2035 exports. it2035_keep = the columns the survey engine
+# reads — IT25 (for the percentile lookup) plus the 4 hours classes × 4 redistribution scopes that
+# getIT2035Distribution reads directly; it feeds the self-contained IT_survey/data/ copy below (§15).
+# The distributions/ export additionally keeps the net global transfer cash_GR35 for reference (the
+# engine does not read it).
+it2035_keep <- c("gpercentile", "IT25",                       # IT25 = 2025 cash for the percentile lookup
+                 "B", "BG", "BN", "BI",                       # 36h baseline, 4 scopes
+                 "B45kC", "B45kG", "B45kN", "B45kI",          # 32h, 4 scopes
+                 "B90kC", "B90kG", "B90kN", "B90kI",          # 40h, 4 scopes
+                 "B120kC", "B120kG", "B120kN", "B120kI")      # 44h, 4 scopes
+it2035_export_keep <- append(it2035_keep, "cash_GR35", after = 2)  # + net global transfer (reference)
+write.csv(ineq_IT_2035_full[, it2035_export_keep], "../distributions/ineq_IT_2035.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ineq_IT_2035.csv  (%d rows × %d cols)", nrow(ineq_IT_2035_full), length(it2035_export_keep)))
 
 ##### 14b. ineq2_IT_2035: B scenarios at the country's actual 2025-2035 F0a growth (instead of flat B_GROWTH_RATE) #####
 # Every B-class column is exactly proportional to its 10-year B growth factor (all B-family columns are
@@ -696,11 +686,8 @@ ineq2_IT_2035_full <- ineq_IT_2035_full
 ineq2_IT_2035_full[b_cols_full] <- lapply(ineq2_IT_2035_full[b_cols_full], function(v) round(v * k2))
 write.csv(ineq2_IT_2035_full, "../distributions/ineq2_IT_2035_full.csv", row.names = FALSE, quote = FALSE)
 message(sprintf("Wrote ineq2_IT_2035_full.csv  (%d rows × %d cols)", nrow(ineq2_IT_2035_full), ncol(ineq2_IT_2035_full)))
-b_cols_exp <- grep("^B", names(it2035_export), value = TRUE)
-ineq2_export <- it2035_export
-ineq2_export[b_cols_exp] <- lapply(ineq2_export[b_cols_exp], function(v) round(v * k2))
-write.csv(ineq2_export, "../distributions/ineq2_IT_2035.csv", row.names = FALSE, quote = FALSE)
-message(sprintf("Wrote ineq2_IT_2035.csv  (%d rows × %d cols)", nrow(ineq2_export), ncol(ineq2_export)))
+write.csv(ineq2_IT_2035_full[, it2035_export_keep], "../distributions/ineq2_IT_2035.csv", row.names = FALSE, quote = FALSE)
+message(sprintf("Wrote ineq2_IT_2035.csv  (%d rows × %d cols)", nrow(ineq2_IT_2035_full), length(it2035_export_keep)))
 
 # Web-served copies for the conjoint JS (scenarios.js fetches ineq_IT_2035.csv, ineq_2100_full.csv and
 # conjoint_constants.csv from code_simulator/data/). The _full files are copied too for convenience.
@@ -714,11 +701,6 @@ message("Copied conjoint CSVs to data/ for the web pages.")
 # IT_survey/data/ via the vendored IT_survey/scenarios.js). Only the columns that scenarios.js
 # actually reads are kept, and "_full" is dropped from the file names.
 dir.create("IT_survey/data", recursive = TRUE, showWarnings = FALSE)
-it2035_keep <- c("gpercentile", "IT25",                              # IT25 = 2025 cash for percentile lookup
-                 "B", "BG", "BN", "BI",                              # 35h baseline, 4 scopes
-                 "B45kC", "B45kG", "B45kN", "B45kI",                 # 30h, 4 scopes
-                 "B90kC", "B90kG", "B90kN", "B90kI",                 # 40h, 4 scopes
-                 "B120kC", "B120kG", "B120kN", "B120kI")             # 45h, 4 scopes (getIT2035Distribution reads B-family cols directly)
 ineq2100_keep <- c("bracket", paste0("IT_", c("SC","SG","SN","SI")),
                    paste0("World_", c("SC","SG","SN","SI")))         # get2100Distributions (SC/SG/SN/SI scopes)
 write.csv(ineq_IT_2035_full[, it2035_keep],  "IT_survey/data/ineq_IT_2035.csv",  row.names = FALSE, quote = FALSE)
