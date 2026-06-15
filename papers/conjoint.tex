@@ -193,11 +193,11 @@ Every other 2035 scenario is then this base (or a scope-specific cousin of it, s
   \item[A public-services factor.] When public services expand (the structural-change option), the extra spending is financed by a flat-rate tax. The rate is set so that the additional public-spending share of national expenditure between 2025 and 2035 is exactly covered by taxing average income at that rate; for Italy it is about 4.9\,\%. The factor is then one minus this rate.
 \end{description}
 
-\noindent In symbols, the base is the 2035 SC income carried into cash units percentile by percentile, and each convergence-scope scenario at hours class $k$ multiplies it by the three factors:
+\noindent In symbols, the base is the 2035 SC income carried into cash units percentile by percentile, and the 2035 cash income $x_k$ of each convergence-scope scenario at hours class $k$ --- stored as one column of \file{ineq\_IT\_2035} per scenario --- is that base times the three factors:
 \[
   \col{IT35}(p)=y^{\mathrm{SC}}_{2035}(p)\,\frac{c_{25}(p)}{y_{2025}(p)},
   \qquad
-  \mathrm{col}_k(p)=\col{IT35}(p)\;\eta_k\;\delta\;\psi,
+  x_k(p)=\col{IT35}(p)\;\eta_k\;\delta\;\psi,
 \]
 with the per-percentile cash-to-income ratio $c_{25}/y_{2025}$ (here $y_{2025},y^{\mathrm{SC}}_{2035}$ are \citeauthor{Bothe2026}'s 2025 and 2035 SC incomes), hours factor $\eta_k$ (Section~\ref{sec:bfamily}), decarbonisation factor $\delta\in\{1,0.99,0.97\}$, and public-services factor $\psi=1-\tau$ ($\tau\approx4.9\%$) when services expand, $\psi=1$ otherwise.
 
@@ -285,14 +285,14 @@ The meaningful comparison across scenarios and countries is ``full income'' (sec
 
 For Italy, the four scopes at 2100 are built exactly as in 2035, from \citet{Bothe2026}'s 2100 income: Convergence is the full income itself; National-only rescales to the no-global levels (from \citet{Bothe2026}'s Persistent Inequality scenario); Inequality grows the 2025 income by the inequality path's GDP factor and halves it (the no-redistribution level); Global-only applies the world transfer schedule to the Inequality income.
 
-With $Y_{2100}$ \citeauthor{Bothe2026}'s SC income, $D$ the global dividend, $y^{\mathrm{nat}}_{2025}$ the pre-global 2025 national income, $\Gamma_{\scenario{I}}$ the inequality path's 2025--2100 GDP growth and $\tau_G(\cdot)$ the world tax-rate schedule (a function of national income, read off the world \scenario{SN}$\to$\scenario{SC} distributions),
+With $Y_{2100}$ \citeauthor{Bothe2026}'s SC income (which already \emph{includes} the global dividend received under convergence), $D$ the per-adult global dividend (about $1\,300$\,\EUR/yr in 2100 --- non-zero, unlike in 2025 where it is still nil before global redistribution begins), $y^{\mathrm{nat}}_{2025}$ the pre-global 2025 national income, $\Gamma_{\scenario{I}}$ the inequality path's 2025--2100 GDP growth and $\tau_G = \frac{\scenario{N} - \scenario{C}}{\scenario{N}}$ the world tax-rate schedule required to move from \scenario{N} to \scenario{C} at the world level, % (a function of national income, read off the world \scenario{SN}$\to$\scenario{SC} distributions),
 \[
   \scenario{C}=Y_{2100},\quad
   \scenario{N}=(Y_{2100}-D)\,\frac{\mathrm{GDP}_{\scenario{I}}}{\mathrm{GDP}_{\scenario{C}}},\quad
   \scenario{I}=\tfrac12\,y^{\mathrm{nat}}_{2025}\,\Gamma_{\scenario{I}},\quad
   \scenario{G}=\bigl(1-\tau_G(\scenario{I})\bigr)\scenario{I}.
 \]
-Each column is then multiplied by the cash-equivalent scalar ($\approx0.69$) and, for the hours classes, by the Table~\ref{tab:coefs2100} multiplier.
+National-only therefore subtracts the dividend $D$ to undo global redistribution (recovering the income before the global transfer), then rescales to the no-global GDP level $\mathrm{GDP}_{\scenario{I}}/\mathrm{GDP}_{\scenario{C}}$ --- the 2100 analogue of subtracting the net global transfer \col{cash\_GR35} in 2035. The two coincide because Italy's modelled global \emph{tax} is nil, so the dividend alone is the whole net transfer. Each column is then multiplied by the cash-equivalent scalar ($\approx0.69$) and, for the hours classes, by the Table~\ref{tab:coefs2100} multiplier.
 
 To aggregate countries' distributions into the world's one, we pool every (country, percentile) cell weighted by its population share, sort them by income, and read off one hundred equal-population global percentiles (filling any gaps by interpolation). The population used follows the scenario: the Convergence population (about 9.4 billion in 2100) when global redistribution is on, the Inequality population (about 10.2 billion) when it is off.
 
@@ -340,9 +340,34 @@ with $G$ the world 2100 GDP, $s\in\{0,1\}$ the structural-change (expanded publi
 
 On top of the base, two additive corrections capture the food and travel choices --- $-0.24$\,°C for cutting beef and $-0.155$\,°C for cutting flights. They are applied relative to the canonical pairing in which structural change ($s=1$) comes with both beef and flights reduced: if the respondent's beef or flight choice departs from that pairing, the corresponding $\pm0.24$ or $\pm0.155$\,°C is added back.
 
-\paragraph{Calibrating the two corrections.} The beef value is the diet share of \citeauthor{Chancel2026}'s structural-change effect: their \scenario{1}$\to$\scenario{2} transition lowers 2100 warming by $0.44$\,°C, of which about $55\%$ is attributable to dietary change rather than to the accompanying reforestation --- combining the EAT-Lancet land-use saving of Hayek et al.\ (2021) with \citeauthor{Chancel2026}'s agricultural term --- giving $0.55\times0.44=\mathbf{0.24}$\,°C for the $\sim$60\,\% beef cut. The direct food-warming estimate of Ivanovich et al.\ (2023) is smaller ($\approx 0.16$\,°C at a $9.4$\,bn population) because it omits the carbon opportunity cost of the freed grazing land.
+\paragraph{Calibrating the beef correction.} \citet{Ivanovich2023} find that limiting red meat to the EAT-Lancet recommendation would lower 2100 warming by $0.19$\,°C (their headline SSP3 figure), about $0.16$\,°C at the $\sim$9.4\,bn convergence population. That estimate rests on the \citet{PooreNemecek2018} food inventory, which omits the \emph{carbon opportunity cost} of the land freed by eating less meat. \citet{Chancel2026} do model that reforestation, so their full structural-change effect (\scenario{1}$\to$\scenario{2}) is a larger $0.44$\,°C. We keep only its diet share: by \citet{Hayek2021}, the EAT--Lancet diet \citep{Willett2019} that \citeauthor{Chancel2026} assume would cut land-use emissions by $332$\,GtCO$_2$, about half of \citeauthor{Chancel2026}'s $670$; combined with \citeauthor{Chancel2026}'s agricultural term this puts roughly $55\%$ of the $0.44$\,°C on diet (the rest on reforestation), i.e.\ $0.55\times0.44\approx\mathbf{0.24}$\,°C for the $\sim$60\,\% beef reduction, to two servings per month.
 
-The flight value starts from $0.29$\,°C of 2100 aviation warming under high-traffic, fast-efficiency assumptions (Smith et al.\ 2026). Halving flights scales this by the scenario's projected air traffic --- a product of an income factor ($\approx 0.05\times$ GDP per capita in k\EUR), a transport-share factor and a decarbonisation factor, relative to the reference $1.14$ of the highest-traffic case. Since that would make the respondent's flight choice depend on the surrounding scenario, the correction is instead fixed at one benchmark (\scenario{BI1\_ID}: inequality, no structural change, intermediate decarbonisation), giving $\mathbf{0.155}$\,°C.
+\paragraph{Calibrating the flight correction.} Aviation contributes about $0.29$\,°C of 2100 warming under sustained high traffic ($+3\%$/year) and fast efficiency gains \citep{Smith2026}. %Scaling the CO$_2$-only estimate of \citet{Terrenoire2019} to well-to-wing emissions reproduces \citeauthor{Smith2026}'s low-traffic case, which supports the calibration. 
+The effect of \emph{halving} flights scales this $0.29$\,°C by the scenario's projected 2100 air traffic relative to today, modelled as a product of three factors (Table~\ref{tab:flights}): the ratio $g$ of 2100 world GDP over 2025 world GDP (approximated to 20k\EUR), a transport-share factor $f_{\text{struct}}$ (one, or $0.75$ when structural change shrinks transport's share of output, from \citeauthor{Chancel2026}'s sheet \col{G7s}), and a decarbonisation factor $f_{\text{decarb}}$ (faster decarbonisation lowers emissions per passenger-kilometre). The highest-traffic case \scenario{PC1\_FD} has product $6\times1\times0.19=1.14$, set equal to the $0.29$\,°C baseline, so a scenario's aviation warming and the temperature saved by halving its flights are
+\[
+  T_{\text{avia}} = 0.29\,g\,f_{\text{struct}}\,f_{\text{decarb}}/1.14,
+  \qquad
+  \Delta T_{\text{half}} = \tfrac12\,T_{\text{avia}},
+\]
+The decarbonisation factor is the residual emissions per passenger-kilometre in 2100 relative to 2025 after cumulative efficiency gains: with aircraft efficiency improving at $e$ per year, $f_{\text{decarb}}=(1+e)^{-75}$ over the 2025--2100 horizon, so the slow/intermediate/fast paces ($e=1.0/1.3/2.2\,\%$/year taken from \citeauthor{Terrenoire2019}'s scenarios A1=BAU and B1, and \citeauthor{Smith2026}'s AGP scenario, respectively) give $f_{\text{decarb}}\approx0.5/0.37/0.19$.
+
+Because $\Delta T_{\text{half}}$ depends on the surrounding scenario --- which a respondent's own choice to fly less should not --- it is fixed at a single benchmark, \scenario{BI1\_ID}, % (inequality, no structural change, intermediate decarbonisation), 
+giving $\mathbf{0.155}$\,°C.
+
+\begin{table}[ht]
+\centering
+\caption{Factors for 2100 air traffic relative to today \citep{Smith2026}. Their product, times $0.29/1.14$, is a scenario's aviation warming; the highest-traffic corner \scenario{PC1\_FD} ($6\times1\times0.19=1.14$) reproduces the $0.29$\,°C baseline.}
+\label{tab:flights}
+\begin{tabular}{ll}
+\toprule
+Income factor & $\approx 0.05\times$ GDP per capita (k\EUR): $45\text{k}\!\to\!2.2$, $60\text{k}\!\to\!3$, $90\text{k}\!\to\!4.5$, $120\text{k}\!\to\!6$ \\
+Transport-share factor & $1$ (no structural change), $0.75$ (structural change) \\
+Decarbonisation factor & $(1+e)^{-76}$ at efficiency $+e$/yr: $0.5$ ($e\!=\!1.0\%$), $0.37$ ($1.3\%$), $0.19$ ($2.2\%$) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{From quantities to prices.} The survey frames these choices as $-60\%$ beef and $-50\%$ flights; the implied price increases follow a constant-elasticity demand $q\propto P^{\varepsilon}$, so $P_1/P_0=(q_1/q_0)^{1/\varepsilon}$. With a meat-price elasticity $\varepsilon=-0.87$ \citep{Gallet2010}, a $60\%$ cut needs $0.4^{-1/0.87}\approx2.9\times$ the price; with an air-travel elasticity $\varepsilon=-0.6$ \citep{InterVistas2007}, halving flights needs $0.5^{-1/0.6}\approx3.2\times$. Both behavioural changes thus correspond to roughly a \emph{tripling} of the price.
 
 % \note{%
 %   \scenario{B90k} (40\,h) is not in \citet{Chancel2026}'s emission output, so its temperature is
@@ -357,11 +382,17 @@ The flight value starts from $0.29$\,°C of 2100 aviation warming under high-tra
 
 Given the precomputed tables, the web page does only light arithmetic.
 
-\paragraph{The respondent's own 2035 income.} It converts the household's monthly cash income to an annual individual income $y$ (halving it for couples) and locates its g-percentile $g^\star$ in the 2025 cash distribution \col{IT25} by linear interpolation: writing $(g_i,\col{IT25}_i)_{i=1}^{127}$ for the g-percentile grid, for the bracket with $\col{IT25}_i \le y < \col{IT25}_{i+1}$,
-\[
-  g^\star \;=\; g_i + \frac{y-\col{IT25}_i}{\col{IT25}_{i+1}-\col{IT25}_i}\,(g_{i+1}-g_i).
-\]
-The displayed income is the same interpolation of the chosen scenario's 2035 column at $g^\star$. The search runs on the 127 g-percentiles, not coarse percentiles --- 28 of them cover the top 1\,\%, where incomes vary most --- and \col{IT25} increases across all 127 brackets, so the lookup is unambiguous (an income below the first or above the last bracket clamps to it). The chosen column is assembled on the fly from the exported base columns by applying the same hours, scope, decarbonisation and public-services factors described in Section~\ref{sec:factors}, exactly reproducing the precomputed values.
+\paragraph{The respondent's own 2035 income.} It converts the household's monthly cash income to an annual individual income %$y$ 
+(halving it for couples) and locates its g-percentile %$g^\star$ 
+in the 2025 cash distribution \col{IT25} by linear interpolation.
+
+% : writing $(g_i,\col{IT25}_i)_{i=1}^{127}$ for the g-percentile grid, for the bracket with $\col{IT25}_i \le y < \col{IT25}_{i+1}$,
+% \[
+%   g^\star \;=\; g_i + \frac{y-\col{IT25}_i}{\col{IT25}_{i+1}-\col{IT25}_i}\,(g_{i+1}-g_i).
+% \]
+The displayed income is the same interpolation of the chosen scenario's 2035 column (re-multiplied by two for couples). % at $g^\star$. 
+% The search runs on the 127 g-percentiles, not coarse percentiles --- 28 of them cover the top 1\,\%, where incomes vary most --- and \col{IT25} increases across all 127 brackets, so the lookup is unambiguous (an income below the first or above the last bracket clamps to it). 
+The chosen column is assembled on the fly from the exported base columns by applying the same hours, scope, decarbonisation and public-services factors described in Section~\ref{sec:factors}, exactly reproducing the precomputed values.
 
 \paragraph{The 2100 bar charts.} A ``national incomes'' chart shows Italy's 2100 distribution in 21 brackets (the top 1\%, the next 4\%, and the rest divided in brackets with 5\% width); a ``global incomes'' chart shows the world income. Both are read from the 2100 table for the scenario's scope and scaled by the hours multiplier of Table~\ref{tab:coefs2100}. %All values are the cash-equivalent magnitudes (already multiplied by the 0.69 scalar).
 
@@ -452,6 +483,47 @@ Garbinti, B., Goupille-Lebret, J. and Piketty, T. (2021).
 \newblock Accounting for Wealth Inequality Dynamics: Methods, Estimates and
 Simulations for France.
 \newblock \emph{Journal of the European Economic Association} 19(1), 620--663.
+
+\bibitem[Gallet(2010)]{Gallet2010}
+Gallet, C. A. (2010).
+\newblock Meat Meets Meta: A Quantitative Review of the Price Elasticity of Meat.
+\newblock \emph{American Journal of Agricultural Economics} 92(1), 258--272.
+
+\bibitem[Hayek et al.(2021)]{Hayek2021}
+Hayek, M. N., Harwatt, H., Ripple, W. J., and Mueller, N. D. (2021).
+\newblock The Carbon Opportunity Cost of Animal-Sourced Food Production on Land.
+\newblock \emph{Nature Sustainability} 4(1), 21--24.
+
+\bibitem[InterVistas(2007)]{InterVistas2007}
+InterVistas (2007).
+\newblock Estimating Air Travel Demand Elasticities.
+\newblock \emph{IATA report}.
+\newblock URL: \url{https://www.iata.org/en/iata-repository/publications/economic-reports/estimating-air-travel-demand-elasticities---by-intervistas/}
+
+\bibitem[Ivanovich et al.(2023)]{Ivanovich2023}
+Ivanovich, C. C., Sun, T., Gordon, D. R., and Ocko, I. B. (2023).
+\newblock Future Warming from Global Food Consumption.
+\newblock \emph{Nature Climate Change} 13(3), 297--302.
+
+\bibitem[Poore and Nemecek(2018)]{PooreNemecek2018}
+Poore, J. and Nemecek, T. (2018).
+\newblock Reducing Food's Environmental Impacts through Producers and Consumers.
+\newblock \emph{Science} 360(6392), 987--992.
+
+\bibitem[Smith et al.(2026)]{Smith2026}
+Smith, J. R., Grobler, C., Hodgson, P. J., Mukhopadhaya, J., Shapiro, M. L., Mirolo, M., Stettler, M. E. J., Eastham, S. D., and Barrett, S. R. H. (2026).
+\newblock The Climate Opportunities and Risks of Contrail Avoidance.
+\newblock \emph{Nature Communications} 17, 2092.
+
+\bibitem[Terrenoire et al.(2019)]{Terrenoire2019}
+Terrenoire, E., Hauglustaine, D. A., Gasser, T., and Penanhoat, O. (2019).
+\newblock The Contribution of Carbon Dioxide Emissions from the Aviation Sector to Future Climate Change.
+\newblock \emph{Environmental Research Letters} 14(8), 084019.
+
+\bibitem[Willett et al.(2019)]{Willett2019}
+Willett, W., Rockstr\"om, J., Loken, B., Springmann, M., and co-authors (2019).
+\newblock Food in the Anthropocene: the EAT--Lancet Commission on Healthy Diets from Sustainable Food Systems.
+\newblock \emph{The Lancet} 393(10170), 447--492.
 
 \end{thebibliography}
 
