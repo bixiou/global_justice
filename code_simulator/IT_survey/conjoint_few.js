@@ -33,7 +33,7 @@ const P = (hoursPerWeek, nationalRedistribution, globalRedistribution, decarboni
 const SCENARIOS = {
   BC:      { weight: 2, label: "Convergenza B — 36h",                  params: P(36, "SN",      "GIT",     "FD", "increased", "both") },
   BC90k:   { weight: 1, label: "Convergenza B90k — 40h",               params: P(40, "SN",      "GIT",     "FD", "increased", "both") },
-  BCmat:   { weight: 1, label: "Convergenza B — 36h, servizi stabili", params: P(36, "SN",      "GIT",     "FD", "stable",    "none") },
+  BCmat:   { weight: 1, label: "Convergenza B — 36h, servizi stabili", params: P(36, "SN",      "GIT",     "FD", "stable",    "both") },
   BC45k:   { weight: 1, label: "Convergenza B45k — 32h",               params: P(32, "SN",      "GIT",     "FD", "increased", "both") },
   BC120k:  { weight: 1, label: "Convergenza B120k — 44h",              params: P(44, "SN",      "GIT",     "FD", "increased", "both") },
   BI120k:  { weight: 1, label: "Disuguaglianza B120k — 44h",           params: P(44, "current", "current", "FD", "stable",    "none") },
