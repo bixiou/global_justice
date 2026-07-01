@@ -103,6 +103,13 @@ function gpWidth(g) {
 
 function gpercentiles() { return _rows2035.map(r => r.gpercentile); }
 
+/** Snap a gpercentile to the closest grid point: unit below 99, 0.1 in [99,99.9), 0.01 above. */
+function roundGp(g) {
+  if (g < 99)   return Math.round(g);
+  if (g < 99.9) return Math.round(g * 10) / 10;
+  return Math.round(g * 100) / 100;
+}
+
 function interpolate(arr, gp, targetGp) {
   if (targetGp <= gp[0])              return arr[0];
   if (targetGp >= gp[gp.length - 1]) return arr[arr.length - 1];
@@ -371,7 +378,7 @@ function computeConjointFeatures({
     ownIncome: {
       monthlyLocal:      Math.round(ownAnnualEUR2035 * ppp / 12 * (isCouple ? 2 : 1)),
       currency:          countryCode,
-      respondentGp:      Math.round(gp * 10) / 10,
+      respondentGp:      roundGp(gp),
       currentMonthlyLocal: Math.round(householdIncomeMonthly),
       annualEUR2035:     Math.round(ownAnnualEUR2035)
     },
