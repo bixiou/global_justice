@@ -99,6 +99,13 @@ function gpWidth(g) {
   return 0.00001;
 }
 
+/** Snap a gpercentile to the closest grid point: unit below 99, 0.1 in [99,99.9), 0.01 above. */
+function roundGp(g) {
+  if (g < 99)   return Math.round(g);
+  if (g < 99.9) return Math.round(g * 10) / 10;
+  return Math.round(g * 100) / 100;
+}
+
 /** Weighted mean of an array over the 127 IT gpercentile grid. */
 function weightedMean127(arr) {
   const gp = gpercentiles();
@@ -440,7 +447,7 @@ function computeConjointFeatures({
     temperature: { value: temp },
     ownIncome: {
       value: ownIncomeMonthly,                              // EUR/month, household total if couple
-      respondentPercentile: Math.round(respondentGp * 10) / 10,
+      respondentPercentile: roundGp(respondentGp),
       currentIncomeMonthly: Math.round(householdIncomeMonthly),
       annualPerAdult: Math.round(ownIncomeAnnualPerAdult)
     },
@@ -448,7 +455,7 @@ function computeConjointFeatures({
     nationalIncomes: {
       gpercentiles: _ineqIT2035.map(r => r.gpercentile),
       values:        dist2035.map(v => Math.round(v)),
-      respondentGpercentile: Math.round(respondentGp * 10) / 10,
+      respondentGpercentile: roundGp(respondentGp),
       respondentIncome: Math.round(ownIncomeAnnualPerAdult),
       scenarioName: natScenarioName
     },

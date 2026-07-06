@@ -352,7 +352,7 @@ The effect of \emph{halving} flights scales this $0.29$\,°C by the scenario's p
 The decarbonisation factor is the residual emissions per passenger-kilometre in 2100 relative to 2025 after cumulative efficiency gains: with aircraft efficiency improving at $e$ per year, $f_{\text{decarb}}=(1+e)^{-75}$ over the 2025--2100 horizon, so the slow/intermediate/fast paces ($e=1.0/1.3/2.2\,\%$/year taken from \citeauthor{Terrenoire2019}'s scenarios A1=BAU and B1, and \citeauthor{Smith2026}'s AGP scenario, respectively) give $f_{\text{decarb}}\approx0.5/0.37/0.19$.
 
 Because $\Delta T_{\text{half}}$ depends on the surrounding scenario --- which a respondent's own choice to fly less should not --- it is fixed at a single benchmark, \scenario{BI1\_ID}, % (inequality, no structural change, intermediate decarbonisation), 
-giving $\mathbf{0.155}$\,°C.
+giving $\mathbf{0.155}$\,°C. % /!\ TODO It seems there is a mistake in the computation of .155, since BI1_ID should yield .5*.29*.05*50*1*.37/1.14. In any case, these computations don't make sense since they assume .37/.19 decarbonization factors while contrails make up .66 of emissions. A better computation is to assume BI120k1_ID (with GDP of 100k) comes with x5.96 flights (same flight share of GDP as now, 5.96 = 100.5/16.87) hence 5.96/9.18 AGP 0.29 contrail projection in Smith et al. (26) (AGP 0.29 comes with +3%/yr -> x9.18): (5.96/9.18)*.194=+.126°C from contrails and .091°C from CO2. With half flights, we get zero CO2 but half contrails, .091+.126*.52=.155°C less total emissions (where .52 corresponds to tripling price => 48% reduction). .091+exp(log(3)*(-.6))*.194*(100/17)/(1.03^75) = .155
 
 \begin{table}[ht]
 \centering
