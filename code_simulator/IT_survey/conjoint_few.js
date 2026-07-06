@@ -150,7 +150,7 @@ function renderCaption(capId, brackets, annualValues, region) {
 
 const BF_TXT = {
   none:    "Nessuna variazione",
-  beef:    "Meno prodotti bovini (2 porzioni di carne al mese)",
+  beef:    "Meno prodotti bovini (2 porzioni di carne al mese)<br>Prezzi triplicati",
   flights: "Meno voli (2.500 km all'anno)<br>Prezzi triplicati",
   both:    "Meno prodotti bovini (2 porzioni di carne al mese)<br>Meno voli (2.500 km all'anno)<br>Prezzi triplicati"
 };
