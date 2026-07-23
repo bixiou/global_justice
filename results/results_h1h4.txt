@@ -1,0 +1,28 @@
+\begin{table}[ht]
+\centering
+\caption{H1--H4: primary specification results. Cluster-robust (respondent-level) SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1. Main-attribute and hypothesis rows: FDR-adjusted (10-test pre-registered family; the one-sided Temperature test is part of this family but not shown as its own row, since it duplicates the two-sided Temperature row above). Indented individual dummy-level rows: descriptive detail, unadjusted p-values.} 
+\label{tab:results_h1h4}
+\begin{tabular}{lll}
+  \hline
+  & estimate & se \\ 
+  \hline
+Temperature & -0.073*** & (0.007) \\ 
+  Income & 0.000 & (0.000) \\ 
+  Working hours & F = 8.805*** &  \\ 
+  \hspace{1em} 36h/week (vs. 32h) & 0.075*** & (0.022) \\ 
+  \hspace{1em} 40h/week (vs. 32h) & 0.055 & (0.036) \\ 
+  \hspace{1em} 44h/week (vs. 32h) & 0.040 & (0.050) \\ 
+  Public services & 0.038*** & (0.010) \\ 
+  Beef \& flights restrictions & F = 0.562 &  \\ 
+  \hspace{1em} Beef only (vs. none) & -0.018 & (0.014) \\ 
+  \hspace{1em} Flights only (vs. none) & -0.011 & (0.014) \\ 
+  \hspace{1em} Beef \& flights (vs. none) & -0.010 & (0.014) \\ 
+  Inequality (national) & 0.032*** & (0.010) \\ 
+  Inequality (global) & 0.025** & (0.010) \\ 
+  Working hours $\times$ growth & -0.003* & (0.002) \\ 
+  Future income $>$ current & 0.019 & (0.018) \\ 
+   \hline
+\multicolumn{3}{l}{\footnotesize N = 2875; R$^2$ = 0.028} \\
+  \hline
+\end{tabular}
+\end{table}

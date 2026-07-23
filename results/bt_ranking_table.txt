@@ -1,0 +1,25 @@
+\begin{table}[ht]
+\centering
+\caption{Bradley--Terry ranking of the 12 named scenarios. Ability = log-strength relative to BC (reference, fixed at 0); SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (FDR-adjusted Wald test vs. BC). R2 = McFadden pseudo-R2.} 
+\label{tab:bt_ranking_table}
+\begin{tabular}{lllr}
+  \hline
+scenario & ability & se & N \\ 
+  \hline
+BC & ref. &  &  720 \\ 
+  BN & -0.027 & (0.127) &  356 \\ 
+  BCmat & -0.126 & (0.118) &  416 \\ 
+  BC45k & -0.233* & (0.122) &  379 \\ 
+  BG & -0.264** & (0.122) &  388 \\ 
+  BC90k & -0.350*** & (0.120) &  404 \\ 
+  BCbeef & -0.443*** & (0.122) &  374 \\ 
+  BCflight & -0.538*** & (0.128) &  334 \\ 
+  BI & -0.585*** & (0.132) &  319 \\ 
+  BC\_SD & -0.615*** & (0.122) &  389 \\ 
+  BC120k & -0.725*** & (0.124) &  376 \\ 
+  BI120k & -0.999*** & (0.126) &  393 \\ 
+   \hline
+\multicolumn{4}{l}{\footnotesize R$^2$ = 0.034} \\
+  \hline
+\end{tabular}
+\end{table}
