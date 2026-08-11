@@ -1,0 +1,19 @@
+\begin{table}[H]
+    \centering
+    \caption{Frequency of ``I don't know'' responses by task, and for any of the 3 tasks.}
+    \begin{tabular}{ l c c c c }
+\hline \hline
+Task & N & N (IDK) & estimate & se \\
+\hline
+\hspace{0.05cm} Task 1 (FEW) & 3,555 & 1,131 & 31.8\% & (0.8\%) \\
+\hspace{0.05cm} Task 2 (ANY) & 3,555 &   963 & 27.1\% & (0.7\%) \\
+\hspace{0.05cm} Task 3 (ANY2) & 3,555 &   968 & 27.2\% & (0.7\%) \\
+\hspace{0.05cm} Any of the 3 tasks & 3,555 & 1,565 & 44.0\% & (0.8\%) \\
+\hline \hline
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} SE in parentheses (normal approximation).
+\end{tablenotes}
+    \label{tab:results_idk_frequency}
+\end{table}

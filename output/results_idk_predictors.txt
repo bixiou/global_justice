@@ -1,0 +1,29 @@
+\begin{table}[H]
+    \centering
+    \caption{Predictors of ``I don't know'' responses: sociodemographic characteristics and task/scenario features.}
+    \begin{tabular}{ l c c }
+\hline \hline
+ & estimate & se \\
+\hline
+\hspace{0.05cm} Age: 35-54 (vs. 18-34) & 0.0403** & (0.0189) \\
+\hspace{0.05cm} Age: 55+ (vs. 18-34) & 0.0494** & (0.0196) \\
+\hspace{0.05cm} Gender: Male (vs. Female) & -0.0627*** & (0.0127) \\
+\hspace{0.05cm} Region: Northeast (vs. Northwest) & 0.0023 & (0.0190) \\
+\hspace{0.05cm} Region: Center (vs. Northwest) & -0.0106 & (0.0185) \\
+\hspace{0.05cm} Region: South (vs. Northwest) & 0.0086 & (0.0176) \\
+\hspace{0.05cm} Region: Islands (vs. Northwest) & 0.0101 & (0.0240) \\
+\hspace{0.05cm} Education: Upper secondary (vs. Compulsory/lower) & -0.0345 & (0.0252) \\
+\hspace{0.05cm} Education: Tertiary (vs. Compulsory/lower) & -0.0873*** & (0.0265) \\
+\hspace{0.05cm} Task: 1/FEW (vs. Task 2/ANY) & 0.0473*** & (0.0072) \\
+\hspace{0.05cm} Task: 3/ANY2 (vs. Task 2/ANY) & 0.0017 & (0.0067) \\
+\hline
+\hspace{0.05cm} Observations & \multicolumn{2}{c}{3,551} \\
+\hspace{0.05cm} R-squared & \multicolumn{2}{c}{0.014} \\
+\hline \hline
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Pooled linear probability model across the 3 DCE tasks, cluster-robust respondent-level SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1. Baselines: Age vs. 18-34; Gender vs. Female ("Other", N=4, excluded); Region vs. Northwest; Education vs. Compulsory/lower secondary; Task vs. Task 2 (ANY). Political orientation not yet available (placeholder pending wave 1 merge).
+\end{tablenotes}
+    \label{tab:results_idk_predictors}
+\end{table}

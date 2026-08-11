@@ -1,0 +1,32 @@
+\begin{table}[H]
+    \centering
+    \caption{Primary H1--H4 specification, re-estimated with 0 interaction term(s) selected via Elastic Net added to the base specification.}
+    \begin{tabular}{ l c c }
+\hline \hline
+ & estimate & se \\
+\hline
+\hspace{0.05cm} Temperature & -0.073*** & (0.007) \\
+\hspace{0.05cm} Income (per 1k/month) & 0.000 & (0.000) \\
+\hspace{0.05cm} Working hours: 36h (vs. 32h) & 0.075*** & (0.022) \\
+\hspace{0.05cm} Working hours: 40h (vs. 32h) & 0.055 & (0.036) \\
+\hspace{0.05cm} Working hours: 44h (vs. 32h) & 0.040 & (0.050) \\
+\hspace{0.05cm} Public services: increased (vs. stable) & 0.038*** & (0.010) \\
+\hspace{0.05cm} Beef \& flights: beef only & -0.018 & (0.014) \\
+\hspace{0.05cm} Beef \& flights: flights only & -0.011 & (0.014) \\
+\hspace{0.05cm} Beef \& flights: both & -0.010 & (0.014) \\
+\hspace{0.05cm} National redistribution: SN (vs. current) & 0.032*** & (0.010) \\
+\hspace{0.05cm} Global redistribution: GIT (vs. current) & 0.025** & (0.010) \\
+\hspace{0.05cm} Growth & 0.113* & (0.062) \\
+\hspace{0.05cm} Working hours $\times$ growth & -0.003* & (0.002) \\
+\hspace{0.05cm} Future income $>$ current & 0.019 & (0.018) \\
+\hline
+\hspace{0.05cm} Observations & \multicolumn{2}{c}{2,875} \\
+\hspace{0.05cm} R-squared & \multicolumn{2}{c}{0.028} \\
+\hline \hline
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} $\alpha$=0.5, main effects unpenalized, lambda.1se. Cluster-robust (respondent-level) SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (unadjusted; descriptive, not part of the FDR-corrected pre-registered family). Compare to Table~\ref{tab:results_h1h4} (without these interactions).
+\end{tablenotes}
+    \label{tab:results_h1h4_elasticnet}
+\end{table}

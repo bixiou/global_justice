@@ -1,0 +1,29 @@
+\begin{table}[H]
+    \centering
+    \caption{Bradley--Terry ranking of the 12 named scenarios.}
+    \begin{tabular}{ l c c c }
+\hline \hline
+scenario & ability & se & N \\
+\hline
+\hspace{0.05cm} BC & ref. &  & 720 \\
+\hspace{0.05cm} BN & -0.027 & (0.127) & 356 \\
+\hspace{0.05cm} BCmat & -0.126 & (0.118) & 416 \\
+\hspace{0.05cm} BC45k & -0.233* & (0.122) & 379 \\
+\hspace{0.05cm} BG & -0.264** & (0.122) & 388 \\
+\hspace{0.05cm} BC90k & -0.350*** & (0.120) & 404 \\
+\hspace{0.05cm} BCbeef & -0.443*** & (0.122) & 374 \\
+\hspace{0.05cm} BCflight & -0.538*** & (0.128) & 334 \\
+\hspace{0.05cm} BI & -0.585*** & (0.132) & 319 \\
+\hspace{0.05cm} BC\_SD & -0.615*** & (0.122) & 389 \\
+\hspace{0.05cm} BC120k & -0.725*** & (0.124) & 376 \\
+\hspace{0.05cm} BI120k & -0.999*** & (0.126) & 393 \\
+\hline
+\hspace{0.05cm} R-squared & \multicolumn{3}{c}{0.034} \\
+\hline \hline
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Ability = log-strength relative to BC (reference, fixed at 0); SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (FDR-adjusted Wald test vs. BC). R2 = McFadden pseudo-R2.
+\end{tablenotes}
+    \label{tab:bt_ranking_table}
+\end{table}
