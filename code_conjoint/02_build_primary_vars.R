@@ -57,8 +57,12 @@ build_primary_vars <- function(amce_data) {
                                                 # hours x growth interaction
 
       # --- categorical attributes, as factors (dummy sets in the model) ---
-      # reference levels chosen as the "current" / status-quo / no-cut option
-      hoursPerWeek_f = factor(hoursPerWeek, levels = c("32", "36", "40", "44")),
+      # reference levels chosen as the "current" / status-quo / no-cut option.
+      # hoursPerWeek_f: 40h is the reference (the actual 2025 standard work
+      # week), not the lowest level (32h) - unlike the other attributes,
+      # "current/status quo" for hours isn't the smallest/largest value in
+      # the design, it's a specific level in the middle of the range
+      hoursPerWeek_f = factor(hoursPerWeek, levels = c("40", "32", "36", "44")),
       publicServices = factor(publicServices, levels = c("stable", "increased")),
       beefAndFlights = factor(beefAndFlights, levels = c("none", "beef", "flights", "both")),
       nationalRedistribution = factor(nationalRedistribution, levels = c("current", "SN")),

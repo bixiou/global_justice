@@ -1,0 +1,30 @@
+\begin{table}[H]
+    \centering
+    \caption{Secondary specification search: top 15 candidates.}
+    \begin{tabular}{ l c c c c c }
+\hline \hline
+Rank & Income & Temperature & Hours & Extra interaction & Adj. R2 \\
+\hline
+\hspace{0.05cm}  1 & threshold & pairwise\_binary & categorical & none & 0.0200 \\
+\hspace{0.05cm}  2 & threshold & pairwise\_binary & categorical & growth\_x\_income & 0.0199 \\
+\hspace{0.05cm}  3 & threshold & linear & categorical & none & 0.0197 \\
+\hspace{0.05cm}  4 & threshold & quadratic & categorical & none & 0.0196 \\
+\hspace{0.05cm}  5 & threshold & pairwise\_binary & quadratic & none & 0.0196 \\
+\hspace{0.05cm}  6 & threshold & linear & categorical & growth\_x\_income & 0.0196 \\
+\hspace{0.05cm}  7 & threshold & pairwise\_binary & pairwise\_binary & none & 0.0196 \\
+\hspace{0.05cm}  8 & threshold & quadratic & categorical & growth\_x\_income & 0.0196 \\
+\hspace{0.05cm}  9 & threshold & pairwise\_binary & quadratic & growth\_x\_income & 0.0196 \\
+\hspace{0.05cm} 10 & threshold & pairwise\_binary & pairwise\_binary & growth\_x\_income & 0.0195 \\
+\hspace{0.05cm} 11 & threshold & linear & quadratic & none & 0.0195 \\
+\hspace{0.05cm} 12 & threshold & quadratic & quadratic & none & 0.0194 \\
+\hspace{0.05cm} 13 & threshold & linear & quadratic & growth\_x\_income & 0.0194 \\
+\hspace{0.05cm} 14 & excluded & pairwise\_binary & categorical & none & 0.0194 \\
+\hspace{0.05cm} 15 & threshold & quadratic & quadratic & growth\_x\_income & 0.0194 \\
+\hline \hline
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Out of 180 candidate specifications, ranked by adjusted R\textsuperscript{2}. Q5 grid: income inclusion/functional form, temperature/hours functional form, extra growth$\times$income interaction. Rank 1 is the winning specification reported in Table~\ref{tab:table5}.
+\end{tablenotes}
+    \label{tab:table6}
+\end{table}

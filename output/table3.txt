@@ -1,0 +1,33 @@
+\begin{table}[H]
+    \centering
+    \caption{H1--H4: primary specification results.}
+    \begin{tabular}{ l c c }
+\hline \hline
+ & estimate & se \\
+\hline
+\hspace{0.05cm} Temperature & -0.053*** & (0.005) \\
+\hspace{0.05cm} Income (per 1k/month) & 1.31e-06 & (1.63e-05) \\
+\hspace{0.05cm} Working hours & F = 8.921*** &  \\
+\hspace{0.05cm} \hspace{1em} 32h/week (vs. 40h) & -0.042 & (0.026) \\
+\hspace{0.05cm} \hspace{1em} 36h/week (vs. 40h) & 0.015 & (0.015) \\
+\hspace{0.05cm} \hspace{1em} 44h/week (vs. 40h) & -0.009 & (0.015) \\
+\hspace{0.05cm} Public services: increased (vs. stable) & 0.027*** & (0.007) \\
+\hspace{0.05cm} Beef \& flights restrictions & F = 0.578 &  \\
+\hspace{0.05cm} \hspace{1em} Less beef (vs. none) & -0.013 & (0.010) \\
+\hspace{0.05cm} \hspace{1em} Less flights (vs. none) & -0.009 & (0.010) \\
+\hspace{0.05cm} \hspace{1em} Less beef \& flights (vs. none) & -0.007 & (0.010) \\
+\hspace{0.05cm} National redistribution (vs. current) & 0.024*** & (0.007) \\
+\hspace{0.05cm} Global redistribution (vs. current) & 0.018** & (0.007) \\
+\hspace{0.05cm} Working hours $\times$ growth & -0.002* & (0.001) \\
+\hspace{0.05cm} Future income $>$ current & 0.013 & (0.013) \\
+\hline
+\hspace{0.05cm} Observations & \multicolumn{2}{c}{3,555} \\
+\hspace{0.05cm} R-squared & \multicolumn{2}{c}{0.02} \\
+\hline \hline
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Cluster-robust (respondent-level) SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1. Main-attribute and hypothesis rows: FDR-adjusted (10-test pre-registered family; the one-sided Temperature test is part of this family but not shown as its own row, since it duplicates the two-sided Temperature row above). Indented individual dummy-level rows: descriptive detail, unadjusted p-values.
+\end{tablenotes}
+    \label{tab:table3}
+\end{table}

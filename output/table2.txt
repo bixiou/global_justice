@@ -23,7 +23,7 @@ scenario & ability & se & N \\
 \end{tabular}
 \begin{tablenotes}
 \small
-\item \textit{Notes:} Ability = log-strength relative to BC (reference, fixed at 0); SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (FDR-adjusted Wald test vs. BC). R2 = McFadden pseudo-R2.
+\item \textit{Notes:} Ability = log-strength relative to BC (reference, fixed at 0); SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (FDR-adjusted Wald test vs. BC). R2 = McFadden pseudo-R2. "I don't know" pairs excluded (Bradley-Terry requires a discrete winner); contrast with the other tables, where they are kept as indifference (selected = 0.5).
 \end{tablenotes}
-    \label{tab:bt_ranking_table}
+    \label{tab:table2}
 \end{table}

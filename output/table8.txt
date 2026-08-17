@@ -1,0 +1,34 @@
+\begin{table}[H]
+    \centering
+    \caption{Secondary specification with Elastic Net interactions.}
+    \begin{tabular}{ l c c }
+\hline \hline
+ & estimate & se \\
+\hline
+\hspace{0.05cm} Public services: increased (vs. stable) & 0.031*** & (0.008) \\
+\hspace{0.05cm} Less beef (vs. none) & -0.010 & (0.010) \\
+\hspace{0.05cm} Less flights (vs. none) & -0.006 & (0.010) \\
+\hspace{0.05cm} Less beef \& flights (vs. none) & 0.001 & (0.010) \\
+\hspace{0.05cm} National redistribution (vs. current) & 0.024*** & (0.007) \\
+\hspace{0.05cm} Global redistribution (vs. current) & 0.017** & (0.007) \\
+\hspace{0.05cm} 3\% productivity growth (vs. 1.5\%) & 0.110* & (0.066) \\
+\hspace{0.05cm} Working hours $\times$ growth & -0.002* & (0.001) \\
+\hspace{0.05cm} Temperature: 2.5\textendash{}3.5\textdegree C (vs. 1.7\textendash{}2.5\textdegree C) & -0.047*** & (0.009) \\
+\hspace{0.05cm} Temperature: 3.5\textendash{}4.9\textdegree C (vs. 1.7\textendash{}2.5\textdegree C) & -0.110*** & (0.010) \\
+\hspace{0.05cm} Working hours: 32h (vs. 40h) & -0.024 & (0.026) \\
+\hspace{0.05cm} Working hours: 36h (vs. 40h) & 0.021 & (0.016) \\
+\hspace{0.05cm} Working hours: 44h (vs. 40h) & -0.006 & (0.015) \\
+\hspace{0.05cm} Income $>$ current & -0.001 & (0.015) \\
+\hspace{0.05cm} Income $>$ 1.1$\times$ current & -0.006 & (0.011) \\
+\hspace{0.05cm} Income $<$ 0.9$\times$ current & -0.060*** & (0.018) \\
+\hline
+\hspace{0.05cm} Observations & \multicolumn{2}{c}{3,555} \\
+\hspace{0.05cm} R-squared & \multicolumn{2}{c}{0.021} \\
+\hline \hline
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} The same 0 Elastic-Net-selected interaction term(s) added to the secondary (highest adjusted R\textsuperscript{2}) specification. Cluster-robust (respondent-level) SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (unadjusted; descriptive). Compare to Table~\ref{tab:table5} (without these interactions).
+\end{tablenotes}
+    \label{tab:table8}
+\end{table}

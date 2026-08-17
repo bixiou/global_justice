@@ -9,10 +9,13 @@
 #      open-ended screens already applied upstream).
 #   2. Builds the "current declared income" variable used for H4.
 #   3. Reshapes Task 2 (ANY, growth = 1.5%) and Task 3 (ANY2, growth = 3%)
-#      from wide (1 row per respondent) to long (1 row per profile shown),
-#      as required by cjoint::amce(). "I don't know" pairs are excluded from
-#      this long dataset and routed to a separate "idk" dataset for the
-#      secondary analysis of "I don't know" responses.
+#      from wide (1 row per respondent) to long (1 row per profile shown).
+#      "I don't know" pairs are KEPT (selected = 0.5, i.e. indifference,
+#      per the pre-registration) and also flagged/routed to a separate
+#      "idk" dataset for the secondary analysis of "I don't know" responses.
+#      cjoint::amce() cannot accept a non-binary outcome, so the one figure
+#      that uses it (fit_amce_by_task(), Part 6) filters "I don't know" back
+#      out for that specific call only.
 #   4. Reshapes Task 1 (FEW, named scenarios) into a pair-level dataset,
 #      used later both for the 7 BC-vs-alternative regressions (H5-H11)
 #      and for the exploratory Bradley-Terry ranking of the 12 named
@@ -203,10 +206,17 @@ respondent_cols <- c("resp_id", "batch", "no_income_filter", "current_income",
 #'   hours x growth interaction (H3)
 #'
 #' @return a list with two elements:
-#'   - long: profile-level long data (1 row per profile shown), "I don't
-#'     know" pairs excluded, ready for cjoint::amce()
+#'   - long: profile-level long data (1 row per profile shown), ready for
+#'     the lm()-based H1-H4 model. "I don't know" pairs are KEPT here, with
+#'     selected = 0.5 on both profiles - per the pre-registration ("'I don't
+#'     know'... will be treated as indifference between the two options"),
+#'     not dropped. The `is_idk` flag is kept on these rows so any code that
+#'     structurally cannot handle a non-binary outcome (e.g. cjoint::amce(),
+#'     which requires a strict 0/1 matched pair) can filter them back out
+#'     explicitly - see fit_amce_by_task() and compute_attribute_share() in
+#'     Part 6.
 #'   - idk: pair-level data flagging "I don't know" responses, for the
-#'     secondary IDK analysis
+#'     secondary IDK analysis (Part 8)
 reshape_random_task <- function(data, prefix, dce_var, growth_value) {
 
   stopifnot(dce_var %in% names(data))
@@ -237,27 +247,20 @@ reshape_random_task <- function(data, prefix, dce_var, growth_value) {
   long_R <- build_side("R")
 
   both <- bind_rows(long_L, long_R) %>%
-    mutate(
-      is_idk = dce_choice == 3,
-      selected = case_when(
-        is_idk                       ~ NA_real_,
-        side == "L" & dce_choice == 1 ~ 1,
-        side == "R" & dce_choice == 2 ~ 0,
-        side == "R" & dce_choice == 2 ~ 1,   # placeholder, corrected below
-        TRUE                          ~ 0
-      )
-    )
+    mutate(is_idk = dce_choice == 3)
 
-  # NOTE on 'selected' logic (explicit, non-overlapping):
+  # 'selected' logic (explicit, non-overlapping):
   #   side == L & choice == 1 (A)  -> selected = 1
   #   side == L & choice == 2 (B)  -> selected = 0
   #   side == R & choice == 2 (B)  -> selected = 1
   #   side == R & choice == 1 (A)  -> selected = 0
-  #   choice == 3 (Non lo so)      -> selected = NA, routed to idk set
+  #   choice == 3 (Non lo so)      -> selected = 0.5 on BOTH profiles
+  #     (indifference, per the pre-registration - kept in the regression,
+  #     not dropped)
   both <- both %>%
     mutate(
       selected = case_when(
-        is_idk ~ NA_real_,
+        is_idk ~ 0.5,
         side == "L" & dce_choice == 1 ~ 1,
         side == "L" & dce_choice == 2 ~ 0,
         side == "R" & dce_choice == 2 ~ 1,
@@ -270,9 +273,12 @@ reshape_random_task <- function(data, prefix, dce_var, growth_value) {
     filter(is_idk) %>%
     distinct(resp_id, task, batch, no_income_filter, current_income, pair_id)
 
+  # long_main KEEPS the "I don't know" rows (selected = 0.5) - only
+  # dce_choice is dropped (no longer needed once 'selected'/'is_idk' are
+  # derived from it). `is_idk` is kept so downstream code that cannot
+  # accept a non-binary outcome can filter it back out explicitly.
   long_main <- both %>%
-    filter(!is_idk) %>%
-    select(-is_idk, -dce_choice)
+    select(-dce_choice)
 
   list(long = long_main, idk = idk_pairs)
 }
@@ -341,21 +347,21 @@ reshape_named_task <- function(data, dce_var = "FEW_DCE") {
 
 #' From the FEW pair-level data, build the analysis dataset for one
 #' H5-H11 contrast (BC vs alt_scenario): keeps only respondents who were
-#' actually shown that specific pair, and computes chose_BC (0/1, NA for
-#' "I don't know", which is then dropped from this specific regression).
+#' actually shown that specific pair, and computes chose_BC (0/1, or 0.5
+#' for "I don't know" - indifference, per the pre-registration - kept in
+#' the regression rather than dropped; fit_one_contrast()'s intercept-only
+#' lm() just needs a numeric outcome, so this requires no other change).
 few_contrast_data <- function(few_pairs, alt_scenario) {
   few_pairs %>%
     filter((L_scenario == "BC" & R_scenario == alt_scenario) |
            (L_scenario == alt_scenario & R_scenario == "BC")) %>%
     mutate(
       chose_BC = case_when(
-        is_idk ~ NA_real_,
+        is_idk ~ 0.5,
         chosen_scenario == "BC" ~ 1,
         TRUE ~ 0
       )
-    ) %>%
-    filter(!is.na(chose_BC))   # drop "I don't know" for this regression;
-                                # routed separately to the IDK dataset
+    )
 }
 
 # Example usage:

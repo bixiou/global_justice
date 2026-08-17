@@ -93,7 +93,11 @@ compute_attribute_share <- function(scored_data, score_prefix) {
   purrr::map_dfr(names(figure_attr_labels), function(attr) {
     score_col <- paste0(score_prefix, "_", attr)
     scored_data %>%
-      select(pair_id, side, selected, score = all_of(score_col)) %>%
+      select(pair_id, side, selected, is_idk, score = all_of(score_col)) %>%
+      # "did they choose the higher-scored side" is undefined for "I don't
+      # know" (selected = 0.5, indifference) - exclude those pairs here,
+      # same as fit_amce_by_task()
+      filter(!is_idk) %>%
       group_by(pair_id) %>%
       filter(n() == 2, !anyNA(score)) %>%
       summarise(
@@ -199,7 +203,11 @@ build_amce_bins <- function(model_data) {
 #' @param task_value "ANY" (Task 2) or "ANY2" (Task 3)
 #' @param task_label human-readable label for the task column (e.g. "Task 2 (growth 1.5%)")
 fit_amce_by_task <- function(binned_data, task_value, task_label) {
-  task_data <- binned_data %>% filter(task == task_value) %>% mutate(selected = as.numeric(selected))
+  # cjoint::amce() requires a strict 0/1 matched-pair outcome, so "I don't
+  # know" pairs (selected = 0.5 - indifference, kept elsewhere per the
+  # pre-registration, see reshape_random_task()) are filtered out for this
+  # call only
+  task_data <- binned_data %>% filter(task == task_value, !is_idk) %>% mutate(selected = as.numeric(selected))
 
   fit <- cjoint::amce(
     selected ~ temperature_bin + NetIncome_bin + hoursPerWeek_f + publicServices +
@@ -305,6 +313,17 @@ fit_growth_interactions <- function(model_data) {
   level <- mapply(function(key, term) sub(paste0("^", key), "", term),
                    attribute_key, term_no_growth, USE.NAMES = FALSE)
   level <- ifelse(attribute_key %in% c("temperature", "NetIncome_1k"), "", level)
+  # human-readable level text (raw dummy suffixes otherwise, e.g. "beef",
+  # "SN"), consistent with the table labels (beefAndFlights renamed, SN/GIT
+  # suffixes dropped since the attribute_label already says "vs. current")
+  level <- dplyr::case_when(
+    level == "beef"     ~ "less beef",
+    level == "flights"  ~ "less flights",
+    level == "both"     ~ "less beef & flights",
+    level == "increased" ~ "increased",
+    level %in% c("SN", "GIT") ~ "",
+    TRUE ~ level
+  )
 
   tibble::tibble(
     term      = growth_terms,

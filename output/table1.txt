@@ -5,13 +5,13 @@
 \hline \hline
 contrast & estimate & se & N \\
 \hline
-\hspace{0.05cm} BC vs BI & 0.731*** & (0.062) & 52 \\
-\hspace{0.05cm} BC vs BG & 0.679** & (0.063) & 56 \\
-\hspace{0.05cm} BC vs BN & 0.464 & (0.067) & 56 \\
-\hspace{0.05cm} BC vs BC\_SD & 0.597 & (0.058) & 72 \\
-\hspace{0.05cm} BC vs BCmat & 0.519 & (0.056) & 81 \\
-\hspace{0.05cm} BC vs BCflight & 0.781$^\dagger$ & (0.052) & 64 \\
-\hspace{0.05cm} BC vs BCbeef & 0.556 & (0.059) & 72 \\
+\hspace{0.05cm} BC vs BI & 0.643*** & (0.040) &  84 \\
+\hspace{0.05cm} BC vs BG & 0.606** & (0.038) &  94 \\
+\hspace{0.05cm} BC vs BN & 0.478 & (0.041) &  92 \\
+\hspace{0.05cm} BC vs BC\_SD & 0.563 & (0.038) & 111 \\
+\hspace{0.05cm} BC vs BCmat & 0.513 & (0.039) & 117 \\
+\hspace{0.05cm} BC vs BCflight & 0.707$^\dagger$ & (0.041) &  87 \\
+\hspace{0.05cm} BC vs BCbeef & 0.538 & (0.040) & 105 \\
 \hline
 \hspace{0.05cm} R-squared & \multicolumn{3}{c}{0} \\
 \hline \hline
@@ -20,5 +20,5 @@ contrast & estimate & se & N \\
 \small
 \item \textit{Notes:} Estimate = share choosing BC (HC1-robust SE in parentheses). *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (FDR-adjusted). One-sided test direction per pre-registration: H5--H9 (BI/BG/BN/BC\_SD/BCmat) test H1: share $>$ 0.5 (BC preferred); H10--H11 (BCflight/BCbeef) test H1: share $<$ 0.5 (the alternative scenario is preferred). $^\dagger$ = significant (two-sided, unadjusted p$<$0.1) in the direction OPPOSITE the pre-registered hypothesis - a real effect, just not the one predicted. R2 is 0 by construction (intercept-only models).
 \end{tablenotes}
-    \label{tab:results_h5h11}
+    \label{tab:table1}
 \end{table}

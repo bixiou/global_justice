@@ -52,21 +52,39 @@ build_secondary_vars <- function(model_data) {
   # vs. the low tercile - the continuous-variable analogue of how
   # hoursPerWeek is already entered as a 4-level factor in the primary spec
   tercile_factor <- function(x, labels) {
-    cut(x, breaks = quantile(x, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE),
-        include.lowest = TRUE, labels = labels)
+    breaks <- quantile(x, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
+    list(
+      factor = cut(x, breaks = breaks, include.lowest = TRUE, labels = labels),
+      breaks = breaks
+    )
   }
+
+  temperature_tf <- tercile_factor(model_data$temperature, c("low", "mid", "high"))
+  hours_tf       <- tercile_factor(model_data$hours_num, c("low", "mid", "high"))
+  income_tf      <- tercile_factor(model_data$NetIncome_1k, c("low", "mid", "high"))
+
+  # stash the tercile cut points in a global so prettify_secondary_term()
+  # can label the mid/high dummy rows with their actual value range (in
+  # natural units - degC/h/EUR) instead of the abstract "tercile" name;
+  # set as a side effect here since this is the only place the breakpoints
+  # are computed and prettify_secondary_term() is a pure name->label lookup
+  tercile_breaks <<- list(
+    temperature = temperature_tf$breaks,
+    hours       = hours_tf$breaks,
+    income      = income_tf$breaks
+  )
 
   model_data %>%
     mutate(
       # --- temperature: quadratic / threshold (vs. sample median) / tercile ---
       temperature_sq            = temperature^2,
       temperature_above_median  = as.numeric(temperature > temp_med),
-      temperature_tercile       = tercile_factor(temperature, c("low", "mid", "high")),
+      temperature_tercile       = temperature_tf$factor,
 
       # --- hours: quadratic / threshold (vs. sample median) / tercile ---
       hours_sq            = hours_num^2,
       hours_above_median  = as.numeric(hours_num > hours_med),
-      hours_tercile        = tercile_factor(hours_num, c("low", "mid", "high")),
+      hours_tercile        = hours_tf$factor,
 
       # --- income: quadratic / threshold-based dummies (vs. respondent's
       # own current_income) / tercile ---
@@ -76,7 +94,7 @@ build_secondary_vars <- function(model_data) {
       income_above_current      = future_income_above_current,
       income_above_1p1_current  = as.numeric(NetIncome > 1.1 * current_income),
       income_below_0p9_current  = as.numeric(NetIncome < 0.9 * current_income),
-      income_tercile             = tercile_factor(NetIncome_1k, c("low", "mid", "high")),
+      income_tercile             = income_tf$factor,
 
       # --- candidate extra interaction (beyond mandatory hours x growth) ---
       growth_x_income = growth * NetIncome_1k
@@ -177,12 +195,39 @@ fit_specification_grid <- function(model_data) {
 #' descriptive (no FDR correction: not a pre-registered hypothesis-test
 #' family), shared by build_secondary_table() and the Elastic Net step below
 #' @param model_data output of build_secondary_vars()
+#' Format one tercile bin's actual value range in natural units, from the
+#' quantile() breakpoints stashed by build_secondary_vars() (c(0%,33%,67%,
+#' 100%) cut points). tercile_idx: 1 = low, 2 = mid, 3 = high.
+#' Uses \\textdegree / \\texteuro (textcomp package, added to
+#' master_document.tex) rather than raw UTF-8 degree/euro glyphs, so the
+#' label is safe to embed in generated .tex regardless of source encoding.
+tercile_range_str <- function(breaks, tercile_idx, unit = "", digits = 1, scale = 1, big_mark = "") {
+  fmt <- function(x) {
+    formatC(round(x * scale, digits), format = "f", digits = digits, big.mark = big_mark)
+  }
+  paste0(fmt(breaks[tercile_idx]), "\\textendash{}", fmt(breaks[tercile_idx + 1]), unit)
+}
+
+#' Build a "<attribute>: <bin range> (vs. <low-tercile range>)" label for a
+#' tercile mid/high dummy, using the actual breakpoints instead of the
+#' abstract "mid/high tercile" wording
+tercile_label <- function(attr_label, level, breaks, unit = "", digits = 1, scale = 1, big_mark = "") {
+  low_str  <- tercile_range_str(breaks, 1, unit, digits, scale, big_mark)
+  this_str <- tercile_range_str(breaks, if (level == "mid") 2 else 3, unit, digits, scale, big_mark)
+  paste0(attr_label, ": ", this_str, " (vs. ", low_str, ")")
+}
+
 #' Human-readable label for a coefficient name from the secondary
 #' specification grid (Part 5) or its growth-interaction extensions -
 #' covers every term any candidate specification in the grid could produce.
 #' Falls back to the raw name for anything unrecognized (e.g. a term
 #' selected by Elastic Net), so this never errors on an unmapped term.
+#' Tercile mid/high terms need the live breakpoints (set as a global by
+#' build_secondary_vars()); if unavailable (e.g. called before that runs),
+#' falls back to the abstract "mid/high tercile" wording.
 prettify_secondary_term <- function(term) {
+  tb <- if (exists("tercile_breaks", envir = .GlobalEnv)) get("tercile_breaks", envir = .GlobalEnv) else NULL
+
   dplyr::case_when(
     # income
     term == "NetIncome_1k"               ~ "Income (per 1k/month)",
@@ -190,32 +235,33 @@ prettify_secondary_term <- function(term) {
     term == "income_above_current"       ~ "Income $>$ current",
     term == "income_above_1p1_current"   ~ "Income $>$ 1.1$\\times$ current",
     term == "income_below_0p9_current"   ~ "Income $<$ 0.9$\\times$ current",
-    term == "income_tercilemid"          ~ "Income: mid tercile (vs. low)",
-    term == "income_tercilehigh"         ~ "Income: high tercile (vs. low)",
+    term == "income_tercilemid"          ~ if (!is.null(tb)) tercile_label("Income", "mid", tb$income, unit = "/month", digits = 0, scale = 1000, big_mark = ",") else "Income: mid tercile (vs. low)",
+    term == "income_tercilehigh"         ~ if (!is.null(tb)) tercile_label("Income", "high", tb$income, unit = "/month", digits = 0, scale = 1000, big_mark = ",") else "Income: high tercile (vs. low)",
     # temperature
     term == "temperature"                ~ "Temperature",
     term == "temperature_sq"             ~ "Temperature\\textsuperscript{2}",
     term == "temperature_above_median"   ~ "Temperature $>$ median",
-    term == "temperature_tercilemid"     ~ "Temperature: mid tercile (vs. low)",
-    term == "temperature_tercilehigh"    ~ "Temperature: high tercile (vs. low)",
+    term == "temperature_tercilemid"     ~ if (!is.null(tb)) tercile_label("Temperature", "mid", tb$temperature, unit = "\\textdegree C", digits = 1) else "Temperature: mid tercile (vs. low)",
+    term == "temperature_tercilehigh"    ~ if (!is.null(tb)) tercile_label("Temperature", "high", tb$temperature, unit = "\\textdegree C", digits = 1) else "Temperature: high tercile (vs. low)",
     # hours
     term == "hours_num"                  ~ "Working hours (linear)",
     term == "hours_sq"                   ~ "Working hours\\textsuperscript{2}",
     term == "hours_above_median"         ~ "Working hours $>$ median",
-    term == "hours_tercilemid"           ~ "Working hours: mid tercile (vs. low)",
-    term == "hours_tercilehigh"          ~ "Working hours: high tercile (vs. low)",
-    term == "hoursPerWeek_f36"           ~ "Working hours: 36h (vs. 32h)",
-    term == "hoursPerWeek_f40"           ~ "Working hours: 40h (vs. 32h)",
-    term == "hoursPerWeek_f44"           ~ "Working hours: 44h (vs. 32h)",
+    term == "hours_tercilemid"           ~ if (!is.null(tb)) tercile_label("Working hours", "mid", tb$hours, unit = "h", digits = 0) else "Working hours: mid tercile (vs. low)",
+    term == "hours_tercilehigh"          ~ if (!is.null(tb)) tercile_label("Working hours", "high", tb$hours, unit = "h", digits = 0) else "Working hours: high tercile (vs. low)",
+    term == "hoursPerWeek_f32"           ~ "Working hours: 32h (vs. 40h)",
+    term == "hoursPerWeek_f36"           ~ "Working hours: 36h (vs. 40h)",
+    term == "hoursPerWeek_f44"           ~ "Working hours: 44h (vs. 40h)",
     # categorical attributes (same levels as the primary spec)
     term == "publicServicesincreased"       ~ "Public services: increased (vs. stable)",
-    term == "beefAndFlightsbeef"            ~ "Beef \\& flights: beef only",
-    term == "beefAndFlightsflights"         ~ "Beef \\& flights: flights only",
-    term == "beefAndFlightsboth"            ~ "Beef \\& flights: both",
-    term == "nationalRedistributionSN"      ~ "National redistribution: SN (vs. current)",
-    term == "globalRedistributionGIT"       ~ "Global redistribution: GIT (vs. current)",
-    # growth terms
-    term == "growth"                     ~ "Growth",
+    term == "beefAndFlightsbeef"            ~ "Less beef (vs. none)",
+    term == "beefAndFlightsflights"         ~ "Less flights (vs. none)",
+    term == "beefAndFlightsboth"            ~ "Less beef \\& flights (vs. none)",
+    term == "nationalRedistributionSN"      ~ "National redistribution (vs. current)",
+    term == "globalRedistributionGIT"       ~ "Global redistribution (vs. current)",
+    # growth terms - "growth" is displayed rescaled (x1.5, the observed
+    # jump) by fit_and_format_model(); the label reflects that rescaling
+    term == "growth"                     ~ "3\\% productivity growth (vs. 1.5\\%)",
     term == "hours_x_growth"             ~ "Working hours $\\times$ growth",
     term == "growth_x_income"            ~ "Growth $\\times$ Income",
     # H4 (only appears when the primary spec is the base for
@@ -252,10 +298,22 @@ fit_and_format_model <- function(model_data, formula_str) {
   coef_names <- rownames(ct)[rownames(ct) != "(Intercept)"]
   stars <- sig_stars(ct[coef_names, "Pr(>|t|)"])
 
+  # growth is coded 1.5/3 (numeric, not a dummy), so its raw coefficient is
+  # a per-percentage-point effect. Displayed rescaled (x1.5) to show the
+  # actual observed jump (1.5% -> 3%) instead - display only, the
+  # underlying model (incl. the pre-registered hours_x_growth interaction,
+  # left on its original scale) is unchanged. t-stat/p-value/stars are
+  # scale-invariant (estimate and SE scale together) so unaffected.
+  display_estimate <- ct[coef_names, "Estimate"]
+  display_se        <- ct[coef_names, "Std. Error"]
+  is_growth <- coef_names == "growth"
+  display_estimate[is_growth] <- display_estimate[is_growth] * 1.5
+  display_se[is_growth]        <- display_se[is_growth] * 1.5
+
   table <- tibble::tibble(
     " " = prettify_secondary_term(coef_names),
-    estimate = paste0(sprintf("%.3f", ct[coef_names, "Estimate"]), stars),
-    se       = paste0("(", sprintf("%.3f", ct[coef_names, "Std. Error"]), ")")
+    estimate = paste0(sprintf("%.3f", display_estimate), stars),
+    se       = paste0("(", sprintf("%.3f", display_se), ")")
   )
 
   attr(table, "N")  <- length(unique(model_data$resp_id))

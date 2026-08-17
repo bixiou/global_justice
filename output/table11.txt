@@ -1,6 +1,6 @@
 \begin{table}[H]
     \centering
-    \caption{Frequency of ``I don't know'' responses by task, and for any of the 3 tasks.}
+    \caption{Frequency of ``I don't know'' responses.}
     \begin{tabular}{ l c c c c }
 \hline \hline
 Task & N & N (IDK) & estimate & se \\
@@ -13,7 +13,7 @@ Task & N & N (IDK) & estimate & se \\
 \end{tabular}
 \begin{tablenotes}
 \small
-\item \textit{Notes:} SE in parentheses (normal approximation).
+\item \textit{Notes:} By task, and for any of the 3 tasks. SE in parentheses (normal approximation).
 \end{tablenotes}
-    \label{tab:results_idk_frequency}
+    \label{tab:table11}
 \end{table}

@@ -24,9 +24,7 @@
 #     dummy sets automatically, reference = first level)
 #   - growth: added as its own main-effect covariate (not only through the
 #     interaction), to avoid omitted-variable bias in the hours x growth
-#     interaction coefficient (growth would otherwise only enter multiplied
-#     by hours, contaminating the interaction estimate with growth's direct
-#     effect). This is a control, not a pre-registered estimand in itself.
+#     interaction coefficient. This is a control, not an estimand in itself.
 #   - hours_x_growth: mandatory interaction term (H3)
 #   - future_income_above_current: dummy (H4), estimated controlling for
 #     NetIncome (future income level), as required by H4's wording
@@ -144,28 +142,30 @@ build_h1h4_table <- function(model, vcov_mat, n_participants) {
     hoursPerWeek            = "Working hours",
     publicServices          = "Public services: increased (vs. stable)",
     beefAndFlights          = "Beef \\& flights restrictions",
-    nationalRedistribution  = "National redistribution: SN (vs. current)",
-    globalRedistribution    = "Global redistribution: GIT (vs. current)"
+    nationalRedistribution  = "National redistribution (vs. current)",
+    globalRedistribution    = "Global redistribution (vs. current)"
   )
 
   # Individual dummy-level labels (vs. baseline), shown as indented rows
   # right under the joint F-test row for hoursPerWeek/beefAndFlights -
   # descriptive detail only (NOT part of the FDR-corrected pre-registered
-  # test family built below)
+  # test family built below). hoursPerWeek_f's baseline is 40h (the 2025
+  # standard work week - see build_primary_vars(), Part 2), so the 3
+  # dummies are for 32/36/44h, not 36/40/44h.
   level_labels <- c(
-    hoursPerWeek_f36      = "\\hspace{1em} 36h/week (vs. 32h)",
-    hoursPerWeek_f40      = "\\hspace{1em} 40h/week (vs. 32h)",
-    hoursPerWeek_f44      = "\\hspace{1em} 44h/week (vs. 32h)",
-    beefAndFlightsbeef    = "\\hspace{1em} Beef only (vs. none)",
-    beefAndFlightsflights = "\\hspace{1em} Flights only (vs. none)",
-    beefAndFlightsboth    = "\\hspace{1em} Beef \\& flights (vs. none)"
+    hoursPerWeek_f32      = "\\hspace{1em} 32h/week (vs. 40h)",
+    hoursPerWeek_f36      = "\\hspace{1em} 36h/week (vs. 40h)",
+    hoursPerWeek_f44      = "\\hspace{1em} 44h/week (vs. 40h)",
+    beefAndFlightsbeef    = "\\hspace{1em} Less beef (vs. none)",
+    beefAndFlightsflights = "\\hspace{1em} Less flights (vs. none)",
+    beefAndFlightsboth    = "\\hspace{1em} Less beef \\& flights (vs. none)"
   )
 
   # --- H1: joint/individual non-zero-effect test per attribute ---
   attr_terms <- list(
     temperature            = "temperature",
     NetIncome               = "NetIncome_1k",
-    hoursPerWeek            = c("hoursPerWeek_f36", "hoursPerWeek_f40", "hoursPerWeek_f44"),
+    hoursPerWeek            = c("hoursPerWeek_f32", "hoursPerWeek_f36", "hoursPerWeek_f44"),
     publicServices          = "publicServicesincreased",
     beefAndFlights           = c("beefAndFlightsbeef", "beefAndFlightsflights", "beefAndFlightsboth"),
     nationalRedistribution  = "nationalRedistributionSN",
@@ -280,7 +280,7 @@ build_h1h4_table <- function(model, vcov_mat, n_participants) {
   }
 
   out <- insert_after(main_display, "Working hours",
-                       c("hoursPerWeek_f36", "hoursPerWeek_f40", "hoursPerWeek_f44"))
+                       c("hoursPerWeek_f32", "hoursPerWeek_f36", "hoursPerWeek_f44"))
   out <- insert_after(out, "Beef \\& flights restrictions",
                        c("beefAndFlightsbeef", "beefAndFlightsflights", "beefAndFlightsboth"))
 

@@ -2,50 +2,51 @@
 \usepackage{graphicx}
 \usepackage{threeparttable}
 \usepackage{float}
+\usepackage{textcomp}
 \usepackage[margin=1in]{geometry}
 
 \begin{document}
 
 \section{FEW}
 
-\input{results_h5h11.tex}
+\input{table1.tex}
 
-\input{bt_ranking_table.tex}
+\input{table2.tex}
 
 \section{ANY}
 
-\input{results_h1h4.tex}
+\input{table3.tex}
 
-\input{results_h1h4_robustness_income.tex}
+\input{table4.tex}
 
-\input{results_secondary_best_spec.tex}
+\input{table5.tex}
 
-\input{results_secondary_spec_search.tex}
+\input{table6.tex}
 
-\input{results_h1h4_elasticnet.tex}
+\input{table7.tex}
 
-\input{results_secondary_elasticnet.tex}
+\input{table8.tex}
 
-\input{results_heterogeneity_primary.tex}
+\input{table9.tex}
 
-\input{results_heterogeneity_secondary.tex}
+\input{table10.tex}
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=0.8\textwidth]{fig1_share_preferred_value.png}
-\caption{Share of cases choosing the preferred (BC-referenced) value, per attribute.}
+\caption{Share of cases choosing the preferred (BC-referenced) value, per attribute. \small{\textit{``I don't know'' pairs excluded (no side is chosen under indifference).}}}
 \end{figure}
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=0.8\textwidth]{fig1b_share_highest_value.png}
-\caption{Supplementary: share of cases choosing the highest value, per attribute.}
+\caption{Supplementary: share of cases choosing the highest value, per attribute. \small{\textit{``I don't know'' pairs excluded.}}}
 \end{figure}
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=0.9\textwidth]{fig2_amce_task2_vs_task3.png}
-\caption{AMCEs for Task 2 and Task 3 (temperature/income binned into quartiles), superimposed.}
+\caption{AMCEs for Task 2 and Task 3 (temperature/income binned into quartiles), superimposed. \small{\textit{``I don't know'' pairs excluded (\texttt{cjoint::amce()} requires a strict 0/1 matched pair).}}}
 \end{figure}
 
 \begin{figure}[ht]
@@ -62,8 +63,8 @@
 
 \section{IDK}
 
-\input{results_idk_frequency.tex}
+\input{table11.tex}
 
-\input{results_idk_predictors.tex}
+\input{table12.tex}
 
 \end{document}
