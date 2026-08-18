@@ -5,13 +5,13 @@
 \hline \hline
 contrast & estimate & se & N \\
 \hline
-\hspace{0.05cm} BC vs BI & 0.643*** & (0.040) &  84 \\
-\hspace{0.05cm} BC vs BG & 0.606** & (0.038) &  94 \\
-\hspace{0.05cm} BC vs BN & 0.478 & (0.041) &  92 \\
-\hspace{0.05cm} BC vs BC\_SD & 0.563 & (0.038) & 111 \\
-\hspace{0.05cm} BC vs BCmat & 0.513 & (0.039) & 117 \\
-\hspace{0.05cm} BC vs BCflight & 0.707$^\dagger$ & (0.041) &  87 \\
-\hspace{0.05cm} BC vs BCbeef & 0.538 & (0.040) & 105 \\
+\hspace{0.05cm} BC vs BI & 0.625** & (0.042) &  76 \\
+\hspace{0.05cm} BC vs BG & 0.600** & (0.042) &  85 \\
+\hspace{0.05cm} BC vs BN & 0.500 & (0.042) &  83 \\
+\hspace{0.05cm} BC vs BC\_SD & 0.559 & (0.040) & 102 \\
+\hspace{0.05cm} BC vs BCmat & 0.491 & (0.040) & 107 \\
+\hspace{0.05cm} BC vs BCflight & 0.715$^\dagger$ & (0.040) &  86 \\
+\hspace{0.05cm} BC vs BCbeef & 0.536 & (0.042) &  97 \\
 \hline
 \hspace{0.05cm} R-squared & \multicolumn{3}{c}{0} \\
 \hline \hline

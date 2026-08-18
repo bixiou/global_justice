@@ -46,7 +46,7 @@ library(stringr)
 # literal string is typically written/saved in this script.
 cloud_storage_dir <- "/Users/viola/Library/CloudStorage"
 onedrive_dir <- list.files(cloud_storage_dir, pattern = "^OneDrive-Raccoltecondivise", full.names = TRUE)[1]
-RAW_DATA_DIR <- file.path(onedrive_dir, "Riccardo Ghidoni - PE9_GRINS_rawdata/Follow-up/raw")
+RAW_DATA_DIR <- file.path(onedrive_dir, "Riccardo Ghidoni - PE9_GRINS_rawdata/raw/follow-up")
 
 # Reshaped/derived datasets (raw_data_combined, amce_data, idk_data, few_pairs,
 # model_data_h1h4) go here
@@ -59,28 +59,56 @@ OUTPUT_DIR <- "/Users/viola/Dropbox/DCE conjoint analysis/output"
 # 1. Import
 # -----------------------------------------------------------------------------
 
-#' Import one raw .sav wave file and tag it with a batch label
+#' Import the three raw .sav wave files, handling their nested/cumulative
+#' export structure correctly.
 #'
-#' @param path path to the .sav file
-#' @param batch_label character, e.g. "soft_launch_1", "soft_launch_2", "full_partial"
-#' @param no_income_filter logical, TRUE for the 100 soft-launch respondents
-#'   who were fielded without the income screening filter
-import_wave <- function(path, batch_label, no_income_filter = FALSE) {
-  df <- haven::read_sav(path)
-  df$batch <- batch_label
-  df$no_income_filter <- no_income_filter
-  # respondent-level unique id: combine batch and record to avoid collisions
-  # across files once we start appending waves
-  df$resp_id <- paste0(batch_label, "_", df$record)
+#' Verified directly on the raw files (2026-08-18): Partial_1 (108 records)
+#' and Partial_2 (200 records) are NOT separate respondent pools appended
+#' to Partial_3 (3247 records) - they are earlier, smaller Bilendi exports
+#' of the SAME ongoing fielding, and Partial_3 is a later cumulative export
+#' that already contains every one of them: record-ID-wise, Partial_1 subset
+#' Partial_2 subset Partial_3, and on every shared column (544-548 compared)
+#' the overlapping records match byte-for-byte across files - same
+#' observations, re-exported. A naive bind_rows() of all three (the
+#' previous approach here) would therefore triplicate the 108 Partial_1
+#' respondents and duplicate the other 92 Partial_2-only respondents, each
+#' copy getting a DIFFERENT resp_id (since resp_id was prefixed by batch
+#' label) - inflating N and, worse, feeding cluster-robust SE calculations
+#' unclustered duplicate observations instead of one row per respondent.
+#'
+#' Fix: use Partial_3 alone as the data (it already contains everyone,
+#' exactly once), and derive `batch`/`no_income_filter` per respondent by
+#' checking record-ID membership in Partial_1/Partial_2 instead of which
+#' file the row came from.
+#'
+#' @param path1 path to Partial_1.sav (first soft-launch pull, no income filter)
+#' @param path2 path to Partial_2.sav (second soft-launch pull, income filter on)
+#' @param path3 path to Partial_3.sav (full cumulative pull - the actual data source)
+import_raw_waves <- function(path1, path2, path3) {
+  p1 <- haven::read_sav(path1)
+  p2 <- haven::read_sav(path2)
+  df <- haven::read_sav(path3)
+
+  df$batch <- dplyr::case_when(
+    df$record %in% p1$record ~ "soft_launch_1",
+    df$record %in% p2$record ~ "soft_launch_2",
+    TRUE                     ~ "full_partial"
+  )
+  # only the first soft-launch pull (Partial_1) was fielded without the
+  # income screening filter
+  df$no_income_filter <- df$batch == "soft_launch_1"
+  # respondent-level unique id: one row per record now (Partial_3 already
+  # deduplicated), so the record ID alone is a stable, sufficient key
+  df$resp_id <- paste0("resp_", df$record)
   df
 }
 
-# Example (to be adapted once all three files are available):
-# partial_1 <- import_wave(file.path(RAW_DATA_DIR, "partial_1.sav"), "soft_launch_1", no_income_filter = TRUE)
-# partial_2 <- import_wave(file.path(RAW_DATA_DIR, "partial_2.sav"), "soft_launch_2", no_income_filter = FALSE)
-# partial_3 <- import_wave(file.path(RAW_DATA_DIR, "partial_3.sav"), "full_partial",  no_income_filter = FALSE)
-# raw_data  <- bind_rows(partial_1, partial_2, partial_3)  # append, not merge:
-#                                                            # different respondents
+# Example usage:
+# raw_data <- import_raw_waves(
+#   file.path(RAW_DATA_DIR, "Partial_1.sav"),
+#   file.path(RAW_DATA_DIR, "Partial_2.sav"),
+#   file.path(RAW_DATA_DIR, "Partial_3.sav")
+# )
 
 # -----------------------------------------------------------------------------
 # 2. Current declared income (used for H4: future income > current income)

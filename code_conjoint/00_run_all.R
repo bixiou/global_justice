@@ -29,16 +29,18 @@ source("07_heterogeneity.R")
 source("08_idk_analysis.R")
 
 # -----------------------------------------------------------------------------
-# Stage 0: Import raw waves (append, not merge - different respondents)
+# Stage 0: Import raw waves - Partial_3 is a cumulative export that already
+# contains Partial_1 and Partial_2 in full (verified byte-for-byte on all
+# shared columns), so it is used alone as the data; batch/no_income_filter
+# are derived by record-ID membership rather than by file. See
+# import_raw_waves()'s doc comment in Part 1 for the full verification.
 # -----------------------------------------------------------------------------
 
-# NOTE: file names below are placeholders - update to match the actual
-# files in RAW_DATA_DIR. no_income_filter flags per the soft-launch design
-partial_1 <- import_wave(file.path(RAW_DATA_DIR, "Partial_1.sav"), "soft_launch_1", no_income_filter = TRUE)
-partial_2 <- import_wave(file.path(RAW_DATA_DIR, "Partial_2.sav"), "soft_launch_2", no_income_filter = FALSE)
-partial_3 <- import_wave(file.path(RAW_DATA_DIR, "Partial_3.sav"), "full_partial",  no_income_filter = FALSE)
-
-raw_data <- bind_rows(partial_1, partial_2, partial_3)
+raw_data <- import_raw_waves(
+  file.path(RAW_DATA_DIR, "Partial_1.sav"),
+  file.path(RAW_DATA_DIR, "Partial_2.sav"),
+  file.path(RAW_DATA_DIR, "Partial_3.sav")
+)
 raw_data <- add_current_income(raw_data)
 raw_data <- flag_high_income(raw_data)
 raw_data <- build_covariates(raw_data)

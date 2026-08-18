@@ -5,20 +5,20 @@
 \hline \hline
 scenario & ability & se & N \\
 \hline
-\hspace{0.05cm} BC & ref. &  & 720 \\
-\hspace{0.05cm} BN & -0.027 & (0.127) & 356 \\
-\hspace{0.05cm} BCmat & -0.126 & (0.118) & 416 \\
-\hspace{0.05cm} BC45k & -0.233* & (0.122) & 379 \\
-\hspace{0.05cm} BG & -0.264** & (0.122) & 388 \\
-\hspace{0.05cm} BC90k & -0.350*** & (0.120) & 404 \\
-\hspace{0.05cm} BCbeef & -0.443*** & (0.122) & 374 \\
-\hspace{0.05cm} BCflight & -0.538*** & (0.128) & 334 \\
-\hspace{0.05cm} BI & -0.585*** & (0.132) & 319 \\
-\hspace{0.05cm} BC\_SD & -0.615*** & (0.122) & 389 \\
-\hspace{0.05cm} BC120k & -0.725*** & (0.124) & 376 \\
-\hspace{0.05cm} BI120k & -0.999*** & (0.126) & 393 \\
+\hspace{0.05cm} BC & ref. &  & 663 \\
+\hspace{0.05cm} BN & -0.039 & (0.133) & 324 \\
+\hspace{0.05cm} BCmat & -0.108 & (0.124) & 377 \\
+\hspace{0.05cm} BG & -0.231* & (0.130) & 338 \\
+\hspace{0.05cm} BC45k & -0.319** & (0.127) & 352 \\
+\hspace{0.05cm} BC90k & -0.375*** & (0.127) & 362 \\
+\hspace{0.05cm} BCbeef & -0.439*** & (0.128) & 341 \\
+\hspace{0.05cm} BI & -0.521*** & (0.138) & 286 \\
+\hspace{0.05cm} BCflight & -0.562*** & (0.134) & 303 \\
+\hspace{0.05cm} BC\_SD & -0.601*** & (0.126) & 366 \\
+\hspace{0.05cm} BC120k & -0.723*** & (0.130) & 345 \\
+\hspace{0.05cm} BI120k & -1.052*** & (0.132) & 361 \\
 \hline
-\hspace{0.05cm} R-squared & \multicolumn{3}{c}{0.034} \\
+\hspace{0.05cm} R-squared & \multicolumn{3}{c}{0.035} \\
 \hline \hline
 \end{tabular}
 \begin{tablenotes}
