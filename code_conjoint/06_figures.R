@@ -366,6 +366,114 @@ plot_growth_interactions <- function(model_data) {
 # save_figure(fig3$plot, "fig3_growth_interactions", width = 8, height = 6)
 
 # -----------------------------------------------------------------------------
+# Supplementary exploratory table: hoursPerWeek x growth as a full 4x2
+# categorical grid, instead of H3's single linear (hours_num x growth)
+# interaction - requested by a co-author (Adrien) to see the growth x hours
+# relationship as directly interpretable cell-level effects rather than one
+# pooled slope. Does NOT replace or modify H3/Table 3 in any way - this is
+# an additional, non-pre-registered view of the same underlying phenomenon,
+# fit as its own separate model.
+# -----------------------------------------------------------------------------
+
+#' Point estimate + SE of a linear combination (sum) of a fitted model's
+#' coefficients, using its cluster-robust vcov for the SE - the standard way
+#' to get a "cell effect vs. a reference cell" from a saturated interaction
+#' model without refitting with a different reference level each time.
+#' @param model fitted lm
+#' @param vcov_mat matching (cluster-robust) vcov matrix
+#' @param terms character vector of coefficient names to sum (coefficient
+#'   +1 each); e.g. c("hoursPerWeek_f32", "growth_fhigh_growth",
+#'   "hoursPerWeek_f32:growth_fhigh_growth") for a full interaction cell
+combo_estimate <- function(model, vcov_mat, terms) {
+  cn <- names(coef(model))
+  stopifnot(all(terms %in% cn))
+  L <- setNames(rep(0, length(cn)), cn)
+  L[terms] <- 1
+  estimate <- sum(L * coef(model))
+  se <- sqrt(as.numeric(t(L) %*% vcov_mat %*% L))
+  c(estimate = estimate, se = se)
+}
+
+#' Fit the primary specification with hoursPerWeek_f FULLY interacted with
+#' growth (as a 2-level factor: low_growth = Task 2's 1.5%, high_growth =
+#' Task 3's 3%), replacing hoursPerWeek_f + growth + hours_x_growth. Returns
+#' the 7 estimable cells (of the 8 in a 4x2 grid) as effects relative to the
+#' single reference cell (low_growth x 40h), each with a correctly combined
+#' SE via combo_estimate().
+#' @param model_data output of build_primary_vars() (Part 2)
+fit_growth_hours_grid <- function(model_data) {
+  data <- model_data %>%
+    mutate(growth_f = factor(growth, levels = c(1.5, 3), labels = c("low_growth", "high_growth")))
+
+  formula_str <- paste(
+    "selected ~ temperature + NetIncome_1k + hoursPerWeek_f * growth_f +",
+    "publicServices + beefAndFlights + nationalRedistribution +",
+    "globalRedistribution + future_income_above_current"
+  )
+  model <- lm(as.formula(formula_str), data = data)
+  vcov_mat <- sandwich::vcovCL(model, cluster = data$resp_id, type = "HC1")
+  df_resid <- model$df.residual
+
+  # each cell's coefficient names to sum, relative to the omitted reference
+  # cell (low_growth x 40h, both factors at their reference level)
+  cells <- list(
+    "low_growth x 32h"  = "hoursPerWeek_f32",
+    "low_growth x 36h"  = "hoursPerWeek_f36",
+    "low_growth x 44h"  = "hoursPerWeek_f44",
+    "high_growth x 40h" = "growth_fhigh_growth",
+    "high_growth x 32h" = c("hoursPerWeek_f32", "growth_fhigh_growth", "hoursPerWeek_f32:growth_fhigh_growth"),
+    "high_growth x 36h" = c("hoursPerWeek_f36", "growth_fhigh_growth", "hoursPerWeek_f36:growth_fhigh_growth"),
+    "high_growth x 44h" = c("hoursPerWeek_f44", "growth_fhigh_growth", "hoursPerWeek_f44:growth_fhigh_growth")
+  )
+
+  purrr::imap_dfr(cells, function(terms, cell_label) {
+    res <- combo_estimate(model, vcov_mat, terms)
+    t_stat <- res["estimate"] / res["se"]
+    tibble::tibble(
+      cell     = cell_label,
+      estimate = unname(res["estimate"]),
+      se       = unname(res["se"]),
+      p_value  = 2 * pt(-abs(t_stat), df = df_resid)
+    )
+  })
+}
+
+#' Format fit_growth_hours_grid()'s output as a results table, grouped by
+#' growth level, with the true reference cell (low_growth x 40h) shown as
+#' "ref." for clarity
+#' @param grid output of fit_growth_hours_grid()
+build_growth_hours_grid_table <- function(grid) {
+  stars <- sig_stars(grid$p_value)
+
+  # "\\%" (not a raw "%"): group_by values are embedded directly into
+  # save_table()'s generated LaTeX (\textbf{...}), and an unescaped "%"
+  # there would comment out the rest of that line, corrupting the table
+  rows <- tibble::tibble(
+    "Growth level" = ifelse(grepl("^low_growth", grid$cell), "Low (1.5\\%)", "High (3\\%)"),
+    " " = sub("^(low|high)_growth x ", "", grid$cell),
+    estimate = paste0(sprintf("%.3f", grid$estimate), stars),
+    se       = paste0("(", sprintf("%.3f", grid$se), ")")
+  )
+
+  ref_row <- tibble::tibble(
+    "Growth level" = "Low (1.5\\%)", " " = "40h", estimate = "ref.", se = ""
+  )
+
+  dplyr::bind_rows(
+    rows[1:3, ] , ref_row, rows[4:7, ]
+  ) %>%
+    dplyr::arrange(factor(`Growth level`, levels = c("Low (1.5\\%)", "High (3\\%)")),
+                    factor(` `, levels = c("32h", "36h", "40h", "44h")))
+}
+
+# Example usage:
+# growth_hours_grid <- fit_growth_hours_grid(model_data)
+# results_growth_hours_grid <- build_growth_hours_grid_table(growth_hours_grid)
+# save_table(results_growth_hours_grid, "table13", group_by = "Growth level",
+#            caption = "Working hours x growth, as a full categorical grid.",
+#            notes = "Exploratory complement to Table~\\ref{tab:table3}'s H3 (linear hours x growth interaction, unchanged there) - same underlying model, cell-level effects instead of one pooled slope. All cells relative to the single reference cell low_growth x 40h (Task 2, 1.5% growth, 40h/week). Cluster-robust (respondent-level) SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (unadjusted; descriptive, not part of the FDR-corrected pre-registered family).")
+
+# -----------------------------------------------------------------------------
 # Figure (iv): AMCEs from the best-fitting alternative (secondary)
 # specification - Part 5's grid-search winner
 # -----------------------------------------------------------------------------

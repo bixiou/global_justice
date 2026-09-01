@@ -156,9 +156,9 @@ build_h1h4_table <- function(model, vcov_mat, n_participants) {
     hoursPerWeek_f32      = "\\hspace{1em} 32h/week (vs. 40h)",
     hoursPerWeek_f36      = "\\hspace{1em} 36h/week (vs. 40h)",
     hoursPerWeek_f44      = "\\hspace{1em} 44h/week (vs. 40h)",
-    beefAndFlightsbeef    = "\\hspace{1em} Less beef (vs. none)",
-    beefAndFlightsflights = "\\hspace{1em} Less flights (vs. none)",
-    beefAndFlightsboth    = "\\hspace{1em} Less beef \\& flights (vs. none)"
+    beefAndFlightsbeef    = "\\hspace{1em} Less beef (vs. stable)",
+    beefAndFlightsflights = "\\hspace{1em} Less flights (vs. stable)",
+    beefAndFlightsboth    = "\\hspace{1em} Less beef \\& flights (vs. stable)"
   )
 
   # --- H1: joint/individual non-zero-effect test per attribute ---
