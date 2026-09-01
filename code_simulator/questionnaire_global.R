@@ -54,12 +54,15 @@ SCOPE_SUFFIX <- c(C = "SC", G = "SG", N = "SN", I = "SI") # redistribution scope
 FILL_FROM <- c(PE = "OD") # Peru -> Rest of Latin America
 
 # Main language of each country, i.e. the column of global_survey/data/translations.csv the survey
-# defaults to. Overridable per respondent with the ?lang= URL parameter.
-COUNTRY_LANG <- c(IT = "it", BR = "pt", CN = "zh", IN = "hi", US = "en", CA = "en", DE = "de",
-                  PE = "es", JP = "ja", AU = "en", KR = "ko", ID = "id", ZA = "en", TR = "tr",
-                  NG = "en", FR = "fr", RU = "ru", ES = "es", GB = "en", SA = "ar", EG = "ar",
-                  MX = "es", PK = "ur", TW = "zh_TW", VN = "vi", BD = "bn", ET = "am",
-                  KE = "sw", CD = "fr")
+# defaults to. Overridable per respondent with the ?lang= URL parameter. Languages are named with
+# QUALTRICS codes (EN, PT-BR, ZH-S, ZH-T ...), the single convention used across the project.
+# India defaults to English (the HI column stays available through ?lang=HI); its number grouping
+# still follows fmt.locale.IN = HI, i.e. the lakh grouping Indian English uses too.
+COUNTRY_LANG <- c(IT = "IT", BR = "PT-BR", CN = "ZH-S", IN = "EN", US = "EN", CA = "EN", DE = "DE",
+                  PE = "ES", JP = "JA", AU = "EN", KR = "KO", ID = "ID", ZA = "EN", TR = "TR",
+                  NG = "EN", FR = "FR", RU = "RU", ES = "ES", GB = "EN", SA = "AR", EG = "AR",
+                  MX = "ES", PK = "UR", TW = "ZH-T", VN = "VI", BD = "BN", ET = "AM",
+                  KE = "SW", CD = "FR")
 
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
@@ -524,6 +527,10 @@ message(sprintf("Wrote ineq_2035.csv (%d rows x %d cols), ineq2_2035.csv, ineq_2
 # language) and is NOT generated here: keeping it out of R avoids quoting problems with apostrophes
 # and commas in the translated text. This script only writes the country -> language mapping into
 # conjoint_constants.csv (see `lang` below), so a new language is added by adding a column there.
+# The same file also carries the per-COUNTRY display conventions the JS reads (fmt.money.XX =
+# currency layout, fmt.locale.XX = the language whose thousands separator the country uses,
+# fmt.period.XX = month or year, i.e. the period incomes are usually quoted in). Those rows fill
+# the `EN` column only, since they are not language-dependent, and a new country needs one of each.
 
 ##### 9. Check that Italy coincides with questionnaire.R / IT_survey #####
 # ineq_2035 (growth1 = 1.5%) must match IT_survey/data/ineq_IT_2035.csv column by column.
