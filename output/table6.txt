@@ -24,7 +24,7 @@ Rank & Income & Temperature & Hours & Extra interaction & Adj. R2 \\
 \end{tabular}
 \begin{tablenotes}
 \small
-\item \textit{Notes:} Out of 180 candidate specifications, ranked by adjusted R\textsuperscript{2}. Q5 grid: income inclusion/functional form, temperature/hours functional form, extra growth$\times$income interaction. Rank 1 is the winning specification reported in Table~\ref{tab:table5}.
+\item \textit{Notes:} Out of 225 candidate specifications, ranked by adjusted R\textsuperscript{2}. Q5 grid: income inclusion/functional form, temperature/hours functional form, extra growth$\times$income interaction. Rank 1 is the winning specification reported in Table~\ref{tab:table5}.
 \end{tablenotes}
     \label{tab:table6}
 \end{table}

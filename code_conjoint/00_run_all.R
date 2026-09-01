@@ -124,6 +124,20 @@ print(as.data.frame(fig3$data), digits = 3)
 save_figure(fig3$plot, "fig3_growth_interactions", width = 8, height = 6)
 
 # -----------------------------------------------------------------------------
+# Stage 3e: Supplementary exploratory table - hoursPerWeek x growth as a
+# full categorical grid (requested by Adrien), complementing (not
+# replacing) H3/Table 3's linear hours_num x growth interaction
+# -----------------------------------------------------------------------------
+
+growth_hours_grid <- fit_growth_hours_grid(model_data)
+results_growth_hours_grid <- build_growth_hours_grid_table(growth_hours_grid)
+cat("\n=== Working hours x growth, categorical grid ===\n")
+print(as.data.frame(results_growth_hours_grid), digits = 3)
+save_table(results_growth_hours_grid, "table13", group_by = "Growth level",
+           caption = "Working hours $\\times$ growth, as a full categorical grid.",
+           notes = "Exploratory complement to Table~\\ref{tab:table3}'s H3 (linear hours $\\times$ growth interaction, unchanged there) - same underlying model, cell-level effects instead of one pooled slope. All cells relative to the single reference cell low\\_growth $\\times$ 40h (Task 2, 1.5\\% growth, 40h/week). Cluster-robust (respondent-level) SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (unadjusted; descriptive, not part of the FDR-corrected pre-registered family).")
+
+# -----------------------------------------------------------------------------
 # Stage 4: Estimate the primary H1-H4 model
 # -----------------------------------------------------------------------------
 

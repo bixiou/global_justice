@@ -13,9 +13,9 @@
 \hspace{0.05cm} \hspace{1em} 44h/week (vs. 40h) & -0.007 & (0.016) \\
 \hspace{0.05cm} Public services: increased (vs. stable) & 0.027*** & (0.008) \\
 \hspace{0.05cm} Beef \& flights restrictions & F = 1.121 &  \\
-\hspace{0.05cm} \hspace{1em} Less beef (vs. none) & -0.019* & (0.011) \\
-\hspace{0.05cm} \hspace{1em} Less flights (vs. none) & -0.014 & (0.011) \\
-\hspace{0.05cm} \hspace{1em} Less beef \& flights (vs. none) & -0.015 & (0.011) \\
+\hspace{0.05cm} \hspace{1em} Less beef (vs. stable) & -0.019* & (0.011) \\
+\hspace{0.05cm} \hspace{1em} Less flights (vs. stable) & -0.014 & (0.011) \\
+\hspace{0.05cm} \hspace{1em} Less beef \& flights (vs. stable) & -0.015 & (0.011) \\
 \hspace{0.05cm} National redistribution (vs. current) & 0.030*** & (0.008) \\
 \hspace{0.05cm} Global redistribution (vs. current) & 0.016* & (0.008) \\
 \hspace{0.05cm} Working hours $\times$ growth & -0.003** & (0.001) \\

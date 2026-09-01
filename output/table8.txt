@@ -6,9 +6,9 @@
  & estimate & se \\
 \hline
 \hspace{0.05cm} Public services: increased (vs. stable) & 0.033*** & (0.008) \\
-\hspace{0.05cm} Less beef (vs. none) & -0.011 & (0.011) \\
-\hspace{0.05cm} Less flights (vs. none) & -0.007 & (0.011) \\
-\hspace{0.05cm} Less beef \& flights (vs. none) & -0.002 & (0.011) \\
+\hspace{0.05cm} Less beef (vs. stable) & -0.011 & (0.011) \\
+\hspace{0.05cm} Less flights (vs. stable) & -0.007 & (0.011) \\
+\hspace{0.05cm} Less beef \& flights (vs. stable) & -0.002 & (0.011) \\
 \hspace{0.05cm} National redistribution (vs. current) & 0.027*** & (0.007) \\
 \hspace{0.05cm} Global redistribution (vs. current) & 0.014* & (0.007) \\
 \hspace{0.05cm} 3\% productivity growth (vs. 1.5\%) & 0.130* & (0.070) \\

@@ -76,9 +76,15 @@ build_secondary_vars <- function(model_data) {
 
   model_data %>%
     mutate(
-      # --- temperature: quadratic / threshold (vs. sample median) / tercile ---
+      # --- temperature: quadratic / threshold (vs. sample median or vs.
+      # 2degC) / tercile. 2degC (the Paris Agreement target) is a
+      # substantively meaningful cutoff, unlike the sample median - but it's
+      # a very unbalanced split for this design (temperature ranges 1.7-4.9,
+      # so only ~13% of profiles are below 2degC) - added as an ADDITIONAL
+      # candidate, not a replacement for the median-based threshold ---
       temperature_sq            = temperature^2,
       temperature_above_median  = as.numeric(temperature > temp_med),
+      temperature_above_2C      = as.numeric(temperature > 2),
       temperature_tercile       = temperature_tf$factor,
 
       # --- hours: quadratic / threshold (vs. sample median) / tercile ---
@@ -123,11 +129,12 @@ income_variants <- list(
   pairwise_binary  = "income_tercile"
 )
 
-# Temperature: 4 functional forms
+# Temperature: 5 functional forms
 temperature_variants <- list(
   linear           = "temperature",
   quadratic        = c("temperature", "temperature_sq"),
   threshold        = "temperature_above_median",
+  threshold_2C     = "temperature_above_2C",
   pairwise_binary  = "temperature_tercile"
 )
 
@@ -241,6 +248,7 @@ prettify_secondary_term <- function(term) {
     term == "temperature"                ~ "Temperature",
     term == "temperature_sq"             ~ "Temperature\\textsuperscript{2}",
     term == "temperature_above_median"   ~ "Temperature $>$ median",
+    term == "temperature_above_2C"       ~ "Temperature $>$ 2\\textdegree C",
     term == "temperature_tercilemid"     ~ if (!is.null(tb)) tercile_label("Temperature", "mid", tb$temperature, unit = "\\textdegree C", digits = 1) else "Temperature: mid tercile (vs. low)",
     term == "temperature_tercilehigh"    ~ if (!is.null(tb)) tercile_label("Temperature", "high", tb$temperature, unit = "\\textdegree C", digits = 1) else "Temperature: high tercile (vs. low)",
     # hours
@@ -254,9 +262,9 @@ prettify_secondary_term <- function(term) {
     term == "hoursPerWeek_f44"           ~ "Working hours: 44h (vs. 40h)",
     # categorical attributes (same levels as the primary spec)
     term == "publicServicesincreased"       ~ "Public services: increased (vs. stable)",
-    term == "beefAndFlightsbeef"            ~ "Less beef (vs. none)",
-    term == "beefAndFlightsflights"         ~ "Less flights (vs. none)",
-    term == "beefAndFlightsboth"            ~ "Less beef \\& flights (vs. none)",
+    term == "beefAndFlightsbeef"            ~ "Less beef (vs. stable)",
+    term == "beefAndFlightsflights"         ~ "Less flights (vs. stable)",
+    term == "beefAndFlightsboth"            ~ "Less beef \\& flights (vs. stable)",
     term == "nationalRedistributionSN"      ~ "National redistribution (vs. current)",
     term == "globalRedistributionGIT"       ~ "Global redistribution (vs. current)",
     # growth terms - "growth" is displayed rescaled (x1.5, the observed
@@ -283,6 +291,7 @@ prettify_secondary_term_plot <- function(term) {
     gsub("\\$>\\$", ">", .) %>%
     gsub("\\$<\\$", "<", .) %>%
     gsub("\\\\textsuperscript\\{2\\}", "²", .) %>%
+    gsub("\\\\textdegree", "°", .) %>%
     gsub("\\\\_", "_", .)
 }
 

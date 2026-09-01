@@ -6,9 +6,9 @@
  & estimate & se \\
 \hline
 \hspace{0.05cm} Public services: increased (vs. stable) & 0.033*** & (0.008) \\
-\hspace{0.05cm} Less beef (vs. none) & -0.011 & (0.011) \\
-\hspace{0.05cm} Less flights (vs. none) & -0.007 & (0.011) \\
-\hspace{0.05cm} Less beef \& flights (vs. none) & -0.002 & (0.011) \\
+\hspace{0.05cm} Less beef (vs. stable) & -0.011 & (0.011) \\
+\hspace{0.05cm} Less flights (vs. stable) & -0.007 & (0.011) \\
+\hspace{0.05cm} Less beef \& flights (vs. stable) & -0.002 & (0.011) \\
 \hspace{0.05cm} National redistribution (vs. current) & 0.027*** & (0.007) \\
 \hspace{0.05cm} Global redistribution (vs. current) & 0.014* & (0.007) \\
 \hspace{0.05cm} 3\% productivity growth (vs. 1.5\%) & 0.130* & (0.070) \\
@@ -28,7 +28,7 @@
 \end{tabular}
 \begin{tablenotes}
 \small
-\item \textit{Notes:} Selected from a pre-registered grid of 180 alternatives varying income inclusion/functional form, temperature/hours functional form, and an extra growth$\times$income interaction. Cluster-robust (respondent-level) SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (unadjusted p-values - this is a single selected descriptive model, not a pre-registered hypothesis-test family, so no FDR correction applies). Winning formula: selected ~ publicServices + beefAndFlights + nationalRedistribution + globalRedistribution + growth + hours\_x\_growth + temperature\_tercile + hoursPerWeek\_f + income\_above\_current + income\_above\_1p1\_current + income\_below\_0p9\_current.
+\item \textit{Notes:} Selected from a pre-registered grid of 225 alternatives varying income inclusion/functional form, temperature/hours functional form, and an extra growth$\times$income interaction. Cluster-robust (respondent-level) SE in parentheses. *** p$<$0.01, ** p$<$0.05, * p$<$0.1 (unadjusted p-values - this is a single selected descriptive model, not a pre-registered hypothesis-test family, so no FDR correction applies). Winning formula: selected ~ publicServices + beefAndFlights + nationalRedistribution + globalRedistribution + growth + hours\_x\_growth + temperature\_tercile + hoursPerWeek\_f + income\_above\_current + income\_above\_1p1\_current + income\_below\_0p9\_current.
 \end{tablenotes}
     \label{tab:table5}
 \end{table}
