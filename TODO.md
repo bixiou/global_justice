@@ -27,3 +27,24 @@ When coding the webpage, prepare a workflow allowing me to test it locally (FYI,
 - [] Explain where pppRate comes from: if it's not from the data, check if it couldn't be computed from the data instead.
 
 ## Done so far
+
+
+## Design choices
+- Gender equality? Yes in any, no in few (few appears first)
+- Info warming? Remove it for ~20% of sample.
+- Which growth rates? Use the realistic one for _few and the closest to SC for the second one
+- Which hours? -8/-4/ref/+4
+- Working hours for inactive or informal workers?
+- Force response? How confident are you? instead 
+- Minimum response time? OK
+- Ask to motivate choice? In pilot?
+- Which LCU to PPP conversion?
+- Adapt beef/flights for LMICs?
+- Info inflation?
+
+TODO:
+check that 2100 incomes don't depend on productivity
+check that we use 1.5% in IT few
+check if we need to adjust for inflation in the conversion
+check if they have meat/beef consumption by country
+Do we add info that we assume no inflation in high-inflation countries?
