@@ -65,7 +65,7 @@ IT,avg_World2100_SN,29989
 IT,avg_World2100_SI,30770
 IT,ppp_rate,0.9009
 IT,currency,EUR
-IT,lang,it
+IT,lang,IT
 BR,ratio,0.747514
 BR,extra_tax_rate,0.03521
 BR,ref_hours,44
@@ -101,7 +101,7 @@ BR,avg_World2100_SN,32430
 BR,avg_World2100_SI,33275
 BR,ppp_rate,3.645
 BR,currency,BRL
-BR,lang,pt
+BR,lang,PT-BR
 CN,ratio,0.886077
 CN,extra_tax_rate,0.043653
 CN,ref_hours,40
@@ -137,7 +137,7 @@ CN,avg_World2100_SN,38442
 CN,avg_World2100_SI,39444
 CN,ppp_rate,5.2129
 CN,currency,CNY
-CN,lang,zh
+CN,lang,ZH-S
 IN,ratio,0.872735
 IN,extra_tax_rate,0.063642
 IN,ref_hours,48
@@ -173,7 +173,7 @@ IN,avg_World2100_SN,37863
 IN,avg_World2100_SI,38850
 IN,ppp_rate,38.0192
 IN,currency,INR
-IN,lang,hi
+IN,lang,EN
 US,ratio,0.893221
 US,extra_tax_rate,0.017388
 US,ref_hours,40
@@ -209,7 +209,7 @@ US,avg_World2100_SN,38752
 US,avg_World2100_SI,39762
 US,ppp_rate,1.5889
 US,currency,USD
-US,lang,en
+US,lang,EN
 CA,ratio,0.782753
 CA,extra_tax_rate,0.020408
 CA,ref_hours,40
@@ -245,7 +245,7 @@ CA,avg_World2100_SN,33959
 CA,avg_World2100_SI,34844
 CA,ppp_rate,1.8538
 CA,currency,CAD
-CA,lang,en
+CA,lang,EN
 DE,ratio,0.80655
 DE,extra_tax_rate,0.030883
 DE,ref_hours,40
@@ -281,7 +281,7 @@ DE,avg_World2100_SN,34991
 DE,avg_World2100_SI,35903
 DE,ppp_rate,1.054
 DE,currency,EUR
-DE,lang,de
+DE,lang,DE
 PE,ratio,0.830568
 PE,extra_tax_rate,0.025982
 PE,ref_hours,40
@@ -317,7 +317,7 @@ PE,avg_World2100_SN,36034
 PE,avg_World2100_SI,36973
 PE,ppp_rate,2.7988
 PE,currency,PEN
-PE,lang,es
+PE,lang,ES
 JP,ratio,0.877821
 JP,extra_tax_rate,0.027769
 JP,ref_hours,40
@@ -353,7 +353,7 @@ JP,avg_World2100_SN,38084
 JP,avg_World2100_SI,39076
 JP,ppp_rate,147.7092
 JP,currency,JPY
-JP,lang,ja
+JP,lang,JA
 AU,ratio,0.7929
 AU,extra_tax_rate,0.01857
 AU,ref_hours,38
@@ -389,7 +389,7 @@ AU,avg_World2100_SN,34399
 AU,avg_World2100_SI,35296
 AU,ppp_rate,2.0869
 AU,currency,AUD
-AU,lang,en
+AU,lang,EN
 KR,ratio,0.867274
 KR,extra_tax_rate,0.023106
 KR,ref_hours,40
@@ -425,7 +425,7 @@ KR,avg_World2100_SN,37626
 KR,avg_World2100_SI,38607
 KR,ppp_rate,1243.7489
 KR,currency,KRW
-KR,lang,ko
+KR,lang,KO
 ID,ratio,1.030369
 ID,extra_tax_rate,0.062099
 ID,ref_hours,40
@@ -461,7 +461,7 @@ ID,avg_World2100_SN,44702
 ID,avg_World2100_SI,45867
 ID,ppp_rate,8170.2058
 ID,currency,IDR
-ID,lang,id
+ID,lang,ID
 ZA,ratio,0.80122
 ZA,extra_tax_rate,0.052752
 ZA,ref_hours,45
@@ -497,7 +497,7 @@ ZA,avg_World2100_SN,34760
 ZA,avg_World2100_SI,35666
 ZA,ppp_rate,10.5195
 ZA,currency,ZAR
-ZA,lang,en
+ZA,lang,EN
 TR,ratio,0.779345
 TR,extra_tax_rate,0.074597
 TR,ref_hours,45
@@ -533,7 +533,7 @@ TR,avg_World2100_SN,33811
 TR,avg_World2100_SI,34692
 TR,ppp_rate,29.6052
 TR,currency,TRY
-TR,lang,tr
+TR,lang,TR
 NG,ratio,0.899531
 NG,extra_tax_rate,0.067205
 NG,ref_hours,44
@@ -569,7 +569,7 @@ NG,avg_World2100_SN,39025
 NG,avg_World2100_SI,40043
 NG,ppp_rate,281.5227
 NG,currency,NGN
-NG,lang,en
+NG,lang,EN
 FR,ratio,0.695659
 FR,extra_tax_rate,0.035439
 FR,ref_hours,35
@@ -605,7 +605,7 @@ FR,avg_World2100_SN,30181
 FR,avg_World2100_SI,30967
 FR,ppp_rate,1.0108
 FR,currency,EUR
-FR,lang,fr
+FR,lang,FR
 RU,ratio,0.699717
 RU,extra_tax_rate,0.039574
 RU,ref_hours,40
@@ -641,7 +641,7 @@ RU,avg_World2100_SN,30357
 RU,avg_World2100_SI,31148
 RU,ppp_rate,44.6981
 RU,currency,RUB
-RU,lang,ru
+RU,lang,RU
 ES,ratio,0.761442
 ES,extra_tax_rate,0.035983
 ES,ref_hours,40
@@ -677,7 +677,7 @@ ES,avg_World2100_SN,33035
 ES,avg_World2100_SI,33896
 ES,ppp_rate,0.8681
 ES,currency,EUR
-ES,lang,es
+ES,lang,ES
 GB,ratio,0.771392
 GB,extra_tax_rate,0.030861
 GB,ref_hours,38
@@ -713,7 +713,7 @@ GB,avg_World2100_SN,33466
 GB,avg_World2100_SI,34339
 GB,ppp_rate,1.0252
 GB,currency,GBP
-GB,lang,en
+GB,lang,EN
 SA,ratio,0.92316
 SA,extra_tax_rate,-0.006132
 SA,ref_hours,48
@@ -749,7 +749,7 @@ SA,avg_World2100_SN,40051
 SA,avg_World2100_SI,41094
 SA,ppp_rate,3.0514
 SA,currency,SAR
-SA,lang,ar
+SA,lang,AR
 EG,ratio,0.850156
 EG,extra_tax_rate,0.079616
 EG,ref_hours,48
@@ -785,7 +785,7 @@ EG,avg_World2100_SN,36883
 EG,avg_World2100_SI,37845
 EG,ppp_rate,10.457
 EG,currency,EGP
-EG,lang,ar
+EG,lang,AR
 MX,ratio,0.967684
 MX,extra_tax_rate,0.055972
 MX,ref_hours,48
@@ -821,7 +821,7 @@ MX,avg_World2100_SN,41982
 MX,avg_World2100_SI,43076
 MX,ppp_rate,15.2878
 MX,currency,MXN
-MX,lang,es
+MX,lang,ES
 PK,ratio,0.787077
 PK,extra_tax_rate,0.073234
 PK,ref_hours,48
@@ -857,7 +857,7 @@ PK,avg_World2100_SN,34147
 PK,avg_World2100_SI,35037
 PK,ppp_rate,107.0276
 PK,currency,PKR
-PK,lang,ur
+PK,lang,UR
 TW,ratio,0.955421
 TW,extra_tax_rate,0.029635
 TW,ref_hours,40
@@ -893,7 +893,7 @@ TW,avg_World2100_SN,41450
 TW,avg_World2100_SI,42530
 TW,ppp_rate,20.8607
 TW,currency,TWD
-TW,lang,zh_TW
+TW,lang,ZH-T
 VN,ratio,0.885221
 VN,extra_tax_rate,0.074052
 VN,ref_hours,48
@@ -929,7 +929,7 @@ VN,avg_World2100_SN,38405
 VN,avg_World2100_SI,39405
 VN,ppp_rate,11176.6171
 VN,currency,VND
-VN,lang,vi
+VN,lang,VI
 BD,ratio,0.922424
 BD,extra_tax_rate,0.054443
 BD,ref_hours,48
@@ -965,7 +965,7 @@ BD,avg_World2100_SN,40019
 BD,avg_World2100_SI,41062
 BD,ppp_rate,49.8974
 BD,currency,BDT
-BD,lang,bn
+BD,lang,BN
 ET,ratio,0.866405
 ET,extra_tax_rate,0.044559
 ET,ref_hours,48
@@ -1001,7 +1001,7 @@ ET,avg_World2100_SN,37588
 ET,avg_World2100_SI,38568
 ET,ppp_rate,121.2055
 ET,currency,ETB
-ET,lang,am
+ET,lang,AM
 KE,ratio,0.830587
 KE,extra_tax_rate,0.051651
 KE,ref_hours,52
@@ -1037,7 +1037,7 @@ KE,avg_World2100_SN,36034
 KE,avg_World2100_SI,36973
 KE,ppp_rate,69.7635
 KE,currency,KES
-KE,lang,sw
+KE,lang,SW
 CD,ratio,0.877119
 CD,extra_tax_rate,0.037433
 CD,ref_hours,45
@@ -1073,4 +1073,4 @@ CD,avg_World2100_SN,38053
 CD,avg_World2100_SI,39045
 CD,ppp_rate,1488.1375
 CD,currency,CDF
-CD,lang,fr
+CD,lang,FR

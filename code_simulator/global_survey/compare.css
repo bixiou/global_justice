@@ -21,10 +21,9 @@ header p  { font-size: 0.82rem; opacity: 0.85; margin-top: 3px; }
   border-right: 1px solid #ececec; font-size: 0.88rem; font-weight: 600; color: #333; line-height: 1.25; }
 .rlabel-attr, .rlabel-dist { border-bottom: 1px solid #e7e7e7; }
 .lbl-short { display: none; }   /* income label: full form on desktop, short form on mobile */
-/* drawn Italian flag (the 🇮🇹 emoji doesn't render on all platforms) */
-.flag-it { display: inline-block; width: 1.3em; height: 0.9em; margin-right: 6px; vertical-align: -1px;
-  border: 1px solid #ddd; border-radius: 2px; flex: 0 0 auto;
-  background: linear-gradient(to right, #009246 0 33.33%, #fff 33.33% 66.66%, #ce2b37 66.66% 100%); }
+/* drawn flags (emoji flags don't render on all platforms) - the SVG comes from flags.js */
+.flag { display: inline-block; width: 1.35em; height: 0.9em; margin-right: 6px; vertical-align: -1px;
+  border: 1px solid #ddd; border-radius: 2px; flex: 0 0 auto; }
 
 .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1);
         padding: 16px 18px; margin-bottom: 16px; }
@@ -80,7 +79,7 @@ header p  { font-size: 0.82rem; opacity: 0.85; margin-top: 3px; }
   /* one uniform font size across every cell (legend included) */
   .block-head { font-size: 0.9rem; padding: 5px 5px 3px; margin-top: 5px; }
   .rlabel { font-size: 0.9rem; padding: 5px 5px 5px 2px; line-height: 1.15; }
-  .flag-it { width: 1em; height: 0.7em; margin-right: 3px; }
+  .flag { width: 1.05em; height: 0.7em; margin-right: 3px; }
   .vcell { padding: 5px; }
   .attr-val { font-size: 0.9rem; }
 

@@ -1,21 +1,26 @@
-key,en,it,fr,es,pt,de,ru,tr,ar,zh,zh_TW,ja,ko,hi,ur,bn,id,vi,am,sw
+key,EN,IT,FR,ES,PT-BR,DE,RU,TR,AR,ZH-S,ZH-T,JA,KO,HI,UR,BN,ID,VI,AM,SW
 ui.left,Left,Sinistra,Gauche,Izquierda,Esquerda,Links,Слева,Sol,يسار,左,左,左,왼쪽,बायाँ,بائیں,বাম,Kiri,Bên trái,ግራ,Kushoto
 ui.right,Right,Destra,Droite,Derecha,Direita,Rechts,Справа,Sağ,يمين,右,右,右,오른쪽,दायाँ,دائیں,ডান,Kanan,Bên phải,ቀኝ,Kulia
 ui.loading,Loading data…,Caricamento dei dati…,Chargement des données…,Cargando los datos…,A carregar os dados…,Daten werden geladen…,Загрузка данных…,Veriler yükleniyor…,جارٍ تحميل البيانات…,正在加载数据…,正在載入資料…,データを読み込んでいます…,데이터를 불러오는 중…,डेटा लोड हो रहा है…,ڈیٹا لوڈ ہو رہا ہے…,ডেটা লোড হচ্ছে…,Memuat data…,Đang tải dữ liệu…,መረጃ በመጫን ላይ…,Inapakia data…
 ui.load_error,Could not load the data: ,Caricamento dei dati non riuscito: ,Impossible de charger les données : ,No se pudieron cargar los datos: ,Não foi possível carregar os dados: ,Daten konnten nicht geladen werden: ,Не удалось загрузить данные: ,Veriler yüklenemedi: ,تعذّر تحميل البيانات: ,无法加载数据：,無法載入資料：,データを読み込めませんでした: ,데이터를 불러오지 못했습니다: ,डेटा लोड नहीं हो सका: ,ڈیٹا لوڈ نہیں ہو سکا: ,ডেটা লোড করা যায়নি: ,Gagal memuat data: ,Không thể tải dữ liệu: ,መረጃውን መጫን አልተቻለም፦ ,Imeshindwa kupakia data: 
 ui.load_error_hint, — open this page through a web server., — apri questa pagina tramite un web server., — ouvrez cette page via un serveur web., — abra esta página a través de un servidor web., — abra esta página através de um servidor web., — öffnen Sie diese Seite über einen Webserver., — откройте эту страницу через веб-сервер., — bu sayfayı bir web sunucusu üzerinden açın., — افتح هذه الصفحة عبر خادم ويب., — 请通过网页服务器打开本页面。, — 請透過網頁伺服器開啟本頁面。, — このページはウェブサーバー経由で開いてください。, — 이 페이지를 웹 서버를 통해 열어 주세요., — इस पेज को वेब सर्वर से खोलें।, — یہ صفحہ ویب سرور کے ذریعے کھولیں۔, — এই পৃষ্ঠাটি ওয়েব সার্ভারের মাধ্যমে খুলুন।, — buka halaman ini melalui server web., — hãy mở trang này qua một máy chủ web., — ይህን ገጽ በዌብ ሰርቨር ይክፈቱ።, — fungua ukurasa huu kupitia seva ya wavuti.
 ui.error,Error: ,Errore: ,Erreur : ,Error: ,Erro: ,Fehler: ,Ошибка: ,Hata: ,خطأ: ,错误：,錯誤：,エラー: ,오류: ,त्रुटि: ,خرابی: ,ত্রুটি: ,Kesalahan: ,Lỗi: ,ስህተት፦ ,Hitilafu: 
+ui.in_year,In {year},Nel {year},En {year},En {year},Em {year},Im Jahr {year},В {year} году,{year} yılında,في عام {year},{year}年,{year}年,{year}年,{year}년,{year} में,{year} میں,{year} সালে,Pada {year},Năm {year},በ{year},Mwaka {year}
 attr.hours,Working hours (full-time),Ore di lavoro (full-time),Temps de travail (temps plein),Jornada laboral (tiempo completo),Horas de trabalho (tempo integral),Arbeitszeit (Vollzeit),Рабочее время (полная занятость),Çalışma süresi (tam zamanlı),ساعات العمل (دوام كامل),工作时间（全职）,工作時間（全職）,労働時間（フルタイム）,근로시간 (전일제),काम के घंटे (पूर्णकालिक),کام کے اوقات (کل وقتی),কর্মঘণ্টা (পূর্ণকালীন),Jam kerja (penuh waktu),Giờ làm việc (toàn thời gian),የሥራ ሰዓት (ሙሉ ጊዜ),Saa za kazi (muda kamili)
 attr.income_full,Your household's net monthly income,Reddito mensile netto del suo nucleo familiare,Revenu mensuel net de votre ménage,Ingreso mensual neto de su hogar,Rendimento mensal líquido do seu agregado,Monatliches Nettoeinkommen Ihres Haushalts,Чистый месячный доход вашей семьи,Hanenizin aylık net geliri,الدخل الشهري الصافي لأسرتك,您家庭的每月净收入,您家庭的每月淨收入,世帯の月間手取り収入,가구의 월 순소득,आपके परिवार की मासिक शुद्ध आय,آپ کے گھرانے کی ماہانہ خالص آمدنی,আপনার পরিবারের মাসিক নিট আয়,Pendapatan bersih bulanan rumah tangga Anda,Thu nhập ròng hàng tháng của hộ gia đình bạn,የቤተሰብዎ ወርሃዊ የተጣራ ገቢ,Mapato halisi ya mwezi ya kaya yako
+attr.income_full_year,Your household's net annual income,Reddito annuo netto del suo nucleo familiare,Revenu annuel net de votre ménage,Ingreso anual neto de su hogar,Rendimento anual líquido do seu agregado,Jährliches Nettoeinkommen Ihres Haushalts,Чистый годовой доход вашей семьи,Hanenizin yıllık net geliri,الدخل السنوي الصافي لأسرتك,您家庭的每年净收入,您家庭的每年淨收入,世帯の年間手取り収入,가구의 연 순소득,आपके परिवार की वार्षिक शुद्ध आय,آپ کے گھرانے کی سالانہ خالص آمدنی,আপনার পরিবারের বার্ষিক নিট আয়,Pendapatan bersih tahunan rumah tangga Anda,Thu nhập ròng hằng năm của hộ gia đình bạn,የቤተሰብዎ ዓመታዊ የተጣራ ገቢ,Mapato halisi ya mwaka ya kaya yako
 attr.income_short,Your income,Il suo reddito,Votre revenu,Su ingreso,O seu rendimento,Ihr Einkommen,Ваш доход,Geliriniz,دخلك,您的收入,您的收入,あなたの収入,귀하의 소득,आपकी आय,آپ کی آمدنی,আপনার আয়,Pendapatan Anda,Thu nhập của bạn,የእርስዎ ገቢ,Mapato yako
 attr.income_current,currently: ,attuale: ,actuellement : ,actualmente: ,atualmente: ,derzeit: ,сейчас: ,şu anda: ,حاليًا: ,当前：,目前：,現在: ,현재: ,वर्तमान: ,فی الحال: ,বর্তমানে: ,saat ini: ,hiện tại: ,አሁን፦ ,sasa: 
 attr.bf,Diet and flights,Alimentazione e voli,Alimentation et avion,Alimentación y vuelos,Alimentação e voos,Ernährung und Flüge,Питание и авиаперелёты,Beslenme ve uçuşlar,الغذاء والرحلات الجوية,饮食与航空出行,飲食與航空出行,食生活と航空機の利用,식생활과 항공 이용,आहार और हवाई यात्रा,خوراک اور ہوائی سفر,খাদ্যাভ্যাস ও বিমান ভ্রমণ,Pola makan dan penerbangan,Chế độ ăn và các chuyến bay,አመጋገብና በረራዎች,Lishe na safari za ndege
 attr.ps,Public services,Servizi pubblici,Services publics,Servicios públicos,Serviços públicos,Öffentliche Dienstleistungen,Общественные услуги,Kamu hizmetleri,الخدمات العامة,公共服务,公共服務,公共サービス,공공 서비스,सार्वजनिक सेवाएँ,عوامی خدمات,সরকারি সেবা,Layanan publik,Dịch vụ công,የሕዝብ አገልግሎቶች,Huduma za umma
 attr.temp,Global warming,Riscaldamento globale,Réchauffement climatique,Calentamiento global,Aquecimento global,Globale Erwärmung,Глобальное потепление,Küresel ısınma,الاحتباس الحراري,全球变暖,全球暖化,地球温暖化,지구 온난화,वैश्विक तापन,عالمی حدت,বৈশ্বিক উষ্ণায়ন,Pemanasan global,Nóng lên toàn cầu,የዓለም ሙቀት መጨመር,Ongezeko la joto duniani
+attr.gender,Working hours by gender,Ore di lavoro per genere,Temps de travail selon le genre,Jornada laboral por género,Horas de trabalho por gênero,Arbeitszeit nach Geschlecht,Рабочее время по полу,Cinsiyete göre çalışma süresi,ساعات العمل حسب الجنس,按性别划分的工作时间,按性別劃分的工作時間,性別による労働時間,성별에 따른 노동시간,लिंग के अनुसार काम के घंटे,صنف کے لحاظ سے کام کے گھنٹے,লিঙ্গ অনুযায়ী কাজের সময়,Jam kerja menurut gender,Thời gian làm việc theo giới,በጾታ የተከፋፈለ የሥራ ሰዓት,Saa za kazi kwa jinsia
 ps.increased,More public services,Più servizi pubblici,Plus de services publics,Más servicios públicos,Mais serviços públicos,Mehr öffentliche Dienstleistungen,Больше общественных услуг,Daha fazla kamu hizmeti,خدمات عامة أكثر,更多公共服务,更多公共服務,公共サービスの拡充,공공 서비스 확대,अधिक सार्वजनिक सेवाएँ,زیادہ عوامی خدمات,বেশি সরকারি সেবা,Lebih banyak layanan publik,Nhiều dịch vụ công hơn,ተጨማሪ የሕዝብ አገልግሎቶች,Huduma zaidi za umma
 ps.increased_long,"Spending on education, health and public services rises from 20% to 23% of GNI. Financed by a flat-rate tax of {rate}% on all cash incomes.","La spesa per istruzione, sanità e servizi pubblici sale dal 20% al 23% del RNL. Finanziata da un'imposta proporzionale del {rate}% su tutti i redditi monetari.","Les dépenses d'éducation, de santé et de services publics passent de 20 % à 23 % du RNB. Financées par un impôt proportionnel de {rate} % sur tous les revenus monétaires.","El gasto en educación, sanidad y servicios públicos sube del 20% al 23% del RNB. Financiado con un impuesto proporcional del {rate}% sobre todos los ingresos monetarios.","A despesa em educação, saúde e serviços públicos sobe de 20% para 23% do RNB. Financiada por um imposto proporcional de {rate}% sobre todos os rendimentos monetários.","Die Ausgaben für Bildung, Gesundheit und öffentliche Dienstleistungen steigen von 20 % auf 23 % des BNE. Finanziert durch eine proportionale Steuer von {rate} % auf alle Geldeinkommen.","Расходы на образование, здравоохранение и общественные услуги растут с 20% до 23% ВНД. Финансируются пропорциональным налогом {rate}% на все денежные доходы.","Eğitim, sağlık ve kamu hizmetlerine yapılan harcama GSMH'nin %20'sinden %23'üne çıkar. Tüm parasal gelirler üzerinden %{rate} oranında düz bir vergiyle finanse edilir.",ينمو الإنفاق على التعليم والصحة والخدمات العامة من 20% إلى 23% من الدخل القومي الإجمالي، ويُموَّل بضريبة نسبية قدرها {rate}% على جميع الدخول النقدية.,教育、医疗和公共服务支出从国民总收入的20%提高到23%，由对所有现金收入征收{rate}%的比例税来提供资金。,教育、醫療與公共服務支出從國民所得毛額的20%提高到23%，由對所有現金收入課徵{rate}%的比例稅來支應。,教育・医療・公共サービスへの支出がGNIの20%から23%に増えます。すべての現金所得に対する{rate}%の比例税で賄われます。,교육·의료·공공 서비스 지출이 GNI의 20%에서 23%로 늘어납니다. 모든 현금 소득에 대한 {rate}%의 비례세로 재원을 마련합니다.,"शिक्षा, स्वास्थ्य और सार्वजनिक सेवाओं पर व्यय सकल राष्ट्रीय आय के 20% से बढ़कर 23% हो जाता है। इसे सभी नकद आय पर {rate}% की समान दर वाले कर से वित्तपोषित किया जाता है।",تعلیم، صحت اور عوامی خدمات پر اخراجات مجموعی قومی آمدنی کے 20% سے بڑھ کر 23% ہو جاتے ہیں۔ اس کی مالی اعانت تمام نقد آمدنیوں پر {rate}% کے یکساں ٹیکس سے ہوتی ہے۔,"শিক্ষা, স্বাস্থ্য ও সরকারি সেবায় ব্যয় জিএনআই-এর ২০% থেকে বেড়ে ২৩% হয়। সব নগদ আয়ের উপর {rate}% হারে সমহারে করের মাধ্যমে অর্থায়ন করা হয়।","Belanja untuk pendidikan, kesehatan, dan layanan publik naik dari 20% menjadi 23% PNB. Dibiayai oleh pajak proporsional sebesar {rate}% atas semua pendapatan tunai.","Chi tiêu cho giáo dục, y tế và dịch vụ công tăng từ 20% lên 23% GNI. Được tài trợ bằng thuế tỷ lệ {rate}% trên mọi thu nhập bằng tiền.",ለትምህርት፣ ለጤናና ለሕዝብ አገልግሎቶች የሚወጣው ወጪ ከጠቅላላ ብሔራዊ ገቢ 20% ወደ 23% ይጨምራል። በሁሉም የገንዘብ ገቢዎች ላይ በሚጣል {rate}% ተመጣጣኝ ግብር ይሸፈናል።,"Matumizi ya elimu, afya na huduma za umma yanapanda kutoka 20% hadi 23% ya Pato la Taifa. Yanagharimiwa na kodi ya kiwango kimoja ya {rate}% kwa mapato yote ya fedha."
 ps.stable,No change,Nessuna variazione,Aucun changement,Sin cambios,Sem alteração,Keine Änderung,Без изменений,Değişiklik yok,دون تغيير,无变化,無變化,変化なし,변화 없음,कोई बदलाव नहीं,کوئی تبدیلی نہیں,কোনো পরিবর্তন নেই,Tidak ada perubahan,Không thay đổi,ለውጥ የለም,Hakuna mabadiliko
 ps.stable_long,Public services remain at their current level (20% of GNI).,I servizi pubblici restano al livello attuale (20% del RNL).,Les services publics restent à leur niveau actuel (20 % du RNB).,Los servicios públicos se mantienen en su nivel actual (20% del RNB).,Os serviços públicos mantêm-se no nível atual (20% do RNB).,Die öffentlichen Dienstleistungen bleiben auf dem heutigen Niveau (20 % des BNE).,Общественные услуги остаются на нынешнем уровне (20% ВНД).,Kamu hizmetleri mevcut düzeyinde kalır (GSMH'nin %20'si).,تبقى الخدمات العامة عند مستواها الحالي (20% من الدخل القومي الإجمالي).,公共服务维持现有水平（国民总收入的20%）。,公共服務維持現有水準（國民所得毛額的20%）。,公共サービスは現在の水準（GNIの20%）のままです。,공공 서비스는 현재 수준(GNI의 20%)을 유지합니다.,सार्वजनिक सेवाएँ वर्तमान स्तर (सकल राष्ट्रीय आय का 20%) पर बनी रहती हैं।,عوامی خدمات اپنی موجودہ سطح (مجموعی قومی آمدنی کا 20%) پر برقرار رہتی ہیں۔,সরকারি সেবা বর্তমান স্তরেই (জিএনআই-এর ২০%) থাকে।,Layanan publik tetap pada tingkat saat ini (20% PNB).,Dịch vụ công giữ nguyên mức hiện tại (20% GNI).,የሕዝብ አገልግሎቶች በአሁኑ ደረጃ (የጠቅላላ ብሔራዊ ገቢ 20%) ይቆያሉ።,Huduma za umma zinabaki katika kiwango cha sasa (20% ya Pato la Taifa).
+gender.unchanged,Unchanged,Nessuna variazione,Inchangé,Sin cambios,Sem alteração,Unverändert,Без изменений,Değişiklik yok,دون تغيير,不变,不變,変更なし,변화 없음,अपरिवर्तित,کوئی تبدیلی نہیں,অপরিবর্তিত,Tidak berubah,Không thay đổi,ሳይለወጥ,Bila mabadiliko
+gender.equal,"Equal working hours for men and women, both for paid work and for unpaid household chores","Stesse ore di lavoro per uomini e donne, sia per il lavoro retribuito sia per le faccende domestiche non retribuite","Temps de travail égal pour les hommes et les femmes, aussi bien pour le travail rémunéré que pour les tâches domestiques non rémunérées","Misma jornada laboral para hombres y mujeres, tanto en el trabajo remunerado como en las tareas domésticas no remuneradas","Mesmas horas de trabalho para homens e mulheres, tanto no trabalho remunerado como nas tarefas domésticas não remuneradas","Gleiche Arbeitszeit für Männer und Frauen, sowohl bei bezahlter Arbeit als auch bei unbezahlter Hausarbeit","Одинаковое рабочее время для мужчин и женщин — как в оплачиваемой работе, так и в неоплачиваемом домашнем труде","Kadınlar ve erkekler için eşit çalışma süresi, hem ücretli işte hem de ücretsiz ev işlerinde",ساعات عمل متساوية للرجال والنساء، في العمل المأجور وفي الأعمال المنزلية غير المأجورة على حد سواء,男女工作时间相同，无论是有酬工作还是无酬家务,男女工作時間相同，無論是有酬工作還是無酬家務,有償労働でも無償の家事でも、男女の労働時間が等しい,유급 노동과 무급 가사노동 모두에서 남녀의 노동시간이 동일,"पुरुषों और महिलाओं के लिए समान कार्य घंटे, वेतन वाले काम और बिना वेतन वाले घरेलू कामों दोनों में",مردوں اور عورتوں کے لیے کام کے یکساں گھنٹے، بامعاوضہ کام میں بھی اور بلامعاوضہ گھریلو کاموں میں بھی,"পুরুষ ও নারীর জন্য সমান কাজের সময়, বেতনভুক্ত কাজ ও বিনা বেতনের গৃহস্থালির কাজ উভয় ক্ষেত্রেই","Jam kerja yang sama bagi laki-laki dan perempuan, baik untuk pekerjaan berbayar maupun pekerjaan rumah tangga tanpa bayaran","Thời gian làm việc như nhau giữa nam và nữ, cả trong công việc được trả lương lẫn việc nhà không được trả lương",ለወንዶችና ለሴቶች እኩል የሥራ ሰዓት፣ ደመወዝ በሚከፈልበት ሥራም ሆነ ደመወዝ በማይከፈልበት የቤት ሥራ,"Saa sawa za kazi kwa wanaume na wanawake, katika kazi ya kulipwa na katika kazi za nyumbani zisizolipwa"
 bf.none,No change,Nessuna variazione,Aucun changement,Sin cambios,Sem alteração,Keine Änderung,Без изменений,Değişiklik yok,دون تغيير,无变化,無變化,変化なし,변화 없음,कोई बदलाव नहीं,کوئی تبدیلی نہیں,কোনো পরিবর্তন নেই,Tidak ada perubahan,Không thay đổi,ለውጥ የለም,Hakuna mabadiliko
 bf.beef,Less beef (2 meat portions a month)<br>Prices tripled,Meno prodotti bovini (2 porzioni di carne al mese)<br>Prezzi triplicati,Moins de bœuf (2 portions de viande par mois)<br>Prix triplés,Menos carne de vacuno (2 raciones de carne al mes)<br>Precios triplicados,Menos carne bovina (2 porções de carne por mês)<br>Preços triplicados,Weniger Rindfleisch (2 Fleischportionen pro Monat)<br>Preise verdreifacht,Меньше говядины (2 порции мяса в месяц)<br>Цены втрое выше,Daha az sığır eti (ayda 2 porsiyon et)<br>Fiyatlar üç katına çıkar,لحم بقري أقل (حصتان من اللحم شهريًا)<br>أسعار مضاعفة ثلاث مرات,减少牛肉（每月2份肉）<br>价格上涨两倍,減少牛肉（每月2份肉）<br>價格上漲兩倍,牛肉を削減（月2食分）<br>価格は3倍,소고기 감축 (월 2회분)<br>가격 3배,कम गोमांस (महीने में 2 बार मांस)<br>कीमतें तिगुनी,کم گائے کا گوشت (ماہانہ 2 حصے)<br>قیمتیں تین گنا,কম গরুর মাংস (মাসে ২ বার মাংস)<br>দাম তিন গুণ,Lebih sedikit daging sapi (2 porsi daging per bulan)<br>Harga naik tiga kali lipat,Ít thịt bò hơn (2 khẩu phần thịt mỗi tháng)<br>Giá tăng gấp ba,ያነሰ የበሬ ሥጋ (በወር 2 ጊዜ ሥጋ)<br>ዋጋ በሦስት እጥፍ,Nyama ya ng'ombe kidogo (mara 2 kwa mwezi)<br>Bei mara tatu zaidi
 bf.flights,"Fewer flights (2,500 km a year)<br>Prices tripled",Meno voli (2.500 km all'anno)<br>Prezzi triplicati,Moins d'avion (2 500 km par an)<br>Prix triplés,Menos vuelos (2.500 km al año)<br>Precios triplicados,Menos voos (2 500 km por ano)<br>Preços triplicados,Weniger Flüge (2.500 km pro Jahr)<br>Preise verdreifacht,Меньше авиаперелётов (2500 км в год)<br>Цены втрое выше,Daha az uçuş (yılda 2.500 km)<br>Fiyatlar üç katına çıkar,رحلات جوية أقل (2500 كم سنويًا)<br>أسعار مضاعفة ثلاث مرات,减少航空出行（每年2500公里）<br>价格上涨两倍,減少航空出行（每年2500公里）<br>價格上漲兩倍,"航空機の利用を削減（年2,500km）<br>価格は3倍","항공 이용 감축 (연 2,500km)<br>가격 3배","कम हवाई यात्रा (प्रति वर्ष 2,500 किमी)<br>कीमतें तिगुनी","کم ہوائی سفر (سالانہ 2,500 کلومیٹر)<br>قیمتیں تین گنا","কম বিমান ভ্রমণ (বছরে ২,৫০০ কিমি)<br>দাম তিন গুণ",Lebih sedikit penerbangan (2.500 km per tahun)<br>Harga naik tiga kali lipat,Ít chuyến bay hơn (2.500 km mỗi năm)<br>Giá tăng gấp ba,"ያነሱ በረራዎች (በዓመት 2,500 ኪሜ)<br>ዋጋ በሦስት እጥፍ","Safari chache za ndege (km 2,500 kwa mwaka)<br>Bei mara tatu zaidi"
@@ -29,6 +34,8 @@ chart.world_median,Typical income,Reddito tipico,Revenu typique,Ingreso típico,
 chart.world_top,Richest 10% worldwide,10% più ricco del mondo,10 % les plus riches au monde,10% más rico del mundo,10% mais rico do mundo,Reichste 10 % weltweit,10% богатейших в мире,Dünyada en zengin %10,أغنى 10% في العالم,全球最富有的10%,全球最富有的10%,世界の上位10%,세계 상위 10%,दुनिया में सबसे अमीर 10%,دنیا میں امیر ترین 10%,বিশ্বের ধনীতম ১০%,10% terkaya di dunia,10% giàu nhất thế giới,በዓለም ሀብታሙ 10%,10% tajiri zaidi duniani
 chart.world_title,Incomes worldwide,Redditi nel mondo,Revenus dans le monde,Ingresos en el mundo,Rendimentos no mundo,Einkommen weltweit,Доходы в мире,Dünyadaki gelirler,الدخول في العالم,全球收入,全球收入,世界の収入,세계의 소득,दुनिया भर में आय,دنیا بھر میں آمدنی,বিশ্বজুড়ে আয়,Pendapatan di dunia,Thu nhập trên thế giới,በዓለም ገቢዎች,Mapato duniani
 unit.per_month,/month,/mese,/mois,/mes,/mês,/Monat,/мес.,/ay,/شهر,/月,/月,/月,/월,/माह,/ماہ,/মাস,/bulan,/tháng,/ወር,/mwezi
+unit.per_year,/year,/anno,/an,/año,/ano,/Jahr,/год,/yıl,/سنة,/年,/年,/年,/년,/वर्ष,/سال,/বছর,/tahun,/năm,/ዓመት,/mwaka
+unit.hours_per_week,h/week,ore/sett.,h/sem.,h/sem.,h/sem.,Std./Woche,ч/нед.,sa/hafta,ساعة/أسبوع,小时/周,小時/週,時間/週,시간/주,घंटे/सप्ताह,گھنٹے/ہفتہ,ঘণ্টা/সপ্তাহ,jam/minggu,giờ/tuần,ሰዓት/ሳምንት,saa/wiki
 country.IT,Italy,Italia,,,,,,,,,,,,,,,,,,
 country.BR,Brazil,,,,Brasil,,,,,,,,,,,,,,,
 country.CN,China,,,,,,,,,中国,,,,,,,,,,
@@ -58,3 +65,90 @@ country.BD,Bangladesh,,,,,,,,,,,,,,,বাংলাদেশ,,,,
 country.ET,Ethiopia,,,,,,,,,,,,,,,,,,ኢትዮጵያ,
 country.KE,Kenya,,,,,,,,,,,,,,,,,,,Kenya
 country.CD,DR Congo,,République démocratique du Congo,,,,,,,,,,,,,,,,,
+fmt.money.IT,{n} €
+fmt.money.BR,R$ {n}
+fmt.money.CN,¥{n}
+fmt.money.IN,₹{n}
+fmt.money.US,${n}
+fmt.money.CA,${n}
+fmt.money.DE,{n} €
+fmt.money.PE,S/ {n}
+fmt.money.JP,{n}円
+fmt.money.AU,${n}
+fmt.money.KR,{n}원
+fmt.money.ID,Rp {n}
+fmt.money.ZA,R {n}
+fmt.money.TR,{n} ₺
+fmt.money.NG,₦{n}
+fmt.money.FR,{n} €
+fmt.money.RU,{n} ₽
+fmt.money.ES,{n} €
+fmt.money.GB,£{n}
+fmt.money.SA,{n} ر.س
+fmt.money.EG,{n} ج.م
+fmt.money.MX,${n}
+fmt.money.PK,Rs {n}
+fmt.money.TW,NT${n}
+fmt.money.VN,{n} ₫
+fmt.money.BD,৳{n}
+fmt.money.ET,{n} ብር
+fmt.money.KE,KSh {n}
+fmt.money.CD,{n} FC
+fmt.locale.IT,IT
+fmt.locale.BR,PT-BR
+fmt.locale.CN,ZH-S
+fmt.locale.IN,HI
+fmt.locale.US,EN
+fmt.locale.CA,EN
+fmt.locale.DE,DE
+fmt.locale.PE,ES
+fmt.locale.JP,JA
+fmt.locale.AU,EN
+fmt.locale.KR,KO
+fmt.locale.ID,ID
+fmt.locale.ZA,EN
+fmt.locale.TR,TR
+fmt.locale.NG,EN
+fmt.locale.FR,FR
+fmt.locale.RU,RU
+fmt.locale.ES,ES
+fmt.locale.GB,EN
+fmt.locale.SA,AR
+fmt.locale.EG,AR
+fmt.locale.MX,ES
+fmt.locale.PK,UR
+fmt.locale.TW,ZH-T
+fmt.locale.VN,VI
+fmt.locale.BD,BN
+fmt.locale.ET,AM
+fmt.locale.KE,SW
+fmt.locale.CD,FR
+fmt.period.IT,month
+fmt.period.BR,month
+fmt.period.CN,month
+fmt.period.IN,month
+fmt.period.US,year
+fmt.period.CA,year
+fmt.period.DE,month
+fmt.period.PE,month
+fmt.period.JP,year
+fmt.period.AU,year
+fmt.period.KR,year
+fmt.period.ID,month
+fmt.period.ZA,month
+fmt.period.TR,month
+fmt.period.NG,month
+fmt.period.FR,month
+fmt.period.RU,month
+fmt.period.ES,month
+fmt.period.GB,year
+fmt.period.SA,month
+fmt.period.EG,month
+fmt.period.MX,month
+fmt.period.PK,month
+fmt.period.TW,month
+fmt.period.VN,month
+fmt.period.BD,month
+fmt.period.ET,month
+fmt.period.KE,month
+fmt.period.CD,month

@@ -49,24 +49,77 @@ let _C          = null;   // constants dictionary: name → Number (global rows 
 let _country    = null;   // ISO2 of the selected country
 let _refHours   = null;   // that country's reference (statutory) weekly hours
 let _pppRate    = 1;      // local currency units per 1 EUR PPP 2025 (Italy = 1)
-let _lang       = "en";   // active translation column
-let _T          = null;   // key -> { en: "...", it: "...", ... }
+let _lang       = "EN";   // active translation column (Qualtrics language code)
+let _T          = null;   // key -> { EN: "...", IT: "...", ... }
+// Country display conventions, read from the fmt.* rows of translations.csv (see fmtSpec).
+let _numLocale     = "EN";      // Qualtrics language code driving the thousands separator
+let _moneyPattern  = "{n}";     // currency layout, e.g. "${n}" (US) or "{n} €" (Italy)
+let _periodFactor  = 1;         // 1 = incomes shown per month, 12 = per year
+// Y-limits of the two income charts, in EUR PPP 2025 per month (the JS multiplies by ppp_rate).
+// Both are their reference value plus 12% of headroom, so the tallest visible brackets do not sit
+// flush against the top of the axis.
+const YLIM_HEADROOM = 1.12;
+const YLIM_WORLD_EUR_MONTH = 30000 * YLIM_HEADROOM;   // fixed world scale: comparable across countries
+let _ylimNatEurMonth = YLIM_WORLD_EUR_MONTH;   // country scale: p95-p99 of BI120k in 2100 (see below)
 
 // ─── Translations ─────────────────────────────────────────────────────────────
-// Every display string lives in data/translations.csv, never in the JS. Missing cells fall back to
-// the English column, then to the key itself. {country} is substituted with the country name.
+// Every display string lives in data/translations.csv, never in the JS. Its columns are QUALTRICS
+// language codes (EN, IT, PT-BR, ZH-S ...), the one convention used across the project. Missing
+// cells fall back to the EN column, then to the key itself. {country} becomes the country name.
 function t(key) {
   const row = _T && _T[key];
-  let v = row ? (row[_lang] || row.en || "") : "";
+  let v = row ? (row[_lang] || row.EN || "") : "";
   if (!v) v = key;
   return v.replace(/\{country\}/g, countryNameOf(_country));
 }
 function countryNameOf(iso) {
   const row = _T && _T["country." + iso];
-  return row ? (row[_lang] || row.en || iso) : iso;
+  return row ? (row[_lang] || row.EN || iso) : iso;
 }
-/** Switch language (must be a column of translations.csv). */
-function setLang(lang) { if (lang) _lang = lang; }
+/** Switch language (must be a column of translations.csv; ?lang= is accepted in any case). */
+function setLang(lang) { if (lang) _lang = String(lang).toUpperCase(); }
+
+// ─── Country display conventions ──────────────────────────────────────────────
+// The money layout, the thousands separator and the period incomes are usually quoted in are
+// country conventions, not language ones, so they live in translations.csv under per-country keys
+// (fmt.money.XX / fmt.locale.XX / fmt.period.XX). Only the `EN` column of those rows is filled;
+// t()'s usual fallback picks it up whatever the active language.
+function fmtSpec(kind, fallback) {
+  const row = _T && _T["fmt." + kind + "." + _country];
+  const v = row ? (row[_lang] || row.EN || "") : "";
+  return v || fallback;
+}
+
+// fmt.locale.XX names the language whose number conventions the country uses (it defaults to the
+// country's own `lang`). Most Qualtrics codes double as valid BCP-47 tags; the two Chinese ones do
+// not, so they are mapped before reaching Intl.
+const BCP47_OF = { "ZH-S": "zh-Hans", "ZH-T": "zh-Hant" };
+let _numFormat = null;   // cached Intl.NumberFormat for _numLocale
+
+/** Build (once per country) the integer formatter for the country's number conventions. */
+function numFormat() {
+  if (_numFormat) return _numFormat;
+  const tag = BCP47_OF[_numLocale.toUpperCase()] || _numLocale;
+  // "latn" keeps Latin digits in Arabic, Bengali and Urdu, so amounts match the "k"/"M" axis
+  // suffixes and the temperatures. useGrouping "always" overrides CLDR's minimumGroupingDigits,
+  // which would otherwise leave four-digit amounts ungrouped in IT, ES or PT ("2500" not "2.500").
+  const opts = { numberingSystem: "latn", useGrouping: "always", maximumFractionDigits: 0 };
+  try { _numFormat = new Intl.NumberFormat(tag, opts); }
+  catch (e) { _numFormat = new Intl.NumberFormat("en", opts); }
+  return _numFormat;
+}
+
+/** Thousands-separated integer, in the country's number conventions (25000 -> "25,000"). */
+function fmtNumber(n) { return numFormat().format(Math.round(n)); }
+/**
+ * Format a MONTHLY local-currency amount the way the country usually quotes incomes: converted to
+ * the display period (x12 where incomes are quoted per year) and wrapped in the currency layout.
+ */
+function fmtMoney(monthly) { return _moneyPattern.replace("{n}", fmtNumber(monthly * _periodFactor)); }
+/** "/month" or "/year", per the country's usual income period. */
+function unitPerPeriod() { return t(_periodFactor === 12 ? "unit.per_year" : "unit.per_month"); }
+/** Money plus its period suffix, e.g. "$36,600/year". */
+function fmtMoneyPer(monthly) { return fmtMoney(monthly) + unitPerPeriod(); }
 
 
 /** Class of an hours level, relative to the country's reference week. */
@@ -132,7 +185,7 @@ function numerify(rows) {
  *        Pass "ineq2_2035.csv" for the growth2 B-scenario variant (variant_any2).
  * @param {string} [country] – ISO2 code; defaults to "IT".
  * @param {string} [lang] – translation column; defaults to the country's own language
- *        (constant `lang`), then to "en". Any column of data/translations.csv is valid.
+ *        (constant `lang`), then to "EN". Any column of data/translations.csv is valid.
  */
 async function ensureDataLoaded(basePath, file2035, country, lang) {
   if (_dataReady) return;
@@ -159,9 +212,19 @@ async function ensureDataLoaded(basePath, file2035, country, lang) {
     _C[r.name] = (r.value !== "" && !isNaN(n)) ? n : r.value;
   });
   // Language: explicit ?lang= wins, else the country's own language from the constants, else English.
-  setLang(lang || _C["lang"] || "en");
+  setLang(lang || _C["lang"] || "EN");
   _refHours = _C["ref_hours"];
   _pppRate = _C["ppp_rate"] || 1;
+  _numLocale = fmtSpec("locale", "EN"); _numFormat = null;
+  _moneyPattern = fmtSpec("money", "{n} " + (_C["currency"] || "EUR"));
+  _periodFactor = fmtSpec("period", "month") === "year" ? 12 : 1;
+  // National chart scale: the p95-p99 bracket of BI120k1_SD in 2100. The 2100 distributions depend
+  // only on the redistribution scope and the hours class (decarbonization and public services do
+  // not enter them), so that scenario is exactly the no-redistribution column SI at the B120k
+  // hours coefficient - the same lookup get2100Distributions() performs.
+  const siRow = _ineq2100.find(r => r.bracket === "p95p99");
+  _ylimNatEurMonth = (siRow ? siRow.SI * (_C["coef2100_B120k"] || 1) * YLIM_HEADROOM
+                            : 12 * YLIM_WORLD_EUR_MONTH) / 12;
   _dataReady = true;
 }
 
@@ -549,11 +612,21 @@ const ScenariosModule = {
   classOfHours,
   t,
   setLang,
+  fmtNumber,
+  fmtMoney,
+  fmtMoneyPer,
+  unitPerPeriod,
   get country()     { return _country; },
   get countryName() { return countryNameOf(_country); },
   get currency()    { return _C["currency"] || "EUR"; },
   get pppRate()     { return _pppRate; },
   get refHours()    { return _refHours; },
+  /** 1 when incomes are displayed per month in this country, 12 when per year. */
+  get periodFactor(){ return _periodFactor; },
+  /** Y-limit of the national income chart: local currency per month. */
+  get ylimNat()     { return _ylimNatEurMonth * _pppRate; },
+  /** Y-limit of the world income chart: the 30k EUR PPP world scale (+12%), local currency/month. */
+  get ylimWorld()   { return YLIM_WORLD_EUR_MONTH * _pppRate; },
   // Internal state exposed for chart rendering
   get _ineq2035()   { return _ineq2035; },
   get _ineq2100()   { return _ineq2100; }
